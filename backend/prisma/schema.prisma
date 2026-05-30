@@ -1,0 +1,97 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String?
+  name         String
+  provider     String        @default("local") // "local" | "google" | "github"
+  providerId   String?
+  plan         String        @default("FREE")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  watchlists   Watchlist[]
+  savedScreens SavedScreen[]
+  subscriptions Subscription[]
+  sessions     Session[]
+  notifications Notification[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Watchlist {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  items     WatchlistItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model WatchlistItem {
+  id           String    @id @default(uuid())
+  watchlistId  String
+  watchlist    Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  symbol       String
+  targetPrice  Float?
+  alertEnabled Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model SavedScreen {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  queryText      String
+  alertEnabled   Boolean  @default(false)
+  alertFrequency String   @default("IMMEDIATE") // "IMMEDIATE" | "DAILY" | "QUARTERLY"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Subscription {
+  id          String             @id @default(uuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        String             @default("FREE")
+  status      String
+  startDate   DateTime           @default(now())
+  endDate     DateTime?
+  payuTxnId   String?            @unique
+  payuOrderId String?
+  amount      Float
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "alert" | "dividend" | "info" | "warning"
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  symbol    String?
+  actionUrl String?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,156 @@
+'use client'
+
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cashFlow, ratios, fiscalYears, type FinancialRow } from '@/lib/data/financials'
+import { formatIndian, formatNumber } from '@/lib/formatters'
+import { cn } from '@/lib/utils'
+
+export function CashFlowTable() {
+  const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+
+  const toggleRow = (label: string) => {
+    setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
+  }
+
+  const renderValue = (val: number | null, isPercent?: boolean) => {
+    if (val === null) return '—'
+    return isPercent ? `${formatNumber(val, 2)}%` : formatIndian(val)
+  }
+
+  const renderRow = (row: FinancialRow, depth = 0, source: 'cf' | 'ratio' = 'cf') => {
+    const hasChildren = row.children && row.children.length > 0
+    const isExpanded = !!expandedRows[row.label]
+
+    return (
+      <React.Fragment key={row.label}>
+        <TableRow
+          className={cn(
+            'hover:bg-surfaceMuted transition-colors',
+            row.highlight ? 'bg-surfaceMuted font-bold' : '',
+            depth > 0 ? 'bg-surface' : ''
+          )}
+        >
+          <TableCell
+            className="sticky left-0 bg-surface font-medium text-xs text-textPrimary flex items-center min-w-[200px]"
+            style={{ paddingLeft: `${depth * 16 + 12}px` }}
+          >
+            {hasChildren && (
+              <button
+                onClick={() => toggleRow(row.label)}
+                className="mr-1 p-0.5 rounded hover:bg-slate-200 text-textSecondary transition-colors"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="size-3" />
+                ) : (
+                  <ChevronRight className="size-3" />
+                )}
+              </button>
+            )}
+            {!hasChildren && depth > 0 && <span className="w-4 inline-block" />}
+            {row.label}
+          </TableCell>
+          {row.values.map((val, idx) => (
+            <TableCell
+              key={idx}
+              className={cn(
+                'text-right font-mono text-xs tabular-nums text-slate-700',
+                row.highlight ? 'font-bold text-slate-950' : ''
+              )}
+            >
+              {renderValue(val, row.isPercent || source === 'ratio')}
+            </TableCell>
+          ))}
+        </TableRow>
+        {hasChildren &&
+          isExpanded &&
+          row.children!.map((child) => renderRow(child, depth + 1, source))}
+      </React.Fragment>
+    )
+  }
+
+  return (
+    <div className="space-y-6 select-none">
+      {/* Cash Flow Table */}
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
+          <div>
+            <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+              Cash Flow Statement
+            </h3>
+            <p className="text-[11px] text-textMuted mt-0.5">
+              Annual consolidated figures in ₹ Crores
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1000px]">
+            <TableHeader className="bg-surfaceMuted">
+              <TableRow>
+                <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted">
+                  Cash Flow Type
+                </TableHead>
+                {fiscalYears.map((y) => (
+                  <TableHead
+                    key={y}
+                    className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                  >
+                    {y}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>{cashFlow.map((row) => renderRow(row, 0, 'cf'))}</TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Ratios Table */}
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
+          <div>
+            <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+              Key Efficiency Ratios
+            </h3>
+            <p className="text-[11px] text-textMuted mt-0.5">
+              Annual activity and conversion metrics
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1000px]">
+            <TableHeader className="bg-surfaceMuted">
+              <TableRow>
+                <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted">
+                  Ratio Name
+                </TableHead>
+                {fiscalYears.map((y) => (
+                  <TableHead
+                    key={y}
+                    className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                  >
+                    {y}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>{ratios.map((row) => renderRow(row, 0, 'ratio'))}</TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+import React from 'react'
+export default CashFlowTable

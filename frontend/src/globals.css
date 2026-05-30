@@ -1,0 +1,376 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* FinScreen brand colors - light mode only */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #1D4ED8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #0F172A;
+  --muted: #F9FAFB;
+  --muted-foreground: #64748B;
+  --accent: #EFF6FF;
+  --accent-foreground: #1D4ED8;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #1D4ED8;
+  --radius: 0.5rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #1D4ED8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EFF6FF;
+  --sidebar-accent-foreground: #1D4ED8;
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: #1D4ED8;
+
+  /* Financial semantic colors */
+  --positive: #16A34A;
+  --positive-soft: #F0FDF4;
+  --negative: #DC2626;
+  --negative-soft: #FEF2F2;
+  --warning: #D97706;
+  --warning-soft: #FFFBEB;
+
+  /* Chart colors */
+  --chart-1: #1D4ED8;
+  --chart-2: #16A34A;
+  --chart-3: #DC2626;
+  --chart-4: #0EA5E9;
+  --chart-5: #8B5CF6;
+
+  /* Centralized Theme Semantic Variables */
+  --surface: #FFFFFF;
+  --surface-muted: #F9FAFB;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --accent-soft: #EFF6FF;
+  --info: #0EA5E9;
+  --table-row-hover: #EFF6FF;
+  --skeleton-base: #E2E8F0;
+  --skeleton-highlight: #F1F5F9;
+}
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Centralized design tokens mapped to classes */
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surfaceMuted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-textPrimary: var(--text-primary);
+  --color-textSecondary: var(--text-secondary);
+  --color-textMuted: var(--text-muted);
+  --color-accent: var(--primary);
+  --color-accentSoft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-tableRowHover: var(--table-row-hover);
+  --color-skeletonBase: var(--skeleton-base);
+  --color-skeletonHighlight: var(--skeleton-highlight);
+
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --animate-fade-in-up: fadeInUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-shake: shake 0.4s ease-in-out;
+  --animate-scale-in: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-slide-in-left: slideInLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-right: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+  }
+
+  @keyframes scaleIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideInLeft {
+    0% {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    0% {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  .font-mono, code, pre, kbd {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+  }
+}
+
+@layer utilities {
+  /* Tabular numbers for financial data alignment */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* Financial semantic color utilities */
+  .text-positive { color: var(--positive); }
+  .text-negative { color: var(--negative); }
+  .bg-positive-soft { background-color: var(--positive-soft); }
+  .bg-negative-soft { background-color: var(--negative-soft); }
+  .border-positive { border-color: var(--positive); }
+  .border-negative { border-color: var(--negative); }
+
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Indices ticker scrolling animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  animation: ticker-scroll 45s linear infinite;
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* Expandable table row animation */
+@keyframes expand-row {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+.row-expand-enter {
+  animation: expand-row 0.18s ease-out forwards;
+  overflow: hidden;
+}
+
+/* Sidebar collapse transition */
+.sidebar-transition {
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sticky table column */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: inherit;
+}
+
+/* Financial table zebra striping */
+.fin-table tr:nth-child(even) {
+  background-color: #F9FAFB;
+}
+
+.fin-table tr:hover {
+  background-color: #EFF6FF !important;
+}
+
+/* Gradient fade on right edge of scrollable tables */
+.table-fade-right::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, transparent, white);
+  pointer-events: none;
+}
+
+/* Google Fonts preconnect (loaded via next/font in layout) */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local('Inter');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: local('JetBrains Mono');
+}
+
+/* ─── Premium UI & Animation Utilities ───────────────────────────────────────── */
+
+/* Premium interactive Card hover elevations */
+.premium-card {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.08), 
+              0 4px 12px -5px rgba(15, 23, 42, 0.03);
+  border-color: rgba(29, 78, 216, 0.18) !important;
+}
+.premium-card:focus-within {
+  outline: 2px solid rgba(29, 78, 216, 0.2);
+  border-color: rgba(29, 78, 216, 0.4) !important;
+}
+
+/* Premium Primary CTA Buttons hover scaling */
+.premium-btn-primary {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
+              background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.15);
+}
+.premium-btn-primary:active {
+  transform: scale(0.98);
+}
+.premium-btn-primary:disabled {
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* Premium Secondary/Outline Buttons hover brightness */
+.premium-btn-sec {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
+              background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-btn-sec:hover {
+  transform: scale(1.01);
+  background-color: var(--secondary);
+}
+
+/* Tab sliding indicator classes */
+.tab-sliding-indicator {
+  position: relative;
+}
+.tab-sliding-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary);
+  transform: scaleX(0);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tab-sliding-indicator[data-state=active]::after {
+  transform: scaleX(1);
+}
+
