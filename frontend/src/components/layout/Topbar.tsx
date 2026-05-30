@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
-import { Search, Bell, Menu, X, User as UserIcon, LogOut, Settings, ShieldAlert } from 'lucide-react'
+import { Search, Bell, Menu, Moon, Sun, X, User as UserIcon, LogOut, Settings, ShieldAlert } from 'lucide-react'
+import { useTheme } from '@/components/theme-provider'
 import { toggleSidebar } from '@/store/slices/uiSlice'
 import { toggleDrawer } from '@/store/slices/notificationsSlice'
 import { logoutStart } from '@/store/slices/authSlice'
@@ -13,11 +14,13 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
-export function Topbar() {
+export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const unreadCount = useSelector((state: any) => state.notifications.unreadCount)
   const { user } = useSelector((state: any) => state.auth)
+
+  const { theme, toggleTheme } = useTheme()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -66,17 +69,21 @@ export function Topbar() {
       ).slice(0, 3)
     : []
 
-  // Global Ctrl/Cmd + K keydown listener to focus search instantly
+  // Global Ctrl/Cmd + K keydown listener — opens palette if wired, else focuses inline search
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
-        inputRef.current?.focus()
+        if (onOpenPalette) {
+          onOpenPalette()
+        } else {
+          inputRef.current?.focus()
+        }
       }
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [])
+  }, [onOpenPalette])
 
   // Close suggestions and profile menu when clicking outside
   useEffect(() => {
@@ -259,6 +266,15 @@ export function Topbar() {
 
       {/* Right Side Icons */}
       <div className="flex items-center gap-4">
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          className="relative p-1.5 rounded-full hover:bg-surfaceMuted transition-colors text-textSecondary hover:text-textPrimary focus:outline-none"
+        >
+          {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </button>
+
         {/* Notification Bell */}
         <button
           onClick={() => dispatch(toggleDrawer())}

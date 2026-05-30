@@ -12,6 +12,8 @@ const SECTIONS = [
   { id: 'pl', label: 'Profit & Loss' },
   { id: 'balance-sheet', label: 'Balance Sheet' },
   { id: 'cash-flow', label: 'Cash Flow' },
+  { id: 'ratios', label: 'Key Ratios' },
+  { id: 'analyst', label: 'Analyst Consensus' },
   { id: 'shareholding', label: 'Shareholding' },
   { id: 'corporate-actions', label: 'Corporate Actions' },
   { id: 'documents', label: 'Documents' },

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import {
@@ -40,6 +41,7 @@ export function Sidebar() {
   const pathname = location.pathname
   const dispatch = useDispatch()
   const { sidebarCollapsed } = useSelector((state: any) => state.ui)
+  const [tooltip, setTooltip] = useState<string | null>(null)
 
   return (
     <aside
@@ -80,34 +82,69 @@ export function Sidebar() {
           const Icon = item.icon
 
           return (
-            <Link
+            <div
               key={item.href}
-              to={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all uppercase',
-                isActive
-                  ? 'bg-accentSoft text-accent border-l-2 border-accent rounded-l-none'
-                  : 'text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted'
-              )}
+              className="relative"
+              onMouseEnter={() => sidebarCollapsed ? setTooltip(item.label) : null}
+              onMouseLeave={() => setTooltip(null)}
             >
-              <Icon className={cn('size-4 shrink-0', isActive ? 'text-accent' : 'text-textSecondary')} />
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </Link>
+              <Link
+                to={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all uppercase',
+                  isActive
+                    ? 'bg-accentSoft text-accent border-l-2 border-accent rounded-l-none'
+                    : 'text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted'
+                )}
+              >
+                <Icon
+                  className={cn(
+                    'size-4 shrink-0 transition-transform duration-200',
+                    isActive ? 'text-accent scale-110' : 'text-textSecondary'
+                  )}
+                />
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </Link>
+
+              {/* Tooltip when collapsed */}
+              {sidebarCollapsed && tooltip === item.label && (
+                <div className="absolute left-14 top-1/2 -translate-y-1/2 z-50 pointer-events-none">
+                  <div className="bg-slate-900 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                    {item.label}
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-slate-900 rotate-45" />
+                  </div>
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>
 
       {/* Upgrade Callout & Premium Indicators */}
       <div className="p-3 border-t border-border space-y-1">
-        <Link
-          to="/pricing"
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all uppercase text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted'
-          )}
+        <div
+          className="relative"
+          onMouseEnter={() => sidebarCollapsed ? setTooltip('Pricing & Pro') : null}
+          onMouseLeave={() => setTooltip(null)}
         >
-          <CreditCard className="size-4 shrink-0 text-textSecondary" />
-          {!sidebarCollapsed && <span>Pricing & Pro</span>}
-        </Link>
+          <Link
+            to="/pricing"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all uppercase text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted'
+            )}
+          >
+            <CreditCard className="size-4 shrink-0 text-textSecondary" />
+            {!sidebarCollapsed && <span>Pricing &amp; Pro</span>}
+          </Link>
+          {sidebarCollapsed && tooltip === 'Pricing & Pro' && (
+            <div className="absolute left-14 top-1/2 -translate-y-1/2 z-50 pointer-events-none">
+              <div className="bg-slate-900 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                Pricing &amp; Pro
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-slate-900 rotate-45" />
+              </div>
+            </div>
+          )}
+        </div>
 
         {!sidebarCollapsed && (
           <div className="bg-surfaceMuted border border-border/80 rounded-lg p-3 mt-2 shrink-0">

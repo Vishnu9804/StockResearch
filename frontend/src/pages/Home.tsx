@@ -1,11 +1,13 @@
 import { MarketOverview, BreadthCards } from "@/components/dashboard/market-overview"
 import { IntradayChart } from "@/components/dashboard/intraday-chart"
-import { GainersLosers } from "@/components/dashboard/gainers-losers"
+import { TopMovers } from "@/components/dashboard/TopMovers"
+import { MarketHeatmap } from "@/components/dashboard/MarketHeatmap"
 import { NewsFeed } from "@/components/dashboard/news-feed"
 import { SectorPerformance } from "@/components/dashboard/sector-performance"
 import { SavedScans } from "@/components/dashboard/saved-scans"
 import { Heading } from "@/components/ui/Heading"
 import { Text } from "@/components/ui/Text"
+import { marketBreadth } from "@/lib/data/market"
 
 export function Home() {
   return (
@@ -38,9 +40,31 @@ export function Home() {
         </div>
       </header>
 
+      {/* Market Summary Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-surface border border-border rounded-xl p-4">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Advances</span>
+          <span className="text-sm font-mono font-bold text-positive mt-0.5">{marketBreadth.advances}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Declines</span>
+          <span className="text-sm font-mono font-bold text-negative mt-0.5">{marketBreadth.declines}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Unchanged</span>
+          <span className="text-sm font-mono font-bold text-textSecondary mt-0.5">{marketBreadth.unchanged}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Total Volume</span>
+          <span className="text-sm font-mono font-bold text-textPrimary mt-0.5">142.8M shares</span>
+        </div>
+      </div>
+
       <MarketOverview />
 
       <BreadthCards />
+
+      <MarketHeatmap />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2 space-y-4">
@@ -48,7 +72,7 @@ export function Home() {
           <SectorPerformance />
         </div>
         <div className="space-y-4">
-          <GainersLosers />
+          <TopMovers />
         </div>
       </div>
 

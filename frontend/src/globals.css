@@ -374,3 +374,103 @@
   transform: scaleX(1);
 }
 
+/* ─── Dark Mode CSS Variables ──────────────────────────────────────────────── */
+.dark {
+  --background: #0B1120;
+  --foreground: #E2E8F0;
+  --card: #111827;
+  --card-foreground: #E2E8F0;
+  --popover: #1E293B;
+  --popover-foreground: #E2E8F0;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E293B;
+  --secondary-foreground: #CBD5E1;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #3B82F6;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #3B82F6;
+  --sidebar: #111827;
+  --sidebar-foreground: #E2E8F0;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1E3A5F;
+  --sidebar-accent-foreground: #93C5FD;
+  --sidebar-border: #1E293B;
+  --sidebar-ring: #3B82F6;
+
+  /* Financial semantic colors — dark */
+  --positive: #22C55E;
+  --positive-soft: #052E16;
+  --negative: #F87171;
+  --negative-soft: #2D0B0B;
+  --warning: #FBBF24;
+  --warning-soft: #1C1400;
+
+  /* Chart colors — dark */
+  --chart-1: #60A5FA;
+  --chart-2: #34D399;
+  --chart-3: #F87171;
+  --chart-4: #38BDF8;
+  --chart-5: #A78BFA;
+
+  /* Centralized semantic — dark */
+  --surface: #111827;
+  --surface-muted: #1E293B;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --accent-soft: #1E3A5F;
+  --info: #38BDF8;
+  --table-row-hover: #1E3A5F;
+  --skeleton-base: #1E293B;
+  --skeleton-highlight: #2D3F55;
+}
+
+/* ─── Premium Animation Keyframes ─────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow-line {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Shimmer skeleton utility */
+.shimmer-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 25%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Pulse ring utility for live indicators */
+.pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Count-up entrance animation */
+.animate-count-up {
+  animation: count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

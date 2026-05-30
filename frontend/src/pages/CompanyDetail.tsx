@@ -32,6 +32,12 @@ const BalanceSheetTable = React.lazy(() =>
 const CashFlowTable = React.lazy(() =>
   import('@/components/company/CashFlowTable').then((m) => ({ default: m.CashFlowTable }))
 )
+const RatiosTable = React.lazy(() =>
+  import('@/components/company/RatiosTable').then((m) => ({ default: m.RatiosTable }))
+)
+const AnalystConsensus = React.lazy(() =>
+  import('@/components/company/AnalystConsensus').then((m) => ({ default: m.AnalystConsensus }))
+)
 const ShareholdingChart = React.lazy(() =>
   import('@/components/company/shareholding').then((m) => ({ default: m.ShareholdingChart }))
 )
@@ -227,11 +233,38 @@ export function CompanyDetail() {
           </ScrollReveal>
         </section>
 
-        {/* SECTION: Cash Flow & Ratios */}
+        {/* SECTION: Cash Flow */}
         <section id="cash-flow" className="scroll-mt-36">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <CashFlowTable />
+            </Suspense>
+          </ScrollReveal>
+        </section>
+
+        {/* SECTION: Key Ratios */}
+        <section id="ratios" className="scroll-mt-36">
+          <ScrollReveal>
+            <Suspense fallback={<SectionSkeleton />}>
+              <RatiosTable
+                pe={company.pe}
+                price={company.price}
+                high52w={company.high52w}
+                low52w={company.low52w}
+              />
+            </Suspense>
+          </ScrollReveal>
+        </section>
+
+        {/* SECTION: Analyst Consensus */}
+        <section id="analyst" className="scroll-mt-36">
+          <ScrollReveal>
+            <Suspense fallback={<SectionSkeleton />}>
+              <AnalystConsensus
+                symbol={company.symbol}
+                cmp={company.price}
+                pe={company.pe}
+              />
             </Suspense>
           </ScrollReveal>
         </section>
