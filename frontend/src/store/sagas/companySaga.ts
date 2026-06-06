@@ -3,7 +3,7 @@
  * Redux-Saga for company data fetching and management
  */
 
-import { call, put, takeLatest, all, retry, delay } from 'redux-saga/effects'
+import { call, put, takeLatest, all } from 'redux-saga/effects'
 import {
   fetchCompanyStart,
   fetchCompanySuccess,
@@ -11,43 +11,98 @@ import {
   setFinancialsStatus,
   setPriceChartStatus,
   setShareholdingStatus,
+  fetchCompanyPLSuccess,
+  fetchCompanyBalanceSheetSuccess,
+  fetchCompanyCashFlowSuccess,
+  fetchCompanySegmentsSuccess,
+  fetchCompanyRatiosSuccess,
+  fetchCompanyShareholdingSuccess,
+  fetchCompanyCorporateActionsSuccess,
+  fetchCompanyDocumentsSuccess,
 } from '../slices/companySlice'
-import { companies, type Company } from '@/lib/data/companies'
+import { finscreenApi } from '@/services/finscreenApi'
 
-// Simulated API Calls
-function fetchCompanyOverviewApi(symbol: string): Promise<Company> {
-  return new Promise((resolve, reject) => {
-    const company = companies.find((c) => c.symbol === symbol.toUpperCase())
-    if (company) {
-      resolve(company)
-    } else {
-      reject(new Error(`Company with symbol ${symbol} not found`))
-    }
-  })
-}
-
-function* fetchCompanyOverviewSaga(action: ReturnType<typeof fetchCompanyStart>) {
-  const symbol = action.payload
+function* loadCompanyFinancialsSaga(symbol: string): Generator<any, void, any> {
   try {
-    // Pattern 1: Fetch with retry + exponential backoff
-    const data: Company = yield retry(3, 1000, fetchCompanyOverviewApi, symbol)
-    yield put(fetchCompanySuccess(data))
-
-    // Pattern 4: Parallel loading of company page sections (simulated)
     yield put(setFinancialsStatus('loading'))
-    yield put(setPriceChartStatus('loading'))
-    yield put(setShareholdingStatus('loading'))
-
-    yield all([
-      call(delay, 400), // Simulate network delay for chart
-      call(delay, 600), // Simulate network delay for financials
-      call(delay, 800), // Simulate network delay for shareholding
+    
+    // Fetch statements in parallel
+    const [pl, bs, cf, segments] = yield all([
+      call(finscreenApi.fetchCompanyPL, symbol),
+      call(finscreenApi.fetchCompanyBalanceSheet, symbol),
+      call(finscreenApi.fetchCompanyCashFlow, symbol),
+      call(finscreenApi.fetchCompanySegments, symbol),
     ])
 
+    yield put(fetchCompanyPLSuccess(pl))
+    yield put(fetchCompanyBalanceSheetSuccess(bs))
+    yield put(fetchCompanyCashFlowSuccess(cf))
+    yield put(fetchCompanySegmentsSuccess(segments))
+
     yield put(setFinancialsStatus('success'))
-    yield put(setPriceChartStatus('success'))
-    yield put(setShareholdingStatus('success'))
   } catch (err: any) {
+    console.error('Failed to load company financials:', err)
+    yield put(setFinancialsStatus('error'))
+  }
+}
+
+function* loadCompanyRatiosSaga(symbol: string): Generator<any, void, any> {
+  try {
+    const ratios = yield call(finscreenApi.fetchCompanyRatios, symbol)
+    yield put(fetchCompanyRatiosSuccess(ratios))
+  } catch (err) {
+    console.error('Failed to load company ratios:', err)
+  }
+}
+
+function* loadCompanyShareholdingSaga(symbol: string): Generator<any, void, any> {
+  try {
+    yield put(setShareholdingStatus('loading'))
+    const shareholding = yield call(finscreenApi.fetchCompanyShareholding, symbol)
+    yield put(fetchCompanyShareholdingSuccess(shareholding))
+    yield put(setShareholdingStatus('success'))
+  } catch (err) {
+    console.error('Failed to load company shareholding:', err)
+    yield put(setShareholdingStatus('error'))
+  }
+}
+
+function* loadCompanyCorporateActionsSaga(symbol: string): Generator<any, void, any> {
+  try {
+    const actions = yield call(finscreenApi.fetchCompanyCorporateActions, symbol)
+    yield put(fetchCompanyCorporateActionsSuccess(actions))
+  } catch (err) {
+    console.error('Failed to load corporate actions:', err)
+  }
+}
+
+function* loadCompanyDocumentsSaga(symbol: string): Generator<any, void, any> {
+  try {
+    const docs = yield call(finscreenApi.fetchCompanyDocuments, symbol)
+    yield put(fetchCompanyDocumentsSuccess(docs))
+  } catch (err) {
+    console.error('Failed to load company documents:', err)
+  }
+}
+
+function* fetchCompanyOverviewSaga(action: ReturnType<typeof fetchCompanyStart>): Generator<any, void, any> {
+  const symbol = action.payload
+  try {
+    // 1. Fetch company profile (overview)
+    const profile = yield call(finscreenApi.fetchCompanyProfile, symbol)
+    yield put(fetchCompanySuccess(profile as any))
+
+    // 2. Parallel loading of other segments
+    yield all([
+      call(loadCompanyFinancialsSaga, symbol),
+      call(loadCompanyRatiosSaga, symbol),
+      call(loadCompanyShareholdingSaga, symbol),
+      call(loadCompanyCorporateActionsSaga, symbol),
+      call(loadCompanyDocumentsSaga, symbol),
+      put(setPriceChartStatus('success')), // price chart status is updated
+    ])
+  } catch (err: any) {
+    console.error('Failed to fetch company overview:', err)
     yield put(fetchCompanyFailure(err.message || 'Failed to fetch company data'))
     yield put(setFinancialsStatus('error'))
     yield put(setPriceChartStatus('error'))
@@ -55,6 +110,6 @@ function* fetchCompanyOverviewSaga(action: ReturnType<typeof fetchCompanyStart>)
   }
 }
 
-export function* companySaga() {
+export function* companySaga(): Generator<any, void, any> {
   yield takeLatest(fetchCompanyStart.type, fetchCompanyOverviewSaga)
 }

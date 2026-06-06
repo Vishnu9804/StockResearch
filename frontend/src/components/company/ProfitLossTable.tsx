@@ -20,6 +20,8 @@ export function ProfitLossTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
   const authUser = useSelector((state: any) => state.auth?.user)
   const isPro = authUser?.plan === 'PRO'
+  const storeProfitLoss = useSelector((state: any) => state.company?.profitLoss)
+  const activeProfitLoss = storeProfitLoss || profitLoss
 
   const visibleYears = isPro ? fiscalYears : fiscalYears.slice(-5)
 
@@ -156,7 +158,7 @@ export function ProfitLossTable() {
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody>{profitLoss.map((row) => renderRow(row))}</TableBody>
+            <TableBody>{activeProfitLoss.map((row: FinancialRow) => renderRow(row))}</TableBody>
           </Table>
         </div>
       </div>

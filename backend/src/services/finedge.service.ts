@@ -130,17 +130,27 @@ export const FinedgeService = {
     // 3. Create fresh request with retry policies
     const requestTask = async () => {
       const apiKey = getApiKey()
-      logger.info(`[FinedgeService] Proxied Request: [${method}] /api/v1/${endpoint}`)
+      let cleanEndpoint = endpoint
+      if (cleanEndpoint.startsWith('/')) {
+        cleanEndpoint = cleanEndpoint.slice(1)
+      }
+      if (cleanEndpoint.startsWith('api/v1/')) {
+        cleanEndpoint = cleanEndpoint.slice(7)
+      }
+
+      logger.info(`[FinedgeService] Proxied Request: [${method}] /api/v1/${cleanEndpoint}`)
 
       const axiosConfig: AxiosRequestConfig = {
         method,
-        url: `${CONFIG.FINEDGE_BASE_URL}/api/v1/${endpoint}`,
+        url: `${CONFIG.FINEDGE_BASE_URL}/api/v1/${cleanEndpoint}`,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
           'X-Request-ID': requestId,
           'Content-Type': 'application/json',
         },
-        params: query,
+        params: {
+          ...query,
+          token: apiKey,
+        },
         data: body,
         timeout: 10000,
       }

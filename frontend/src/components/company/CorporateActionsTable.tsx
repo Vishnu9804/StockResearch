@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { Calendar, Tag, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
 import {
   Table,
@@ -34,11 +35,16 @@ export function CorporateActionsTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 8
 
+  const storeActions = useSelector((state: any) => state.company?.corporateActions)
+  const activeActions = storeActions?.corporateActions || corporateActions
+  const activeUpcoming = storeActions?.upcomingEvents || upcomingEvents
+  const activeDividends = storeActions?.dividendHistory || dividendHistory
+
   // Pagination calculations
-  const totalItems = corporateActions.length
+  const totalItems = activeActions.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedActions = corporateActions.slice(startIndex, startIndex + itemsPerPage)
+  const paginatedActions = activeActions.slice(startIndex, startIndex + itemsPerPage)
 
   const getBadgeColor = (type: string) => {
     switch (type) {
@@ -153,7 +159,7 @@ export function CorporateActionsTable() {
               </span>
             </div>
             <CardContent className="p-4 space-y-4">
-              {upcomingEvents.map((evt) => (
+              {activeUpcoming.map((evt: any) => (
                 <div key={evt.title} className="flex gap-3 items-start last:border-b-0 border-b border-border/50 pb-3 last:pb-0">
                   <div className="size-8 rounded-lg bg-accentSoft border border-blue-100 flex items-center justify-center shrink-0 text-accent font-bold text-[10px] uppercase font-mono">
                     {new Date(evt.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }).split(' ').join('\n')}
@@ -179,7 +185,7 @@ export function CorporateActionsTable() {
             <CardContent className="p-4">
               <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dividendHistory} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                  <BarChart data={activeDividends} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
                     <XAxis dataKey="year" stroke="#94A3B8" fontSize={9} tickLine={false} />
                     <YAxis stroke="#94A3B8" fontSize={9} tickLine={false} />
                     <Tooltip

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Table,
@@ -16,6 +17,8 @@ import { cn } from '@/lib/utils'
 
 export function QuarterlyResultsTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+  const storeQuarterly = useSelector((state: any) => state.company?.quarterly)
+  const activeQuarterly = storeQuarterly || quarterlyResults
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -107,7 +110,7 @@ export function QuarterlyResultsTable() {
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody>{quarterlyResults.map((row) => renderRow(row))}</TableBody>
+          <TableBody>{activeQuarterly.map((row: FinancialRow) => renderRow(row))}</TableBody>
         </Table>
       </div>
     </div>

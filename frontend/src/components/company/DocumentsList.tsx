@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useSelector } from 'react-redux'
 import { FileText, Download, Play, Pause, Search, ExternalLink, Headphones } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,9 @@ const DOCUMENTS: DocumentItem[] = [
 ]
 
 export function DocumentsList() {
+  const storeDocuments = useSelector((state: any) => state.company?.documents)
+  const activeDocuments = storeDocuments?.documents || DOCUMENTS
+
   const [activeTab, setActiveTab] = useState<'all' | 'announcements' | 'annual-reports' | 'concalls' | 'credit-ratings'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [toastMsg, setToastMsg] = useState<string | null>(null)
@@ -73,7 +77,7 @@ export function DocumentsList() {
   }
 
   const filteredDocuments = useMemo(() => {
-    return DOCUMENTS.filter((doc) => {
+    return activeDocuments.filter((doc: any) => {
       // Tab Category matching
       const matchesTab =
         activeTab === 'all' ||
@@ -147,7 +151,7 @@ export function DocumentsList() {
             <p className="text-[10px] text-textMuted mt-0.5">Try widening your search terms.</p>
           </div>
         ) : (
-          filteredDocuments.map((doc) => {
+          filteredDocuments.map((doc: any) => {
             const isConcall = doc.category === 'concall'
             const isPlaying = playingId === doc.id
 

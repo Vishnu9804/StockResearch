@@ -44,13 +44,13 @@ describe('FinedgeService Performance Layers', () => {
     expect(mockAxios).toHaveBeenCalledTimes(3)
 
     // Verify key rotation: alpha, beta, gamma
-    const firstCallHeaders = (mockAxios.mock.calls[0][0] as any).headers
-    const secondCallHeaders = (mockAxios.mock.calls[1][0] as any).headers
-    const thirdCallHeaders = (mockAxios.mock.calls[2][0] as any).headers
+    const firstCallParams = (mockAxios.mock.calls[0][0] as any).params
+    const secondCallParams = (mockAxios.mock.calls[1][0] as any).params
+    const thirdCallParams = (mockAxios.mock.calls[2][0] as any).params
 
-    expect(firstCallHeaders?.['Authorization']).toBe('Bearer key-alpha')
-    expect(secondCallHeaders?.['Authorization']).toBe('Bearer key-beta')
-    expect(thirdCallHeaders?.['Authorization']).toBe('Bearer key-gamma')
+    expect(firstCallParams?.['token']).toBe('key-alpha')
+    expect(secondCallParams?.['token']).toBe('key-beta')
+    expect(thirdCallParams?.['token']).toBe('key-gamma')
   })
 
   it('should deduplicate multiple concurrent requests to the exact same endpoint', async () => {

@@ -20,6 +20,15 @@ export interface CompanyState {
   priceChartError: string | null
   watchlist: string[]
   activeTab: 'overview' | 'financials' | 'shareholding' | 'corporate-actions' | 'peers'
+  // FinEdge specific fields
+  profitLoss: any | null
+  balanceSheet: any | null
+  cashFlow: any | null
+  segments: any | null
+  ratios: any | null
+  corporateActions: any | null
+  documents: any | null
+  shareholdingData: any | null
 }
 
 const initialState: CompanyState = {
@@ -35,6 +44,15 @@ const initialState: CompanyState = {
   priceChartError: null,
   watchlist: [],
   activeTab: 'overview',
+  // FinEdge specific initial states
+  profitLoss: null,
+  balanceSheet: null,
+  cashFlow: null,
+  segments: null,
+  ratios: null,
+  corporateActions: null,
+  documents: null,
+  shareholdingData: null,
 }
 
 const companySlice = createSlice({
@@ -64,6 +82,30 @@ const companySlice = createSlice({
     },
     setFinancialsError(state, action: PayloadAction<string | null>) {
       state.financialsError = action.payload
+    },
+    fetchCompanyPLSuccess(state, action: PayloadAction<any>) {
+      state.profitLoss = action.payload
+    },
+    fetchCompanyBalanceSheetSuccess(state, action: PayloadAction<any>) {
+      state.balanceSheet = action.payload
+    },
+    fetchCompanyCashFlowSuccess(state, action: PayloadAction<any>) {
+      state.cashFlow = action.payload
+    },
+    fetchCompanySegmentsSuccess(state, action: PayloadAction<any>) {
+      state.segments = action.payload
+    },
+    fetchCompanyRatiosSuccess(state, action: PayloadAction<any>) {
+      state.ratios = action.payload
+    },
+    fetchCompanyShareholdingSuccess(state, action: PayloadAction<any>) {
+      state.shareholdingData = action.payload
+    },
+    fetchCompanyCorporateActionsSuccess(state, action: PayloadAction<any>) {
+      state.corporateActions = action.payload
+    },
+    fetchCompanyDocumentsSuccess(state, action: PayloadAction<any>) {
+      state.documents = action.payload
     },
 
     // ─── Shareholding ───────────────────────────────────────────────────
@@ -121,6 +163,15 @@ const companySlice = createSlice({
       state.shareholdingError = null
       state.priceChartStatus = 'idle'
       state.priceChartError = null
+      // FinEdge specific resets
+      state.profitLoss = null
+      state.balanceSheet = null
+      state.cashFlow = null
+      state.segments = null
+      state.ratios = null
+      state.corporateActions = null
+      state.documents = null
+      state.shareholdingData = null
     },
   },
 })
@@ -141,6 +192,14 @@ export const {
   setWatchlist,
   setActiveTab,
   resetCompany,
+  fetchCompanyPLSuccess,
+  fetchCompanyBalanceSheetSuccess,
+  fetchCompanyCashFlowSuccess,
+  fetchCompanySegmentsSuccess,
+  fetchCompanyRatiosSuccess,
+  fetchCompanyShareholdingSuccess,
+  fetchCompanyCorporateActionsSuccess,
+  fetchCompanyDocumentsSuccess,
 } = companySlice.actions
 
 export const companyReducer = companySlice.reducer

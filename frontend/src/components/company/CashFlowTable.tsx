@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Table,
@@ -16,6 +17,8 @@ import { cn } from '@/lib/utils'
 
 export function CashFlowTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+  const storeCashFlow = useSelector((state: any) => state.company?.cashFlow)
+  const activeCashFlow = storeCashFlow || cashFlow
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -109,7 +112,7 @@ export function CashFlowTable() {
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody>{cashFlow.map((row) => renderRow(row, 0, 'cf'))}</TableBody>
+            <TableBody>{activeCashFlow.map((row: FinancialRow) => renderRow(row, 0, 'cf'))}</TableBody>
           </Table>
         </div>
       </div>

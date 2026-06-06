@@ -11,6 +11,7 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useSelector } from "react-redux"
 import {
   Table,
   TableBody,
@@ -23,6 +24,9 @@ import { shareholding } from "@/lib/data/financials"
 import { formatNumber } from "@/lib/formatters"
 
 export function ShareholdingChart() {
+  const storeShareholding = useSelector((state: any) => state.company?.shareholdingData)
+  const activeShareholding = storeShareholding || shareholding
+
   return (
     <Card>
       <CardHeader>
@@ -36,7 +40,7 @@ export function ShareholdingChart() {
       <CardContent>
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={shareholding} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+            <BarChart data={activeShareholding} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="quarter"
@@ -74,6 +78,9 @@ export function ShareholdingChart() {
 }
 
 export function ShareholdingTable() {
+  const storeShareholding = useSelector((state: any) => state.company?.shareholdingData)
+  const activeShareholding = storeShareholding || shareholding
+
   return (
     <Card>
       <CardHeader>
@@ -107,7 +114,7 @@ export function ShareholdingTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shareholding.map((r) => (
+              {activeShareholding.map((r: any) => (
                 <TableRow key={r.quarter} className="hover:bg-secondary/40">
                   <TableCell className="font-mono text-xs">{r.quarter}</TableCell>
                   <TableCell className="text-right font-mono tabular text-xs">

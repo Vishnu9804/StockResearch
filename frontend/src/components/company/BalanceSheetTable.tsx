@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Table,
@@ -16,6 +17,8 @@ import { cn } from '@/lib/utils'
 
 export function BalanceSheetTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+  const storeBalanceSheet = useSelector((state: any) => state.company?.balanceSheet)
+  const activeBalanceSheet = storeBalanceSheet || balanceSheet
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -107,7 +110,7 @@ export function BalanceSheetTable() {
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody>{balanceSheet.map((row) => renderRow(row))}</TableBody>
+          <TableBody>{activeBalanceSheet.map((row: FinancialRow) => renderRow(row))}</TableBody>
         </Table>
       </div>
     </div>

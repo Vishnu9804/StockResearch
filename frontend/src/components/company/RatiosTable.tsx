@@ -1,6 +1,5 @@
-'use client'
-
 import { useMemo } from 'react'
+import { useSelector } from 'react-redux'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -76,7 +75,50 @@ function buildRatios(pe: number, price: number, high52: number, low52: number): 
 }
 
 export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price: number; high52w: number; low52w: number }) {
-  const groups = useMemo(() => buildRatios(pe, price, high52w, low52w), [pe, price, high52w, low52w])
+  const storeRatios = useSelector((state: any) => state.company?.ratios)
+
+  const groups = useMemo(() => {
+    if (storeRatios) {
+      const { valuation, profitability, leverage, growth } = storeRatios
+      return [
+        {
+          title: 'Valuation', emoji: '💰',
+          rows: [
+            { label: 'P/E Ratio', value: `${valuation.pe?.toFixed(1) || pe.toFixed(1)}x`, sectorAvg: '26.0x', aboveAvg: (valuation.pe || pe) < 26, description: 'Price to Earnings' },
+            { label: 'P/B Ratio', value: `${valuation.pb?.toFixed(1) || '4.8'}x`, sectorAvg: '4.2x', aboveAvg: (valuation.pb || 4.8) < 4.2, description: 'Price to Book Value' },
+            { label: 'EV/EBITDA', value: `${valuation.evEbitda?.toFixed(1) || '15.2'}x`, sectorAvg: '18.0x', aboveAvg: (valuation.evEbitda || 15.2) < 18, description: 'Enterprise Value / EBITDA' },
+            { label: 'Market Cap / Sales', value: `${valuation.marketCapSales?.toFixed(1) || '5.1'}x`, sectorAvg: '3.5x', aboveAvg: (valuation.marketCapSales || 5.1) < 3.5, description: 'Price / Revenue' },
+          ]
+        },
+        {
+          title: 'Profitability', emoji: '📈',
+          rows: [
+            { label: 'ROE', value: `${profitability.roe}%`, sectorAvg: '18.0%', aboveAvg: profitability.roe > 18, description: 'Return on Equity' },
+            { label: 'ROCE', value: `${profitability.roce}%`, sectorAvg: '16.0%', aboveAvg: profitability.roce > 16, description: 'Return on Capital Employed' },
+            { label: 'Net Profit Margin', value: `${profitability.netMargin}%`, sectorAvg: '10.0%', aboveAvg: profitability.netMargin > 10, description: 'Net Income / Revenue' },
+            { label: 'EBITDA Margin', value: `${profitability.ebitdaMargin}%`, sectorAvg: '18.0%', aboveAvg: profitability.ebitdaMargin > 18, description: 'Operating margin before D&A' },
+          ]
+        },
+        {
+          title: 'Leverage', emoji: '🏦',
+          rows: [
+            { label: 'Debt / Equity', value: `${leverage.debtToEquity}x`, sectorAvg: '0.6x', aboveAvg: leverage.debtToEquity < 0.6, description: 'Financial leverage ratio' },
+            { label: 'Interest Coverage', value: `${leverage.interestCoverage}x`, sectorAvg: '6.0x', aboveAvg: leverage.interestCoverage > 6, description: 'EBIT / Interest Expense' },
+            { label: 'Current Ratio', value: `${leverage.currentRatio}x`, sectorAvg: '1.5x', aboveAvg: leverage.currentRatio > 1.5, description: 'Current Assets / Current Liabilities' },
+          ]
+        },
+        {
+          title: 'Growth (3Y CAGR)', emoji: '🚀',
+          rows: [
+            { label: 'Revenue CAGR', value: `${growth.revenueCagr3Y}%`, sectorAvg: '12.0%', aboveAvg: growth.revenueCagr3Y > 12, description: '3-Year Revenue Growth' },
+            { label: 'Profit CAGR', value: `${growth.profitCagr3Y}%`, sectorAvg: '14.0%', aboveAvg: growth.profitCagr3Y > 14, description: '3-Year Net Profit Growth' },
+            { label: 'EPS CAGR', value: `${growth.epsCagr}%`, sectorAvg: '13.0%', aboveAvg: growth.epsCagr > 13, description: '3-Year EPS Growth' },
+          ]
+        },
+      ]
+    }
+    return buildRatios(pe, price, high52w, low52w)
+  }, [storeRatios, pe, price, high52w, low52w])
 
   return (
     <Card className="border-border shadow-none bg-surface">

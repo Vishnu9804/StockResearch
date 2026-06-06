@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Building2, Globe, Users, Calendar, Fingerprint, ShieldCheck, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,8 @@ import { StrengthsLimitations } from '@/components/company/strengths-limitations
 import { ScrollReveal } from '@/components/shared/ScrollReveal'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { fetchCompanyStart, resetCompany } from '@/store/slices/companySlice'
 
 // Lazy Load heavy/below-the-fold child components to maximize network & initial rendering performance
 const PriceChart = React.lazy(() =>
@@ -70,9 +72,36 @@ function SectionSkeleton() {
 
 export function CompanyDetail() {
   const { symbol } = useParams<{ symbol: string }>()
-  const company = companies.find((c) => c.symbol === symbol?.toUpperCase())
+  const dispatch = useAppDispatch()
+
+  const companyData = useAppSelector((state) => state.company.data)
+  const companyStatus = useAppSelector((state) => state.company.status)
+
+  useEffect(() => {
+    if (symbol) {
+      dispatch(fetchCompanyStart(symbol))
+    }
+    return () => {
+      dispatch(resetCompany())
+    }
+  }, [symbol, dispatch])
+
+  const localCompany = companies.find((c) => c.symbol === symbol?.toUpperCase())
+  const company = companyData || localCompany
 
   if (!company) {
+    if (companyStatus === 'loading') {
+      return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+          <div className="w-full max-w-md space-y-4">
+            <div className="h-8 bg-slate-200 rounded w-3/4 mx-auto animate-pulse"></div>
+            <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto animate-pulse"></div>
+            <div className="h-32 bg-slate-200 rounded w-full animate-pulse"></div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center select-none font-sans">
         <div className="max-w-md bg-surface border border-border rounded-2xl p-8 shadow-none flex flex-col items-center gap-4">

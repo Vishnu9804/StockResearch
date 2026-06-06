@@ -58,6 +58,7 @@ app.get('/health', (_req, res) => {
 // Wire Routes
 app.use('/api/auth', authRouter)
 app.use('/api/finedge', finedgeRouter)
+app.use('/api/finscreen', finedgeRouter)
 app.use('/api/payments', paymentsRouter)
 app.use('/api/watchlists', watchlistRouter)
 app.use('/api/screener', screenerRouter)
