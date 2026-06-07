@@ -53,18 +53,18 @@ const DocumentsList = React.lazy(() =>
   import('@/components/company/DocumentsList').then((m) => ({ default: m.DocumentsList }))
 )
 
-// Sleek aesthetic Skeleton Fallback for lazy segments
+// Dark-mode–aware skeleton using CSS variable tokens from globals.css
 function SectionSkeleton() {
   return (
     <div className="w-full h-64 bg-surface border border-border rounded-2xl animate-pulse p-6 flex flex-col justify-between">
       <div className="space-y-4">
-        <div className="h-4 bg-slate-200 rounded w-1/4"></div>
-        <div className="h-3 bg-slate-200 rounded w-3/4"></div>
-        <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+        <div className="h-4 bg-skeletonBase shimmer-skeleton rounded w-1/4"></div>
+        <div className="h-3 bg-skeletonBase shimmer-skeleton rounded w-3/4"></div>
+        <div className="h-3 bg-skeletonBase shimmer-skeleton rounded w-1/2"></div>
       </div>
       <div className="space-y-2 pt-4">
-        <div className="h-10 bg-slate-200 rounded w-full"></div>
-        <div className="h-10 bg-slate-200 rounded w-full"></div>
+        <div className="h-10 bg-skeletonBase shimmer-skeleton rounded w-full"></div>
+        <div className="h-10 bg-skeletonBase shimmer-skeleton rounded w-full"></div>
       </div>
     </div>
   )

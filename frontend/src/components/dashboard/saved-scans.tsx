@@ -1,6 +1,5 @@
-'use client'
 
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,6 +7,7 @@ import { SCREENER_TEMPLATES } from "@/lib/data/screener"
 import { ArrowRight, Filter } from "lucide-react"
 
 export function SavedScans() {
+  const navigate = useNavigate()
   // Take first 4 templates for display
   const featuredScans = SCREENER_TEMPLATES.slice(0, 4)
 
@@ -50,10 +50,13 @@ export function SavedScans() {
       <CardContent className="pt-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {featuredScans.map((scan) => (
-            <Link
+            <div
               key={scan.id}
-              to="/screener/results"
-              className="group flex flex-col justify-between rounded-lg border border-border bg-card p-4 transition-all hover:border-blue-400 hover:shadow-sm h-36"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/screener/results')}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/screener/results')}
+              className="group flex flex-col justify-between rounded-lg border border-border bg-card p-4 transition-all hover:border-blue-400 hover:shadow-sm h-36 cursor-pointer"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -90,7 +93,7 @@ export function SavedScans() {
                   ))}
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </CardContent>

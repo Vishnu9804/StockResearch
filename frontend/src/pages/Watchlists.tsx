@@ -208,7 +208,7 @@ export function Watchlists() {
   return (
     <div className="min-h-screen bg-background font-sans select-none">
       {/* Header */}
-      <div className="bg-surface border-b border-border px-6 py-4">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
         <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1 font-semibold">
           <Link to="/" className="hover:text-accent transition-colors">Home</Link>
           <ChevronRight className="w-3 h-3" />
@@ -217,9 +217,9 @@ export function Watchlists() {
         <Heading level={1} variant="pageTitle">Watchlists</Heading>
       </div>
 
-      <div className="flex min-h-[calc(100vh-73px)]">
+      <div className="flex flex-col md:flex-row min-h-[calc(100vh-73px)]">
         {/* Left Sidebar */}
-        <div className="w-64 bg-surface border-r border-border flex-shrink-0 p-4 flex flex-col gap-1">
+        <div className="w-full md:w-64 bg-surface border-b md:border-b-0 md:border-r border-border flex-shrink-0 p-4 flex flex-col gap-1">
           <Text variant="label" className="mb-2 font-bold text-textMuted uppercase tracking-wider text-[10px]">My Watchlists</Text>
           {watchlists.map((wl) => (
             <div key={wl.id} className="flex items-center justify-between group rounded-lg hover:bg-surfaceMuted transition-colors pr-2">
@@ -332,8 +332,8 @@ export function Watchlists() {
           )}
 
           {/* Stocks Table */}
-          <div className="bg-surface border border-border rounded-xl overflow-hidden mb-6">
-            <table className="w-full text-sm">
+          <div className="bg-surface border border-border rounded-xl overflow-x-auto mb-6">
+            <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="bg-surfaceMuted border-b border-border">
                   <th className="px-4 py-2.5 text-left text-xs text-textSecondary font-semibold">Company</th>
@@ -435,7 +435,7 @@ export function Watchlists() {
                 Upcoming Events This Week
               </Heading>
             </div>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {UPCOMING_EVENTS.map((event) => (
                 <div
                   key={event.id}

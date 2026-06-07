@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { variables } from "@/lib/data/screener"
-import { Calculator, CheckCircle2, Plus, Save, Sparkles } from "lucide-react"
+import { Calculator, CheckCircle2, ChevronRight, Plus, Save, Sparkles } from "lucide-react"
 import { Text } from "@/components/ui/Text"
 import { Heading } from "@/components/ui/Heading"
 
@@ -48,15 +48,25 @@ export function CustomRatios() {
   const [ticker, setTicker] = useState("TCS")
 
   return (
-    <div className="px-4 py-5 lg:px-6 lg:py-6 space-y-5 font-sans">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Heading level={1} variant="pageTitle">Custom Ratios</Heading>
-          <Text variant="bodyMuted" className="mt-1">
-            Build proprietary metrics from 200+ financial variables and run them across the entire universe
-          </Text>
+    <div className="min-h-screen bg-background font-sans">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
+        <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1">
+          <Text as="span" variant="bodyMuted" className="text-xs">Home</Text>
+          <ChevronRight className="w-3 h-3" />
+          <Text as="span" variant="bodyMuted" className="text-xs">Custom Ratios</Text>
+        </nav>
+        <div className="flex items-center justify-between">
+          <div>
+            <Heading level={1} variant="pageTitle">Custom Ratios</Heading>
+            <Text variant="bodyMuted" className="mt-0.5 text-xs">
+              Build proprietary metrics from 200+ financial variables and run them across the entire universe
+            </Text>
+          </div>
         </div>
       </div>
+
+      <div className="px-4 py-5 lg:px-6 lg:py-6 space-y-5">
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
         <Card className="border-border bg-surface shadow-none">
@@ -120,7 +130,7 @@ export function CustomRatios() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button size="sm" className="gap-1.5 bg-accent hover:bg-accent/90 text-white font-semibold shadow-none">
                 <Save className="size-3.5" />
                 Save Ratio
@@ -222,6 +232,7 @@ export function CustomRatios() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

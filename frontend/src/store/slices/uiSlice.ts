@@ -43,6 +43,8 @@ export interface UiState {
   chartPeriod: '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX'
   chartType: 'line' | 'candlestick' | 'area'
   financialView: 'annual' | 'quarterly'
+  // Saga-driven navigation (avoids window.location.href which reloads the page)
+  pendingNavigation: string | null
 }
 
 const initialState: UiState = {
@@ -62,6 +64,7 @@ const initialState: UiState = {
   chartPeriod: '1Y',
   chartType: 'line',
   financialView: 'annual',
+  pendingNavigation: null,
 }
 
 function generateToastId(): string {
@@ -165,6 +168,14 @@ const uiSlice = createSlice({
     setFinancialView(state, action: PayloadAction<UiState['financialView']>) {
       state.financialView = action.payload
     },
+
+    // ─── Saga-driven navigation ───────────────────────────────────────────
+    navigateTo(state, action: PayloadAction<string>) {
+      state.pendingNavigation = action.payload
+    },
+    clearNavigation(state) {
+      state.pendingNavigation = null
+    },
   },
 })
 
@@ -188,6 +199,8 @@ export const {
   setChartPeriod,
   setChartType,
   setFinancialView,
+  navigateTo,
+  clearNavigation,
 } = uiSlice.actions
 
 export const uiReducer = uiSlice.reducer

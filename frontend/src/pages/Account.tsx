@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { logoutStart } from '@/store/slices/authSlice'
 import {
   User as UserIcon, Mail, CreditCard, ShieldCheck, Clock,
@@ -50,7 +50,7 @@ const MOCK_WATCHLISTS = [
 
 function ProfileTab({ user }: { user: any }) {
   const navigate = useNavigate()
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
 
   return (
     <div className="space-y-6">
@@ -477,8 +477,16 @@ function SettingsTab() {
 // ─── Main Account Page ────────────────────────────────────────────────────────
 
 export function Account() {
+  const [searchParams] = useSearchParams()
+  const validTabs: Tab[] = ['profile', 'screens', 'watchlists', 'notifications', 'settings']
   const [activeTab, setActiveTab] = useState<Tab>('profile')
-  const { user } = useSelector((state: any) => state.auth)
+  const { user } = useAppSelector((state) => state.auth)
+
+  // Sync tab with URL param — handles navigation between /account and /account?tab=settings
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as Tab
+    setActiveTab(validTabs.includes(tabParam) ? tabParam : 'profile')
+  }, [searchParams])
 
   const profileUser = user ?? {
     name: 'FinScreen User',
@@ -500,7 +508,7 @@ export function Account() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* ── Page Header ── */}
-      <div className="bg-surface border-b border-border px-6 py-5">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-5">
         <div className="max-w-[1200px] mx-auto">
           <Heading level={1} variant="pageTitle">Account Hub</Heading>
           <Text variant="bodyMuted" className="mt-0.5">

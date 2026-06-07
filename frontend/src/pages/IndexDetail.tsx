@@ -192,7 +192,7 @@ export function IndexDetail() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* ── Header ── */}
-      <div className="bg-surface border-b border-border px-6 py-5">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-5">
         <div className="max-w-[1400px] mx-auto">
           <Link
             to="/"

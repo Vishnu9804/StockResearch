@@ -4,10 +4,14 @@
  */
 
 import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
+import { store } from '@/store'
+import { logoutSuccess } from '@/store/slices/authSlice'
+import { navigateTo } from '@/store/slices/uiSlice'
 
+const BASE_API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const BASE_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
   ? '/api/finedge'
-  : 'http://localhost:5000/api/finedge'
+  : `${BASE_API.replace(/\/$/, '')}/finedge`
 
 function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -49,10 +53,13 @@ finedgeClient.interceptors.response.use(
       return finedgeClient.request(originalRequest)
     }
 
-    // Handle 401 Unauthorized (Redirect to login)
+    // Handle 401 Unauthorized — dispatch Redux logout so NavigationHandler
+    // redirects to /login cleanly without a full page reload.
     if (status === 401) {
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+      if (!currentPath.includes('/login')) {
+        store.dispatch(logoutSuccess())
+        store.dispatch(navigateTo('/login'))
       }
     }
 

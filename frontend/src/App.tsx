@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import DashboardLayout from './layouts/DashboardLayout'
 import AuthLayout from './layouts/AuthLayout'
+import { NavigationHandler } from './components/shared/NavigationHandler'
 
 // Import Pages
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Pricing from './pages/Pricing'
-import Profile from './pages/Profile'
 import Screener from './pages/Screener'
 import ScreenerResults from './pages/ScreenerResults'
 import Watchlists from './pages/Watchlists'
@@ -20,7 +20,11 @@ import Account from './pages/Account'
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {/* NavigationHandler bridges Redux navigateTo() actions → React Router navigate()
+          Must be inside BrowserRouter so it has access to useNavigate() */}
+      <NavigationHandler />
+
       <Routes>
         {/* Auth Group */}
         <Route element={<AuthLayout />}>
@@ -44,8 +48,8 @@ export function App() {
           <Route path="/index/:symbol" element={<IndexDetail />} />
           <Route path="/screens" element={<ScreenGallery />} />
           <Route path="/account" element={<Account />} />
-          {/* Legacy profile — redirect to /account */}
-          <Route path="/profile" element={<Profile />} />
+          {/* Legacy profile — redirect to /account (was incorrectly rendering Profile.tsx) */}
+          <Route path="/profile" element={<Navigate to="/account" replace />} />
         </Route>
 
         {/* Fallback redirect to home */}

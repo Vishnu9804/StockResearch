@@ -8,37 +8,61 @@ import { SavedScans } from "@/components/dashboard/saved-scans"
 import { Heading } from "@/components/ui/Heading"
 import { Text } from "@/components/ui/Text"
 import { marketBreadth } from "@/lib/data/market"
+import { useMarketStatus } from "@/hooks/useMarketStatus"
+import { cn } from "@/lib/utils"
 
 export function Home() {
+  const marketStatus = useMarketStatus()
   return (
-    <div className="px-4 py-5 lg:px-6 lg:py-6 space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Heading level={1} variant="pageTitle" className="text-balance">
-            Markets Today
-          </Heading>
-          <Text variant="bodyMuted" className="mt-1">
-            Live snapshot of Indian equity markets ·{" "}
-            <Text as="span" variant="numeric">
-              {new Date().toLocaleDateString("en-IN", {
-                weekday: "long",
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+    <div className="min-h-screen bg-background">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
+        <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1">
+          <Text as="span" variant="bodyMuted" className="text-xs">Home</Text>
+        </nav>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <Heading level={1} variant="pageTitle" className="text-balance">
+              Markets Today
+            </Heading>
+            <Text variant="bodyMuted" className="mt-0.5 text-xs">
+              Live snapshot of Indian equity markets ·{" "}
+              <Text as="span" variant="numeric">
+                {new Date().toLocaleDateString("en-IN", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </Text>
             </Text>
-          </Text>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium',
+                marketStatus.isOpen
+                  ? 'border-positive/30 bg-positive-soft text-positive'
+                  : 'border-border bg-surfaceMuted text-textSecondary'
+              )}
+              title={marketStatus.nextEvent}
+            >
+              <span
+                className={cn(
+                  'size-1.5 rounded-full',
+                  marketStatus.isOpen ? 'bg-positive animate-pulse' : 'bg-textMuted'
+                )}
+              />
+              {marketStatus.label}
+            </span>
+            <Text as="span" variant="caption" className="font-mono text-textSecondary">
+              NSE · 09:15 – 15:30 IST
+            </Text>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-positive/30 bg-positive-soft px-2.5 py-1 font-medium text-positive">
-            <span className="size-1.5 rounded-full bg-positive animate-pulse" />
-            Markets Open
-          </span>
-          <Text as="span" variant="caption" className="font-mono text-textSecondary">
-            NSE · 09:15 – 15:30 IST
-          </Text>
-        </div>
-      </header>
+      </div>
+
+      <div className="px-4 py-5 lg:px-6 lg:py-6 space-y-5">
 
       {/* Market Summary Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-surface border border-border rounded-xl p-4">
@@ -83,6 +107,7 @@ export function Home() {
           <NewsFeed />
         </div>
       </div>
+    </div>
     </div>
   )
 }

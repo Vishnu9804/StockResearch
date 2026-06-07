@@ -164,7 +164,10 @@ function* runScreenerSaga(): Generator<any, void, any> {
       }
     }
 
-    // Map to ScreenerResult interface
+    // Map to ScreenerResult interface.
+    // Fields sourced directly from company data. Fields without real company-level data
+    // (salesGrowth3Y, rsi14, etc.) are mapped from the company object where available,
+    // otherwise 0 — no more hardcoded constants that make every company identical.
     const results: ScreenerResult[] = filtered.map((c) => ({
       symbol: c.symbol,
       name: c.name,
@@ -176,22 +179,23 @@ function* runScreenerSaga(): Generator<any, void, any> {
       roe: c.roe,
       roce: c.roce,
       debtToEquity: c.debtToEquity,
-      salesGrowth3Y: 15.4, // Mock fallback
-      profitGrowth3Y: 12.8, // Mock fallback
-      netProfitMargin: 14.5, // Mock fallback
-      ebitdaMargin: 21.2, // Mock fallback
+      // Real data where available; 0 when not present in company dataset
+      salesGrowth3Y: (c as any).salesGrowth3Y ?? 0,
+      profitGrowth3Y: (c as any).profitGrowth3Y ?? 0,
+      netProfitMargin: (c as any).netProfitMargin ?? 0,
+      ebitdaMargin: (c as any).ebitdaMargin ?? 0,
       promoterHolding: c.promoterHolding,
       fiiHolding: c.fiiHolding,
-      currentRatio: 1.5, // Mock fallback
-      interestCoverage: 8.5, // Mock fallback
+      currentRatio: (c as any).currentRatio ?? 0,
+      interestCoverage: (c as any).interestCoverage ?? 0,
       cmp: c.price,
       changePct: c.changePct,
       high52w: c.high52w,
       low52w: c.low52w,
       eps: c.eps,
       bookValue: c.bookValue,
-      rsi14: 58.4, // Mock fallback
-      beta: 1.05, // Mock fallback
+      rsi14: (c as any).rsi14 ?? 0,
+      beta: (c as any).beta ?? 0,
     }))
 
     yield put(runScreenerSuccess({ results, totalCount: results.length }))

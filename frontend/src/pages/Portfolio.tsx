@@ -171,7 +171,7 @@ export function Portfolio() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-surface border-b border-border px-6 py-4">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
         <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1">
           <Link to="/" className="hover:text-accent transition-colors">Home</Link>
           <ChevronRight className="w-3 h-3" />
@@ -254,7 +254,7 @@ export function Portfolio() {
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="bg-surfaceMuted border-b border-border/50">
                     <th className="px-4 py-2 text-left text-xs text-textSecondary font-semibold">Symbol</th>
@@ -369,7 +369,7 @@ export function Portfolio() {
           </button>
           {showHistory && (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-xs min-w-[500px]">
                 <thead>
                   <tr className="bg-surfaceMuted border-b border-border">
                     <th className="px-4 py-2 text-left text-textSecondary font-semibold">Date</th>
@@ -407,7 +407,7 @@ export function Portfolio() {
       {/* Add Holding Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+          <div className="bg-surface border border-border w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wider">Add Holding</h3>
               <button onClick={() => setShowAddModal(false)} className="text-textMuted hover:text-textPrimary transition-colors">

@@ -113,7 +113,7 @@ export function ScreenGallery() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* ── Page Header ── */}
-      <div className="bg-surface border-b border-border px-6 py-5">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-5">
         <div className="max-w-[1400px] mx-auto flex flex-wrap items-end justify-between gap-4">
           <div>
             <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1.5">

@@ -1,9 +1,6 @@
-'use client'
-
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
-import { checkAuthStart } from '@/store/slices/authSlice'
+import { useAppSelector } from '@/store/hooks'
 import { TrendingUp } from 'lucide-react'
 
 interface AuthGuardProps {
@@ -12,25 +9,19 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const navigate = useNavigate()
-  const dispatch = useDispatch()
-  const { isAuthenticated, status } = useSelector((state: any) => state.auth)
+  const { isAuthenticated, status } = useAppSelector((state) => state.auth)
 
-  // Trigger auth check on mount if it hasn't run yet
-  useEffect(() => {
-    if (status === 'idle') {
-      dispatch(checkAuthStart())
-    }
-  }, [status, dispatch])
-
-  // Redirect to login if unauthenticated and auth check is complete
+  // Redirect to login only when auth check is complete and user is not authenticated.
+  // Does NOT dispatch checkAuthStart — that is done once in rootSaga's initSaga.
   useEffect(() => {
     if (status !== 'loading' && status !== 'idle' && !isAuthenticated) {
       navigate('/login')
     }
   }, [isAuthenticated, status, navigate])
 
-  // Show a premium, highly aesthetic loading skeleton or screen while checking auth
-  if (status === 'loading' || status === 'idle' || !isAuthenticated) {
+  // Only show the loading splash while auth check is in progress.
+  // When status === 'success' and isAuthenticated is true, render children immediately.
+  if (status === 'loading' || status === 'idle') {
     return (
       <div className="fixed inset-0 bg-surfaceMuted flex flex-col items-center justify-center z-50 select-none">
         <div className="flex flex-col items-center space-y-6 max-w-sm text-center">
@@ -49,13 +40,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
           </div>
 
           {/* Premium custom horizontal loading bar */}
-          <div className="w-48 h-1 bg-slate-200 rounded-full overflow-hidden relative">
+          <div className="w-48 h-1 bg-skeletonBase rounded-full overflow-hidden relative">
             <div className="h-full bg-accent rounded-full w-2/3 animate-[shimmer_1.5s_infinite] absolute left-0 right-0"></div>
           </div>
         </div>
 
         {/* Global Keyframes styling injected for custom animations */}
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           @keyframes shimmer {
             0% {
               transform: translateX(-150%);
@@ -70,6 +62,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
         ` }} />
       </div>
     )
+  }
+
+  // If auth failed (status === 'error'), the useEffect above handles the redirect.
+  // Returning null here prevents a flash while the redirect fires.
+  if (!isAuthenticated) {
+    return null
   }
 
   return <>{children}</>

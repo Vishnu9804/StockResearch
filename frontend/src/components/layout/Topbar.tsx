@@ -1,8 +1,6 @@
-'use client'
-
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import { useDispatch } from 'react-redux'
 import { Search, Bell, Menu, Moon, Sun, X, User as UserIcon, LogOut, Settings, ShieldAlert } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import { toggleSidebar } from '@/store/slices/uiSlice'
@@ -13,12 +11,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useAppSelector } from '@/store/hooks'
 
 export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const unreadCount = useSelector((state: any) => state.notifications.unreadCount)
-  const { user } = useSelector((state: any) => state.auth)
+
+  // Typed selectors — no more (state: any)
+  const unreadCount = useAppSelector((state) => state.notifications.unreadCount)
+  const { user } = useAppSelector((state) => state.auth)
 
   const { theme, toggleTheme } = useTheme()
 
@@ -27,7 +28,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  
+
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
@@ -51,7 +52,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   ]
 
   // Filter companies based on query
-  const suggestions = searchQuery.trim()
+  const stockSuggestions = searchQuery.trim()
     ? companies
         .filter(
           (c) =>
@@ -69,21 +70,14 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
       ).slice(0, 3)
     : []
 
-  // Global Ctrl/Cmd + K keydown listener — opens palette if wired, else focuses inline search
-  useEffect(() => {
-    function handleGlobalKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault()
-        if (onOpenPalette) {
-          onOpenPalette()
-        } else {
-          inputRef.current?.focus()
-        }
-      }
-    }
-    window.addEventListener('keydown', handleGlobalKeyDown)
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [onOpenPalette])
+  // Merged flat list for unified keyboard navigation
+  // Indices come first (indices 0..indexSuggestions.length-1), then stocks
+  const totalSuggestions = indexSuggestions.length + stockSuggestions.length
+
+  // NOTE: Ctrl/Cmd+K listener is intentionally NOT attached here.
+  // DashboardLayout owns the single window listener and passes onOpenPalette prop.
+  // Calling onOpenPalette() from here prevents the race condition where both
+  // listeners fired — causing the palette to open and immediately close.
 
   // Close suggestions and profile menu when clicking outside
   useEffect(() => {
@@ -107,21 +101,36 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
     navigate(`/company/${symbol.toUpperCase()}`)
   }
 
+  const handleSelectIndex = (slug: string) => {
+    setSearchQuery('')
+    setShowSuggestions(false)
+    setActiveSuggestionIndex(-1)
+    navigate(`/index/${slug}`)
+  }
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (activeSuggestionIndex > -1 && activeSuggestionIndex < suggestions.length) {
-      handleSelectCompany(suggestions[activeSuggestionIndex].symbol)
-    } else if (suggestions.length > 0) {
-      handleSelectCompany(suggestions[0].symbol)
+    if (activeSuggestionIndex >= 0) {
+      if (activeSuggestionIndex < indexSuggestions.length) {
+        handleSelectIndex(indexSuggestions[activeSuggestionIndex].slug)
+      } else {
+        const stockIdx = activeSuggestionIndex - indexSuggestions.length
+        handleSelectCompany(stockSuggestions[stockIdx].symbol)
+      }
+    } else if (stockSuggestions.length > 0) {
+      handleSelectCompany(stockSuggestions[0].symbol)
+    } else if (indexSuggestions.length > 0) {
+      handleSelectIndex(indexSuggestions[0].slug)
     }
   }
 
+  // Unified keyboard navigation over merged suggestions list (indices + stocks)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions || suggestions.length === 0) return
+    if (!showSuggestions || totalSuggestions === 0) return
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveSuggestionIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
+      setActiveSuggestionIndex((prev) => (prev < totalSuggestions - 1 ? prev + 1 : prev))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveSuggestionIndex((prev) => (prev > 0 ? prev - 1 : -1))
@@ -133,15 +142,20 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
     }
   }
 
+  // Notification badge display — show "9+" for double-digit counts
+  const badgeLabel = unreadCount > 9 ? '9+' : String(unreadCount)
+  const badgeIsPill = unreadCount > 9
+
   return (
     <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 sticky top-0 z-30 select-none">
-      {/* Sidebar Toggle for Mobile */}
+      {/* Sidebar Toggle — visible on all screen sizes (not just md+) */}
       <div className="flex items-center gap-4 flex-1">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => dispatch(toggleSidebar())}
-          className="size-9 text-textSecondary hover:text-textPrimary md:flex hidden"
+          className="size-9 text-textSecondary hover:text-textPrimary flex"
+          aria-label="Toggle sidebar"
         >
           <Menu className="size-4" />
         </Button>
@@ -165,29 +179,34 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 onKeyDown={handleKeyDown}
                 className="w-full pl-9 pr-12 h-9 bg-surfaceMuted hover:bg-surfaceMuted/80 focus:bg-surface text-xs border-border focus:border-accent font-medium transition-colors"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none select-none">
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('')
-                      setActiveSuggestionIndex(-1)
-                    }}
-                    className="text-textMuted hover:text-textSecondary pointer-events-auto"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : (
+
+              {/* Clear button is OUTSIDE pointer-events-none so it receives clicks reliably */}
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setActiveSuggestionIndex(-1)
+                    setShowSuggestions(false)
+                    inputRef.current?.focus()
+                  }}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-textMuted hover:text-textSecondary transition-colors"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none select-none">
                   <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-surface px-1.5 font-mono text-[9px] font-medium text-textMuted shadow-none">
                     <span className="text-[8px]">⌘</span>K
                   </kbd>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </form>
 
           {/* Autocomplete Dropdown */}
-          {showSuggestions && (suggestions.length > 0 || indexSuggestions.length > 0) && (
+          {showSuggestions && (stockSuggestions.length > 0 || indexSuggestions.length > 0) && (
             <div className="absolute top-10 left-0 w-full bg-surface border border-border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 py-1">
               {/* Index results */}
               {indexSuggestions.length > 0 && (
@@ -195,15 +214,14 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                   <div className="px-3 py-1.5 text-[10px] font-bold text-textMuted uppercase tracking-wider bg-surfaceMuted">
                     Indices
                   </div>
-                  {indexSuggestions.map((idx) => (
+                  {indexSuggestions.map((idx, i) => (
                     <div
                       key={idx.slug}
-                      onClick={() => {
-                        setSearchQuery('')
-                        setShowSuggestions(false)
-                        navigate(`/index/${idx.slug}`)
-                      }}
-                      className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-tableRowHover transition-colors"
+                      onClick={() => handleSelectIndex(idx.slug)}
+                      className={cn(
+                        'flex items-center justify-between px-3 py-2 cursor-pointer transition-colors',
+                        activeSuggestionIndex === i ? 'bg-tableRowHover' : 'hover:bg-tableRowHover'
+                      )}
                     >
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-accent">{idx.name}</span>
@@ -220,41 +238,45 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 </>
               )}
               {/* Stock results */}
-              {suggestions.length > 0 && (
+              {stockSuggestions.length > 0 && (
                 <>
                   <div className="px-3 py-1.5 text-[10px] font-bold text-textMuted uppercase tracking-wider bg-surfaceMuted">
                     Stocks
                   </div>
-                  {suggestions.map((company, index) => (
-                    <div
-                      key={company.symbol}
-                      onClick={() => handleSelectCompany(company.symbol)}
-                      className={cn(
-                        "flex items-center justify-between px-3 py-2 cursor-pointer transition-colors",
-                        activeSuggestionIndex === index ? "bg-tableRowHover" : "hover:bg-tableRowHover"
-                      )}
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-textPrimary">{company.symbol}</span>
-                        <span className="text-[10px] text-textSecondary truncate max-w-[280px]">{company.name}</span>
+                  {stockSuggestions.map((company, i) => {
+                    // Offset index by number of index suggestions for unified keyboard nav
+                    const flatIndex = indexSuggestions.length + i
+                    return (
+                      <div
+                        key={company.symbol}
+                        onClick={() => handleSelectCompany(company.symbol)}
+                        className={cn(
+                          'flex items-center justify-between px-3 py-2 cursor-pointer transition-colors',
+                          activeSuggestionIndex === flatIndex ? 'bg-tableRowHover' : 'hover:bg-tableRowHover'
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-textPrimary">{company.symbol}</span>
+                          <span className="text-[10px] text-textSecondary truncate max-w-[280px]">{company.name}</span>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</span>
+                          <span
+                            className={cn(
+                              'text-[9px] font-mono font-medium flex items-center gap-0.5',
+                              company.change >= 0 ? 'text-positive' : 'text-negative'
+                            )}
+                          >
+                            {company.change >= 0 ? '+' : ''}
+                            {company.changePct.toFixed(2)}%
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end shrink-0">
-                        <span className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</span>
-                        <span
-                          className={cn(
-                            'text-[9px] font-mono font-medium flex items-center gap-0.5',
-                            company.change >= 0 ? 'text-positive' : 'text-negative'
-                          )}
-                        >
-                          {company.change >= 0 ? '+' : ''}
-                          {company.changePct.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </>
               )}
-              {suggestions.length === 0 && indexSuggestions.length === 0 && searchQuery.trim() && (
+              {stockSuggestions.length === 0 && indexSuggestions.length === 0 && searchQuery.trim() && (
                 <div className="px-4 py-6 text-center">
                   <p className="text-xs text-textMuted">No results for <span className="font-bold text-textPrimary">{searchQuery}</span></p>
                 </div>
@@ -275,15 +297,23 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
           {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
 
-        {/* Notification Bell */}
+        {/* Notification Bell — badge shows "9+" for double-digit counts with pill shape */}
         <button
           onClick={() => dispatch(toggleDrawer())}
+          aria-label="Notifications"
           className="relative p-1.5 rounded-full hover:bg-surfaceMuted transition-colors text-textSecondary hover:text-textPrimary focus:outline-none"
         >
           <Bell className="size-4.5" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 size-3 rounded-full bg-negative border-2 border-surface flex items-center justify-center text-[7px] font-bold text-white leading-none">
-              {unreadCount}
+            <span
+              className={cn(
+                'absolute top-0.5 right-0.5 bg-negative border-2 border-surface flex items-center justify-center text-[7px] font-bold text-white leading-none',
+                badgeIsPill
+                  ? 'rounded-full px-1 py-0.5 min-w-[16px] h-4'
+                  : 'rounded-full size-3.5'
+              )}
+            >
+              {badgeLabel}
             </span>
           )}
         </button>
@@ -312,8 +342,8 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 <p className="text-[10px] text-textSecondary font-medium truncate">{user?.email || 'user@finscreen.in'}</p>
                 <div className="mt-1.5 flex items-center">
                   <span className={cn(
-                    "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none",
-                    user?.plan === 'PRO' ? "bg-warning-soft/40 text-warning border-amber-200" : "bg-surfaceMuted text-textSecondary border-border"
+                    'text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none',
+                    user?.plan === 'PRO' ? 'bg-warning-soft/40 text-warning border-amber-200' : 'bg-surfaceMuted text-textSecondary border-border'
                   )}>
                     {user?.plan || 'FREE'} Tier
                   </span>
@@ -347,7 +377,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 <button
                   onClick={() => {
                     setShowProfileMenu(false)
-                    navigate('/account')
+                    navigate('/account?tab=settings')
                   }}
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
                 >

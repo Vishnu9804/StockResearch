@@ -14,6 +14,8 @@ import {
   checkAuthSuccess,
   checkAuthFailure
 } from '../slices/authSlice'
+import { navigateTo } from '../slices/uiSlice'
+import { clearAllNotifications } from '../slices/notificationsSlice'
 
 function* loginSaga(action: ReturnType<typeof loginStart>): Generator<any, void, any> {
   try {
@@ -21,9 +23,8 @@ function* loginSaga(action: ReturnType<typeof loginStart>): Generator<any, void,
     if (data.success) {
       yield put(loginSuccess({ user: data.user, accessToken: data.accessToken }))
       toast.success(`Welcome back, ${data.user.name}! 🚀`)
-      if (typeof window !== 'undefined') {
-        window.location.href = '/'
-      }
+      // Use Redux action → NavigationHandler for client-side navigation (no page reload)
+      yield put(navigateTo('/'))
     } else {
       yield put(loginFailure(data.message || 'Login failed.'))
       toast.error(data.message || 'Login failed.')
@@ -41,9 +42,7 @@ function* signupSaga(action: ReturnType<typeof signupStart>): Generator<any, voi
     if (data.success) {
       yield put(signupSuccess({ user: data.user, accessToken: data.accessToken }))
       toast.success('Account created successfully! Welcome to FinScreen ⚡')
-      if (typeof window !== 'undefined') {
-        window.location.href = '/'
-      }
+      yield put(navigateTo('/'))
     } else {
       yield put(signupFailure(data.message || 'Registration failed.'))
       toast.error(data.message || 'Registration failed.')
@@ -59,15 +58,13 @@ function* logoutSaga(): Generator<any, void, any> {
   try {
     yield call(AuthService.logout)
     yield put(logoutSuccess())
+    yield put(clearAllNotifications())
     toast.success('Logged out successfully. See you soon!')
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
+    yield put(navigateTo('/login'))
   } catch (error: any) {
     yield put(logoutSuccess()) // Always clean up local state
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
+    yield put(clearAllNotifications())
+    yield put(navigateTo('/login'))
   }
 }
 
@@ -85,6 +82,14 @@ function* checkAuthSaga(): Generator<any, void, any> {
 }
 
 export function* authSaga(): Generator<any, void, any> {
+  // Perform the initial auth check directly on saga boot.
+  // We call checkAuthSaga() directly here instead of dispatching checkAuthStart,
+  // because if we used put(checkAuthStart()), the takeLatest listener below
+  // wouldn't be registered yet — causing the action to be silently dropped
+  // and the app to hang on the loading screen forever.
+  yield call(checkAuthSaga)
+
+  // Set up listeners for future user-triggered auth actions
   yield takeLatest(loginStart.type, loginSaga)
   yield takeLatest(signupStart.type, signupSaga)
   yield takeLatest(logoutStart.type, logoutSaga)
