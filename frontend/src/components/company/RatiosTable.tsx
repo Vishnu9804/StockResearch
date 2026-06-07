@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -75,7 +75,7 @@ function buildRatios(pe: number, price: number, high52: number, low52: number): 
 }
 
 export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price: number; high52w: number; low52w: number }) {
-  const storeRatios = useSelector((state: any) => state.company?.ratios)
+  const storeRatios = useAppSelector((state) => state.company?.ratios)
 
   const groups = useMemo(() => {
     if (storeRatios) {

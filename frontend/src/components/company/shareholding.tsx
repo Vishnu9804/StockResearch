@@ -1,4 +1,3 @@
-"use client"
 
 import {
   ResponsiveContainer,
@@ -11,7 +10,7 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useSelector } from "react-redux"
+import { useAppSelector } from '@/store/hooks'
 import {
   Table,
   TableBody,
@@ -24,7 +23,7 @@ import { shareholding } from "@/lib/data/financials"
 import { formatNumber } from "@/lib/formatters"
 
 export function ShareholdingChart() {
-  const storeShareholding = useSelector((state: any) => state.company?.shareholdingData)
+  const storeShareholding = useAppSelector((state) => state.company?.shareholdingData)
   const activeShareholding = storeShareholding || shareholding
 
   return (
@@ -78,7 +77,7 @@ export function ShareholdingChart() {
 }
 
 export function ShareholdingTable() {
-  const storeShareholding = useSelector((state: any) => state.company?.shareholdingData)
+  const storeShareholding = useAppSelector((state) => state.company?.shareholdingData)
   const activeShareholding = storeShareholding || shareholding
 
   return (

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,8 +24,8 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function Login() {
   const navigate = useNavigate()
-  const dispatch = useDispatch()
-  const { isAuthenticated, status } = useSelector((state: any) => state.auth)
+  const dispatch = useAppDispatch()
+  const { isAuthenticated, status } = useAppSelector((state) => state.auth)
 
   // Redirect if already authenticated
   useEffect(() => {

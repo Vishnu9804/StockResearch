@@ -1,7 +1,6 @@
-'use client'
 
 import { useState, useMemo } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { FileText, Download, Play, Pause, Search, ExternalLink, Headphones } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -36,7 +35,7 @@ const DOCUMENTS: DocumentItem[] = [
 ]
 
 export function DocumentsList() {
-  const storeDocuments = useSelector((state: any) => state.company?.documents)
+  const storeDocuments = useAppSelector((state) => state.company?.documents)
   const activeDocuments = storeDocuments?.documents || DOCUMENTS
 
   const [activeTab, setActiveTab] = useState<'all' | 'announcements' | 'annual-reports' | 'concalls' | 'credit-ratings'>('all')

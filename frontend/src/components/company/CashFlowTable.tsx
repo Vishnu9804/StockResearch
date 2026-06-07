@@ -1,7 +1,6 @@
-'use client'
 
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Table,
@@ -17,7 +16,7 @@ import { cn } from '@/lib/utils'
 
 export function CashFlowTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
-  const storeCashFlow = useSelector((state: any) => state.company?.cashFlow)
+  const storeCashFlow = useAppSelector((state) => state.company?.cashFlow)
   const activeCashFlow = storeCashFlow || cashFlow
 
   const toggleRow = (label: string) => {

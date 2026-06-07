@@ -1,7 +1,6 @@
-'use client'
 
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { Calendar, Tag, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
 import {
   Table,
@@ -35,7 +34,7 @@ export function CorporateActionsTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 8
 
-  const storeActions = useSelector((state: any) => state.company?.corporateActions)
+  const storeActions = useAppSelector((state) => state.company?.corporateActions)
   const activeActions = storeActions?.corporateActions || corporateActions
   const activeUpcoming = storeActions?.upcomingEvents || upcomingEvents
   const activeDividends = storeActions?.dividendHistory || dividendHistory

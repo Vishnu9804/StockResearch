@@ -1,4 +1,3 @@
-'use client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Company } from '@/lib/data/companies'
@@ -15,12 +14,12 @@ import {
 } from 'lucide-react'
 import { toggleWatchlist } from '@/store/slices/companySlice'
 import { addNotification } from '@/store/slices/notificationsSlice'
-import { useSelector, useDispatch } from 'react-redux'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { cn } from '@/lib/utils'
 
 export function CompanyHeader({ company }: { company: Company }) {
-  const dispatch = useDispatch()
-  const watchlist = useSelector((state: any) => state.company.watchlist)
+  const dispatch = useAppDispatch()
+  const watchlist = useAppSelector((state) => state.company.watchlist)
   const isWatched = watchlist.includes(company.symbol)
 
   const positive = company.change >= 0

@@ -1,7 +1,6 @@
-'use client'
 
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react'
 import {
   Table,
@@ -18,9 +17,9 @@ import { cn } from '@/lib/utils'
 
 export function ProfitLossTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
-  const authUser = useSelector((state: any) => state.auth?.user)
+  const authUser = useAppSelector((state) => state.auth?.user)
   const isPro = authUser?.plan === 'PRO'
-  const storeProfitLoss = useSelector((state: any) => state.company?.profitLoss)
+  const storeProfitLoss = useAppSelector((state) => state.company?.profitLoss)
   const activeProfitLoss = storeProfitLoss || profitLoss
 
   const visibleYears = isPro ? fiscalYears : fiscalYears.slice(-5)

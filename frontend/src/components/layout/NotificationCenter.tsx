@@ -1,4 +1,4 @@
-import { useSelector, useDispatch } from 'react-redux'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { Bell, Check, X, Info, HelpCircle, TrendingUp, Sparkles, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -23,8 +23,8 @@ import { Heading } from '@/components/ui/Heading'
 
 export function NotificationCenter() {
   const navigate = useNavigate()
-  const dispatch = useDispatch()
-  const { items, unreadCount, drawerOpen } = useSelector((state: any) => state.notifications)
+  const dispatch = useAppDispatch()
+  const { items, unreadCount, drawerOpen } = useAppSelector((state) => state.notifications)
 
   const handleNotificationClick = (item: Notification) => {
     dispatch(markAsRead(item.id))

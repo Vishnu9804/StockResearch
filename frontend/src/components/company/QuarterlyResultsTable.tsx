@@ -1,7 +1,6 @@
-'use client'
 
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '@/store/hooks'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   Table,
@@ -17,7 +16,7 @@ import { cn } from '@/lib/utils'
 
 export function QuarterlyResultsTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
-  const storeQuarterly = useSelector((state: any) => state.company?.quarterly)
+  const storeQuarterly = useAppSelector((state) => (state.company as any)?.quarterly)
   const activeQuarterly = storeQuarterly || quarterlyResults
 
   const toggleRow = (label: string) => {
