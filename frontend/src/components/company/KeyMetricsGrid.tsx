@@ -1,4 +1,3 @@
-'use client'
 
 import { formatIndian, formatCrores, formatPct, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'

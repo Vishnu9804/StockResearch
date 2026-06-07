@@ -1,4 +1,3 @@
-'use client'
 
 import { useState, useMemo } from 'react'
 import { Search, Info, Lock, ChevronDown, ChevronRight, Zap } from 'lucide-react'

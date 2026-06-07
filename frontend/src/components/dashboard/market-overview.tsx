@@ -1,4 +1,3 @@
-'use client'
 
 import { useState, useEffect } from "react"
 import { marketIndices, marketBreadth } from "@/lib/data/market"
