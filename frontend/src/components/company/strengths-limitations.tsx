@@ -1,4 +1,4 @@
-
+import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Company } from "@/lib/data/companies"
 import { Check, AlertTriangle } from "lucide-react"
@@ -54,10 +54,11 @@ export function StrengthsLimitations({ company }: { company: Company }) {
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 select-none">
-      <Card className="border-border shadow-none">
-        <CardHeader className="pb-2 bg-surfaceMuted/20 border-b border-border/50/50">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-textPrimary">
-            <span className="flex size-5 items-center justify-center rounded-full bg-positive-soft/40 text-positive border border-green-200 shrink-0">
+      {/* Pros / Strengths Card */}
+      <Card className="border-positive/20 bg-positive-soft/10 dark:bg-positive-soft/20 shadow-none">
+        <CardHeader className="pb-3 bg-positive-soft/20 border-b border-positive/10">
+          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
+            <span className="flex size-5 items-center justify-center rounded-full bg-positive text-white shrink-0">
               <Check className="size-3" />
             </span>
             Pros / Strengths
@@ -67,7 +68,7 @@ export function StrengthsLimitations({ company }: { company: Company }) {
           <ul className="space-y-3">
             {strengths.map((s, i) => (
               <li key={i} className="flex gap-2.5 text-xs font-medium text-textSecondary leading-relaxed">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-green-600" />
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-positive" />
                 <span>{s}</span>
               </li>
             ))}
@@ -75,10 +76,11 @@ export function StrengthsLimitations({ company }: { company: Company }) {
         </CardContent>
       </Card>
 
-      <Card className="border-border shadow-none">
-        <CardHeader className="pb-2 bg-surfaceMuted/20 border-b border-border/50/50">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-textPrimary">
-            <span className="flex size-5 items-center justify-center rounded-full bg-negative-soft/40 text-negative border border-red-200 shrink-0">
+      {/* Cons / Limitations Card */}
+      <Card className="border-negative/20 bg-negative-soft/10 dark:bg-negative-soft/20 shadow-none">
+        <CardHeader className="pb-3 bg-negative-soft/20 border-b border-negative/10">
+          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-negative">
+            <span className="flex size-5 items-center justify-center rounded-full bg-negative text-white shrink-0">
               <AlertTriangle className="size-3" />
             </span>
             Cons / Limitations
@@ -88,7 +90,7 @@ export function StrengthsLimitations({ company }: { company: Company }) {
           <ul className="space-y-3">
             {limitations.map((s, i) => (
               <li key={i} className="flex gap-2.5 text-xs font-medium text-textSecondary leading-relaxed">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-red-600" />
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-negative" />
                 <span>{s}</span>
               </li>
             ))}

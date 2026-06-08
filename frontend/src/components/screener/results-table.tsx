@@ -1,6 +1,8 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store/hooks'
+import { toast } from 'react-hot-toast'
 import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Settings2, Download, Bell, X, Columns3, TrendingUp, TrendingDown
@@ -112,6 +114,7 @@ function formatPrice(val: number): string {
 
 export function ScreenerResultsTable() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(1)
@@ -279,7 +282,20 @@ export function ScreenerResultsTable() {
               <Download className="w-3.5 h-3.5" />
               Export Excel
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error('Please sign in to create alerts.')
+                  const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+                  navigate(`/login?redirect=${redirectPath}`)
+                } else {
+                  showToast('✓ Alert dialog opened (mock)')
+                }
+              }}
+            >
               <Bell className="w-3.5 h-3.5" />
               Create Alert
             </Button>

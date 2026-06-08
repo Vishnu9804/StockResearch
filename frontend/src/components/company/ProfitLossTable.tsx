@@ -1,7 +1,6 @@
-
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useAppSelector } from '@/store/hooks'
-import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react'
+import { ChevronDown, ChevronRight, TrendingUp, BarChart3, Table2, FileSpreadsheet } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -14,13 +13,27 @@ import { Card, CardContent } from '@/components/ui/card'
 import { profitLoss, fiscalYears, type FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
+import { exportToCSV } from '@/utils/csv'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+} from 'recharts'
 
 export function ProfitLossTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table')
   const authUser = useAppSelector((state) => state.auth?.user)
   const isPro = authUser?.plan === 'PRO'
   const storeProfitLoss = useAppSelector((state) => state.company?.profitLoss)
   const activeProfitLoss = storeProfitLoss || profitLoss
+  const company = useAppSelector((state) => state.company?.data)
+  const symbol = company?.symbol || 'STOCK'
 
   const visibleYears = isPro ? fiscalYears : fiscalYears.slice(-5)
 
@@ -73,6 +86,36 @@ export function ProfitLossTable() {
     },
   ]
 
+  const handleExportCSV = () => {
+    const headers = ['Financial Metric', ...visibleYears]
+    const csvRows: (string | number | null)[][] = []
+
+    const addRow = (row: FinancialRow, depth = 0) => {
+      const label = '  '.repeat(depth) + row.label
+      const values = isPro ? row.values : row.values.slice(-5)
+      csvRows.push([label, ...values])
+      if (row.children) {
+        row.children.forEach((c) => addRow(c, depth + 1))
+      }
+    }
+
+    activeProfitLoss.forEach((row: FinancialRow) => addRow(row, 0))
+    exportToCSV(`${symbol.toLowerCase()}_profit_loss.csv`, headers, csvRows)
+  }
+
+  // Chart data extraction (Sales and Net Profit)
+  const salesRow = activeProfitLoss.find((r: FinancialRow) => r.label === 'Revenue from Operations')
+  const profitRow = activeProfitLoss.find((r: FinancialRow) => r.label === 'Net Profit')
+
+  const chartData = visibleYears.map((year, idx) => {
+    const yearIdx = isPro ? idx : idx + (fiscalYears.length - 5)
+    return {
+      year,
+      Sales: salesRow ? salesRow.values[yearIdx] : 0,
+      'Net Profit': profitRow ? profitRow.values[yearIdx] : 0,
+    }
+  })
+
   const renderRow = (row: FinancialRow, depth = 0) => {
     const hasChildren = row.children && row.children.length > 0
     const isExpanded = !!expandedRows[row.label]
@@ -88,7 +131,7 @@ export function ProfitLossTable() {
           )}
         >
           <TableCell
-            className="sticky left-0 bg-surface font-medium text-xs text-textPrimary flex items-center min-w-[200px]"
+            className="sticky left-0 bg-surface font-medium text-xs text-textPrimary flex items-center min-w-[200px] z-10"
             style={{ paddingLeft: `${depth * 16 + 12}px` }}
           >
             {hasChildren && (
@@ -127,9 +170,9 @@ export function ProfitLossTable() {
 
   return (
     <div className="space-y-6 select-none">
-      {/* P&L Table */}
+      {/* P&L statement card */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
+        <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-surfaceMuted/50">
           <div>
             <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
               Profit & Loss Statement
@@ -138,28 +181,114 @@ export function ProfitLossTable() {
               Annual consolidated figures in ₹ Crores (except EPS)
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            {/* View Mode Segmented Controls */}
+            <div className="flex items-center bg-surface border border-border rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('table')}
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  viewMode === 'table'
+                    ? 'bg-accent text-white'
+                    : 'text-textSecondary hover:text-textPrimary'
+                )}
+              >
+                <Table2 className="size-3" /> Table
+              </button>
+              <button
+                onClick={() => setViewMode('chart')}
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  viewMode === 'chart'
+                    ? 'bg-accent text-white'
+                    : 'text-textSecondary hover:text-textPrimary'
+                )}
+              >
+                <BarChart3 className="size-3" /> Chart
+              </button>
+            </div>
+            {/* Export CSV button */}
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+              title="Export statement to CSV"
+            >
+              <FileSpreadsheet className="size-3 text-positive" /> Export
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <Table className="min-w-[1000px]">
-            <TableHeader className="bg-surfaceMuted">
-              <TableRow>
-                <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted">
-                  Year Ending
-                </TableHead>
-                {visibleYears.map((y) => (
-                  <TableHead
-                    key={y}
-                    className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
-                  >
-                    {y}
+        {viewMode === 'table' ? (
+          <div className="overflow-x-auto">
+            <Table className="min-w-[1000px]">
+              <TableHeader className="bg-surfaceMuted">
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted z-10">
+                    Year Ending
                   </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>{activeProfitLoss.map((row: FinancialRow) => renderRow(row))}</TableBody>
-          </Table>
-        </div>
+                  {visibleYears.map((y) => (
+                    <TableHead
+                      key={y}
+                      className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                    >
+                      {y}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>{activeProfitLoss.map((row: FinancialRow) => renderRow(row))}</TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="p-6 bg-surface">
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                  <XAxis
+                    dataKey="year"
+                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    orientation="left"
+                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--color-popover)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 6,
+                      fontSize: 11,
+                    }}
+                    formatter={(value: any, name: string) => [
+                      value === null || value === undefined || isNaN(Number(value))
+                        ? '—'
+                        : `₹${formatNumber(Number(value), 2)} Cr`,
+                      name,
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
+                  <Bar yAxisId="left" name="Sales / Revenue" dataKey="Sales" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="right" name="Net Profit" dataKey="Net Profit" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
 
       {!isPro && (
@@ -198,9 +327,19 @@ export function ProfitLossTable() {
               <table className="w-full text-xs font-medium">
                 <tbody>
                   {item.stats.map((stat, i) => (
-                    <tr key={stat.period} className={cn('border-b last:border-0 hover:bg-surfaceMuted/50 transition-colors', i % 2 === 1 ? 'bg-surfaceMuted/20' : '')}>
-                      <td className="px-4 py-2.5 text-textSecondary font-semibold">{stat.period}:</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-textPrimary">{stat.value}</td>
+                    <tr
+                      key={stat.period}
+                      className={cn(
+                        'border-b last:border-0 hover:bg-surfaceMuted/50 transition-colors',
+                        i % 2 === 1 ? 'bg-surfaceMuted/20' : ''
+                      )}
+                    >
+                      <td className="px-4 py-2.5 text-textSecondary font-semibold">
+                        {stat.period}:
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-textPrimary">
+                        {stat.value}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -212,6 +351,4 @@ export function ProfitLossTable() {
     </div>
   )
 }
-
-import React from 'react'
 export default ProfitLossTable

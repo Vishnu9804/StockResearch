@@ -3,6 +3,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Plus, X, Play, Save, Sparkles, Code2, LayoutList, HelpCircle, BookOpen, Keyboard, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store/hooks'
+import { toast } from 'react-hot-toast'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -231,6 +234,8 @@ function ConnectorSelect({
 
 // ─── QueryBuilder ─────────────────────────────────────────────────────────────
 export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariables }: QueryBuilderProps) {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [mode, setMode] = useState<'visual' | 'sql'>('visual')
   const [filters, setFilters] = useState<FilterRow[]>(DEFAULT_FILTERS)
   const [sqlValue, setSqlValue] = useState(DEFAULT_SQL)
@@ -238,6 +243,16 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   const [isRunning, setIsRunning] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lineNumbersRef = useRef<HTMLDivElement>(null)
+
+  const handleSaveScreen = () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save screens.')
+      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+      navigate(`/login?redirect=${redirectPath}`)
+    } else {
+      toast.success('✓ Screen saved (mock)')
+    }
+  }
 
   useEffect(() => {
     if (!insertedVariable) return
@@ -318,14 +333,14 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
       <div className="flex-1 overflow-auto min-h-0">
         {mode === 'visual' ? (
           <VisualMode filters={filters} onAdd={addFilter} onRemove={removeFilter}
-            onUpdate={updateFilter} onRun={handleRun} isRunning={isRunning} />
+            onUpdate={updateFilter} onRun={handleRun} isRunning={isRunning} onSave={handleSaveScreen} />
         ) : (
           <SQLMode sqlValue={sqlValue} validation={sqlValidation}
             textareaRef={textareaRef} lineNumbersRef={lineNumbersRef}
             sqlLines={sqlValue.split('\n')}
             onSQLChange={(e) => { setSqlValue(e.target.value); setSqlValidation(validateSQL(e.target.value)) }}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleRun() } }}
-            onRun={handleRun} isRunning={isRunning} />
+            onRun={handleRun} isRunning={isRunning} onSave={handleSaveScreen} />
         )}
       </div>
     </div>
@@ -333,13 +348,14 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
 }
 
 // ─── Visual Mode ───────────────────────────────────────────────────────────────
-function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning }: {
+function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning, onSave }: {
   filters: FilterRow[]
   onAdd: () => void
   onRemove: (id: string) => void
   onUpdate: (id: string, patch: Partial<FilterRow>) => void
   onRun: () => void
   isRunning: boolean
+  onSave: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -374,7 +390,7 @@ function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning }: {
           <Play className="w-3.5 h-3.5" />
           {isRunning ? 'Running...' : 'Run Query'}
         </Button>
-        <Button variant="outline" className="h-9 px-4 text-sm gap-2">
+        <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
           <Save className="w-3.5 h-3.5" />
           Save Screen
         </Button>
@@ -503,7 +519,7 @@ function FilterRowUI({ filter, isFirst, onRemove, onUpdate }: {
 }
 
 // ─── SQL Mode ─────────────────────────────────────────────────────────────────
-function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, onSQLChange, onKeyDown, onRun, isRunning }: {
+function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, onSQLChange, onKeyDown, onRun, isRunning, onSave }: {
   sqlValue: string
   validation: { valid: boolean; message: string }
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
@@ -513,6 +529,7 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
   onRun: () => void
   isRunning: boolean
+  onSave: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -568,7 +585,7 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
           <kbd className="bg-gray-200 rounded px-1.5 py-0.5 text-xs font-mono">Enter</kbd>
         </div>
         <div className="ml-auto">
-          <Button variant="outline" className="h-9 px-4 text-sm gap-2">
+          <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
             <Save className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Save Screen</span>
           </Button>

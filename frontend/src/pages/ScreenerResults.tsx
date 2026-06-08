@@ -1,11 +1,15 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, Bell, Download, Columns3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScreenerResultsTable } from '@/components/screener/results-table'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
+import { useAppSelector } from '@/store/hooks'
+import { toast } from 'react-hot-toast'
 
 export function ScreenerResults() {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   return (
     <div className="min-h-screen bg-background">
       {/* Page Header */}
@@ -35,7 +39,20 @@ export function ScreenerResults() {
               <Download className="w-3.5 h-3.5" />
               Export Excel
             </Button>
-            <Button variant="outline" size="sm" className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-bold shadow-none gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error('Please sign in to create alerts.')
+                  const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+                  navigate(`/login?redirect=${redirectPath}`)
+                } else {
+                  toast.success('✓ Alert dialog opened (mock)')
+                }
+              }}
+              className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-bold shadow-none gap-2"
+            >
               <Bell className="w-3.5 h-3.5" />
               Create Alert
             </Button>

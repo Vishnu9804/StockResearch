@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { useForm } from 'react-hook-form'
@@ -33,14 +33,21 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 export default function Register() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
+  const [searchParams] = useSearchParams()
   const { isAuthenticated, status } = useAppSelector((state) => state.auth)
+
+  const redirect = searchParams.get('redirect')
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/')
+      if (redirect) {
+        navigate(decodeURIComponent(redirect))
+      } else {
+        navigate('/')
+      }
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, redirect])
 
   const {
     register,
@@ -179,7 +186,11 @@ export default function Register() {
         type="button"
         variant="outline"
         onClick={() => {
-          navigate('/')
+          if (redirect) {
+            navigate(decodeURIComponent(redirect))
+          } else {
+            navigate('/')
+          }
         }}
         className="w-full h-10 font-bold text-xs uppercase border-border hover:bg-surfaceMuted text-textSecondary shadow-none flex items-center justify-center gap-2"
       >
@@ -207,7 +218,7 @@ export default function Register() {
       {/* Footer Link */}
       <div className="text-center text-xs font-semibold text-textSecondary">
         Already have an account?{' '}
-        <Link to="/login" className="text-accent hover:underline">
+        <Link to={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"} className="text-accent hover:underline">
           Sign In
         </Link>
       </div>

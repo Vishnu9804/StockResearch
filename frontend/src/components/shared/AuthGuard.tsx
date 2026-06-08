@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
 import { TrendingUp } from 'lucide-react'
 
@@ -9,15 +9,17 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAuthenticated, status } = useAppSelector((state) => state.auth)
 
   // Redirect to login only when auth check is complete and user is not authenticated.
   // Does NOT dispatch checkAuthStart — that is done once in rootSaga's initSaga.
   useEffect(() => {
     if (status !== 'loading' && status !== 'idle' && !isAuthenticated) {
-      navigate('/login')
+      const redirectPath = encodeURIComponent(location.pathname + location.search)
+      navigate(`/login?redirect=${redirectPath}`)
     }
-  }, [isAuthenticated, status, navigate])
+  }, [isAuthenticated, status, navigate, location])
 
   // Only show the loading splash while auth check is in progress.
   // When status === 'success' and isAuthenticated is true, render children immediately.

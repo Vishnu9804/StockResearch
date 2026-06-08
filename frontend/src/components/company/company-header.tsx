@@ -16,15 +16,25 @@ import { toggleWatchlist } from '@/store/slices/companySlice'
 import { addNotification } from '@/store/slices/notificationsSlice'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 
 export function CompanyHeader({ company }: { company: Company }) {
   const dispatch = useAppDispatch()
+  const navigate = useNavigate()
   const watchlist = useAppSelector((state) => state.company.watchlist)
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   const isWatched = watchlist.includes(company.symbol)
 
   const positive = company.change >= 0
 
   const handleWatchToggle = () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to add companies to your watchlist.')
+      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+      navigate(`/login?redirect=${redirectPath}`)
+      return
+    }
     dispatch(toggleWatchlist(company.symbol))
     dispatch(
       addNotification({

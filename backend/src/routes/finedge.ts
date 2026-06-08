@@ -21,9 +21,6 @@ import {
 
 export const finedgeRouter = Router()
 
-// Protect all /api/finscreen endpoints (user must be signed in)
-finedgeRouter.use(authGuard)
-
 // Specific domain endpoints
 finedgeRouter.get('/company/:symbol/profile', getCompanyProfile)
 finedgeRouter.get('/company/:symbol/financials/pl', getCompanyPL)

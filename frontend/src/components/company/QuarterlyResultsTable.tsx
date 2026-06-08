@@ -1,7 +1,6 @@
-
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useAppSelector } from '@/store/hooks'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSpreadsheet } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -13,11 +12,14 @@ import {
 import { quarterlyResults, quarters, type FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
+import { exportToCSV } from '@/utils/csv'
 
 export function QuarterlyResultsTable() {
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
   const storeQuarterly = useAppSelector((state) => (state.company as any)?.quarterly)
   const activeQuarterly = storeQuarterly || quarterlyResults
+  const company = useAppSelector((state) => state.company?.data)
+  const symbol = company?.symbol || 'STOCK'
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -26,6 +28,22 @@ export function QuarterlyResultsTable() {
   const renderValue = (val: number | null, isPercent?: boolean) => {
     if (val === null) return '—'
     return isPercent ? `${formatNumber(val, 2)}%` : formatIndian(val)
+  }
+
+  const handleExportCSV = () => {
+    const headers = ['Quarter Ending', ...quarters]
+    const csvRows: (string | number | null)[][] = []
+
+    const addRow = (row: FinancialRow, depth = 0) => {
+      const label = '  '.repeat(depth) + row.label
+      csvRows.push([label, ...row.values])
+      if (row.children) {
+        row.children.forEach((c) => addRow(c, depth + 1))
+      }
+    }
+
+    activeQuarterly.forEach((row: FinancialRow) => addRow(row, 0))
+    exportToCSV(`${symbol.toLowerCase()}_quarterly_results.csv`, headers, csvRows)
   }
 
   const renderRow = (row: FinancialRow, depth = 0) => {
@@ -42,7 +60,7 @@ export function QuarterlyResultsTable() {
           )}
         >
           <TableCell
-            className="sticky left-0 bg-surface font-medium text-xs text-textPrimary flex items-center min-w-[200px]"
+            className="sticky left-0 bg-surface font-medium text-xs text-textPrimary flex items-center min-w-[200px] z-10"
             style={{ paddingLeft: `${depth * 16 + 12}px` }}
           >
             {hasChildren && (
@@ -90,13 +108,20 @@ export function QuarterlyResultsTable() {
             Consolidated Figures in ₹ Crores (except EPS)
           </p>
         </div>
+        <button
+          onClick={handleExportCSV}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+          title="Export quarterly results to CSV"
+        >
+          <FileSpreadsheet className="size-3 text-positive" /> Export
+        </button>
       </div>
 
       <div className="overflow-x-auto">
         <Table className="min-w-[800px]">
           <TableHeader className="bg-surfaceMuted">
             <TableRow>
-              <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted">
+              <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted z-10">
                 Quarter Ending
               </TableHead>
               {quarters.map((q) => (
@@ -115,6 +140,4 @@ export function QuarterlyResultsTable() {
     </div>
   )
 }
-
-import React from 'react'
 export default QuarterlyResultsTable

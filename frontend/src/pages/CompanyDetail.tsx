@@ -76,6 +76,7 @@ export function CompanyDetail() {
 
   const companyData = useAppSelector((state) => state.company.data)
   const companyStatus = useAppSelector((state) => state.company.status)
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
 
   useEffect(() => {
     if (symbol) {
@@ -125,9 +126,21 @@ export function CompanyDetail() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background overflow-hidden font-sans">
+    <div className="flex flex-col min-h-screen bg-background font-sans">
       {/* 1. Header Section */}
       <CompanyHeader company={company} />
+
+      {!isAuthenticated && (
+        <div className="bg-accentSoft/30 border-b border-accent/15 px-6 py-2.5 flex items-center justify-between text-xs text-textSecondary select-none">
+          <div className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            <span>Create a free account to save this company to your watchlist and get alerts.</span>
+          </div>
+          <Link to={`/register?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="font-bold text-accent hover:underline uppercase tracking-wider text-[11px] shrink-0 ml-4">
+            Sign Up Free
+          </Link>
+        </div>
+      )}
 
       {/* 2. Key Fundamentals Flat Grid */}
       <KeyMetricsGrid {...company} />
@@ -138,7 +151,7 @@ export function CompanyDetail() {
       {/* 4. Anchor Content Areas */}
       <div className="px-6 py-8 space-y-12 max-w-[1600px] mx-auto w-full">
         {/* SECTION: Overview & About */}
-        <section id="overview" className="scroll-mt-36">
+        <section id="overview" className="scroll-mt-16">
           <ScrollReveal className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <Card className="xl:col-span-2 border-border shadow-none bg-surface">
               <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
@@ -213,7 +226,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Price Chart */}
-        <section id="chart" className="scroll-mt-36">
+        <section id="chart" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <PriceChart
@@ -227,7 +240,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Peer Comparison */}
-        <section id="peers" className="scroll-mt-36">
+        <section id="peers" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <PeerComparison symbol={company.symbol} sector={company.sector} />
@@ -236,7 +249,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Quarterly Results */}
-        <section id="quarters" className="scroll-mt-36">
+        <section id="quarters" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <QuarterlyResultsTable />
@@ -245,7 +258,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Profit & Loss */}
-        <section id="pl" className="scroll-mt-36">
+        <section id="pl" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <ProfitLossTable />
@@ -254,7 +267,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Balance Sheet */}
-        <section id="balance-sheet" className="scroll-mt-36">
+        <section id="balance-sheet" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <BalanceSheetTable />
@@ -263,7 +276,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Cash Flow */}
-        <section id="cash-flow" className="scroll-mt-36">
+        <section id="cash-flow" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <CashFlowTable />
@@ -272,7 +285,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Key Ratios */}
-        <section id="ratios" className="scroll-mt-36">
+        <section id="ratios" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <RatiosTable
@@ -286,7 +299,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Analyst Consensus */}
-        <section id="analyst" className="scroll-mt-36">
+        <section id="analyst" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <AnalystConsensus
@@ -299,7 +312,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Shareholding Pattern */}
-        <section id="shareholding" className="scroll-mt-36">
+        <section id="shareholding" className="scroll-mt-16">
           <ScrollReveal className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <Suspense fallback={<SectionSkeleton />}>
               <ShareholdingChart />
@@ -311,7 +324,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Corporate Actions */}
-        <section id="corporate-actions" className="scroll-mt-36">
+        <section id="corporate-actions" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <CorporateActionsTable />
@@ -320,7 +333,7 @@ export function CompanyDetail() {
         </section>
 
         {/* SECTION: Documents List */}
-        <section id="documents" className="scroll-mt-36">
+        <section id="documents" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <DocumentsList />

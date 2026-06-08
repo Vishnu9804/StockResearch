@@ -4,7 +4,6 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { IndicesTicker } from '@/components/layout/IndicesTicker'
 import { NotificationCenter } from '@/components/layout/NotificationCenter'
-import { AuthGuard } from '@/components/shared/AuthGuard'
 import { CommandPalette } from '@/components/shared/CommandPalette'
 
 export function DashboardLayout() {
@@ -34,38 +33,36 @@ export function DashboardLayout() {
   }, [])
 
   return (
-    <AuthGuard>
-      <div className="flex h-screen overflow-hidden bg-slate-50 font-sans antialiased text-slate-900">
-        {/* Sidebar Navigation (Left) */}
-        <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans antialiased text-slate-900">
+      {/* Sidebar Navigation (Left) */}
+      <Sidebar />
 
-        {/* Main Content Area (Right) */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Market Indices Ticker Bar */}
-          <IndicesTicker />
+      {/* Main Content Area (Right) */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Market Indices Ticker Bar */}
+        <IndicesTicker />
 
-          {/* Top Header Bar */}
-          <Topbar onOpenPalette={() => setPaletteOpen(true)} />
+        {/* Top Header Bar */}
+        <Topbar onOpenPalette={() => setPaletteOpen(true)} />
 
-          {/* Dynamic Route Content
-              IMPORTANT: key={location.pathname} has been removed from this wrapper.
-              It was causing React to fully unmount+remount every page component on
-              every navigation, firing all 9 company API calls on each route change.
-              The fade animation is retained via the animate-fade-in-up CSS class. */}
-          <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50">
-            <div className="animate-fade-in-up">
-              <Outlet />
-            </div>
-          </main>
-        </div>
-
-        {/* Notifications Drawer (Global Portal) */}
-        <NotificationCenter />
-
-        {/* Global Command Palette */}
-        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        {/* Dynamic Route Content
+            IMPORTANT: key={location.pathname} has been removed from this wrapper.
+            It was causing React to fully unmount+remount every page component on
+            every navigation, firing all 9 company API calls on each route change.
+            The fade animation is retained via the animate-fade-in-up CSS class. */}
+        <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50">
+          <div className="animate-fade-in-up">
+            <Outlet />
+          </div>
+        </main>
       </div>
-    </AuthGuard>
+
+      {/* Notifications Drawer (Global Portal) */}
+      <NotificationCenter />
+
+      {/* Global Command Palette */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    </div>
   )
 }
 

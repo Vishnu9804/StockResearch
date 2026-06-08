@@ -10,9 +10,12 @@ import { Text } from "@/components/ui/Text"
 import { marketBreadth } from "@/lib/data/market"
 import { useMarketStatus } from "@/hooks/useMarketStatus"
 import { cn } from "@/lib/utils"
+import { Link } from "react-router-dom"
+import { useAppSelector } from "@/store/hooks"
 
 export function Home() {
   const marketStatus = useMarketStatus()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Header */}
@@ -61,6 +64,18 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      {!isAuthenticated && (
+        <div className="mx-6 mt-4 p-4 rounded-xl bg-accentSoft/30 border border-accent/15 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-textSecondary select-none">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-accent shrink-0 animate-pulse" />
+            <span>Track your personal watchlist, build custom screeners, and get real-time price alerts. Join FinScreen today.</span>
+          </div>
+          <Link to="/register" className="font-bold text-accent hover:underline uppercase tracking-wider text-[11px] shrink-0">
+            Create Free Account
+          </Link>
+        </div>
+      )}
 
       <div className="px-4 py-5 lg:px-6 lg:py-6 space-y-5">
 

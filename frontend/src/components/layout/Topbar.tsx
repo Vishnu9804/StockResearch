@@ -297,111 +297,133 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
           {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
 
-        {/* Notification Bell — badge shows "9+" for double-digit counts with pill shape */}
-        <button
-          onClick={() => dispatch(toggleDrawer())}
-          aria-label="Notifications"
-          className="relative p-1.5 rounded-full hover:bg-surfaceMuted transition-colors text-textSecondary hover:text-textPrimary focus:outline-none"
-        >
-          <Bell className="size-4.5" />
-          {unreadCount > 0 && (
-            <span
-              className={cn(
-                'absolute top-0.5 right-0.5 bg-negative border-2 border-surface flex items-center justify-center text-[7px] font-bold text-white leading-none',
-                badgeIsPill
-                  ? 'rounded-full px-1 py-0.5 min-w-[16px] h-4'
-                  : 'rounded-full size-3.5'
-              )}
+        {user ? (
+          <>
+            {/* Notification Bell — badge shows "9+" for double-digit counts with pill shape */}
+            <button
+              onClick={() => dispatch(toggleDrawer())}
+              aria-label="Notifications"
+              className="relative p-1.5 rounded-full hover:bg-surfaceMuted transition-colors text-textSecondary hover:text-textPrimary focus:outline-none"
             >
-              {badgeLabel}
-            </span>
-          )}
-        </button>
+              <Bell className="size-4.5" />
+              {unreadCount > 0 && (
+                <span
+                  className={cn(
+                    'absolute top-0.5 right-0.5 bg-negative border-2 border-surface flex items-center justify-center text-[7px] font-bold text-white leading-none',
+                    badgeIsPill
+                      ? 'rounded-full px-1 py-0.5 min-w-[16px] h-4'
+                      : 'rounded-full size-3.5'
+                  )}
+                >
+                  {badgeLabel}
+                </span>
+              )}
+            </button>
 
-        {/* User Account Avatar with Custom Dropdown Menu */}
-        <div className="relative font-sans" ref={profileMenuRef}>
-          <button
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-2 focus:outline-none"
-            aria-label="Toggle profile menu"
-          >
-            <Avatar className="size-8 cursor-pointer border border-border hover:ring-2 hover:ring-accent/20 hover:border-accent transition-all">
-              <AvatarImage src="" />
-              <AvatarFallback className="bg-accentSoft text-accent text-xs font-bold font-sans">
-                {userInitials}
-              </AvatarFallback>
-            </Avatar>
-          </button>
+            {/* User Account Avatar with Custom Dropdown Menu */}
+            <div className="relative font-sans" ref={profileMenuRef}>
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center gap-2 focus:outline-none"
+                aria-label="Toggle profile menu"
+              >
+                <Avatar className="size-8 cursor-pointer border border-border hover:ring-2 hover:ring-accent/20 hover:border-accent transition-all">
+                  <AvatarImage src="" />
+                  <AvatarFallback className="bg-accentSoft text-accent text-xs font-bold font-sans">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
 
-          {/* Profile Dropdown */}
-          {showProfileMenu && (
-            <div className="absolute right-0 mt-2.5 w-56 bg-surface border border-border rounded-xl shadow-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              {/* User Identity Info */}
-              <div className="px-4 py-3 bg-surfaceMuted border-b border-border/50 flex flex-col gap-0.5">
-                <p className="text-xs font-bold text-textPrimary truncate">{user?.name || 'FinScreen User'}</p>
-                <p className="text-[10px] text-textSecondary font-medium truncate">{user?.email || 'user@finscreen.in'}</p>
-                <div className="mt-1.5 flex items-center">
-                  <span className={cn(
-                    'text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none',
-                    user?.plan === 'PRO' ? 'bg-warning-soft/40 text-warning border-amber-200' : 'bg-surfaceMuted text-textSecondary border-border'
-                  )}>
-                    {user?.plan || 'FREE'} Tier
-                  </span>
+              {/* Profile Dropdown */}
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2.5 w-56 bg-surface border border-border rounded-xl shadow-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  {/* User Identity Info */}
+                  <div className="px-4 py-3 bg-surfaceMuted border-b border-border/50 flex flex-col gap-0.5">
+                    <p className="text-xs font-bold text-textPrimary truncate">{user?.name || 'FinScreen User'}</p>
+                    <p className="text-[10px] text-textSecondary font-medium truncate">{user?.email || 'user@finscreen.in'}</p>
+                    <div className="mt-1.5 flex items-center">
+                      <span className={cn(
+                        'text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none',
+                        user?.plan === 'PRO' ? 'bg-warning-soft/40 text-warning border-amber-200' : 'bg-surfaceMuted text-textSecondary border-border'
+                      )}>
+                        {user?.plan || 'FREE'} Tier
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Menu Links */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        navigate('/account')
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
+                    >
+                      <UserIcon className="size-4 text-textMuted" />
+                      My Account
+                    </button>
+                    {user?.plan === 'FREE' && (
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false)
+                          navigate('/pricing')
+                        }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-accent hover:text-accent/90 hover:bg-accentSoft/50 transition-colors text-left"
+                      >
+                        <ShieldAlert className="size-4 text-accent" />
+                        Upgrade to PRO
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        navigate('/account?tab=settings')
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
+                    >
+                      <Settings className="size-4 text-textMuted" />
+                      Account Settings
+                    </button>
+                  </div>
+
+                  {/* Logout Button */}
+                  <div className="border-t border-border/50 py-1 bg-surfaceMuted/30">
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        dispatch(logoutStart())
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-negative hover:text-negative/90 hover:bg-negative-soft transition-colors text-left"
+                    >
+                      <LogOut className="size-4 text-negative" />
+                      Log Out
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Menu Links */}
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false)
-                    navigate('/account')
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
-                >
-                  <UserIcon className="size-4 text-textMuted" />
-                  My Account
-                </button>
-                {user?.plan === 'FREE' && (
-                  <button
-                    onClick={() => {
-                      setShowProfileMenu(false)
-                      navigate('/pricing')
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-accent hover:text-accent/90 hover:bg-accentSoft/50 transition-colors text-left"
-                  >
-                    <ShieldAlert className="size-4 text-accent" />
-                    Upgrade to PRO
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false)
-                    navigate('/account?tab=settings')
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
-                >
-                  <Settings className="size-4 text-textMuted" />
-                  Account Settings
-                </button>
-              </div>
-
-              {/* Logout Button */}
-              <div className="border-t border-border/50 py-1 bg-surfaceMuted/30">
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false)
-                    dispatch(logoutStart())
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-negative hover:text-negative/90 hover:bg-negative-soft transition-colors text-left"
-                >
-                  <LogOut className="size-4 text-negative" />
-                  Log Out
-                </button>
-              </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/login')}
+              className="text-textSecondary hover:text-textPrimary font-semibold text-xs h-9 px-3 hover:bg-surfaceMuted"
+            >
+              Login
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate('/register')}
+              className="bg-accent hover:bg-accent/90 text-white font-semibold text-xs h-9 px-3 shadow-none"
+            >
+              Register
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   )

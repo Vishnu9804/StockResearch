@@ -7,12 +7,14 @@ import { QueryBuilder } from '@/components/screener/query-builder'
 import { VariablesSidebar, type Variable } from '@/components/screener/variables-sidebar'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
-import { useAppDispatch } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { toast } from 'react-hot-toast'
 import { runScreenerStart } from '@/store/slices/screenerSlice'
 
 export function Screener() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [insertedVariable, setInsertedVariable] = useState<Variable | null>(null)
 
   const handleInsert = useCallback((variable: Variable) => {
@@ -74,6 +76,15 @@ export function Screener() {
 
             <Button
               variant="outline"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error('Please sign in to save screens.')
+                  const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+                  navigate(`/login?redirect=${redirectPath}`)
+                } else {
+                  toast.success('✓ Screen saved (mock)')
+                }
+              }}
               className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-bold shadow-none"
             >
               <Save className="w-3.5 h-3.5" />

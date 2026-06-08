@@ -1,0 +1,28 @@
+/**
+ * Serializes data array to a CSV string and triggers a browser download.
+ */
+export function exportToCSV(filename: string, headers: string[], rows: (string | number | null)[][]) {
+  const escapeCell = (cell: any) => {
+    if (cell === null || cell === undefined) return '';
+    const str = String(cell);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const headerRow = headers.map(escapeCell).join(',');
+  const bodyRows = rows.map(row => row.map(escapeCell).join(',')).join('\n');
+  const csvContent = `${headerRow}\n${bodyRows}`;
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
