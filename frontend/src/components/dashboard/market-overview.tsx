@@ -1,10 +1,8 @@
-
-import { useState, useEffect } from "react"
-import { marketIndices, marketBreadth } from "@/lib/data/market"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatNumber, formatPct, changeClass } from "@/lib/formatters"
 import { MetricCard } from "@/components/shared/metric-card"
 import { Link } from "react-router-dom"
+import { marketIndices, marketBreadth } from "@/lib/data/market"
 
 // Map display names to URL slugs for deep linking
 const INDEX_SLUG: Record<string, string> = {
@@ -20,16 +18,13 @@ const INDEX_SLUG: Record<string, string> = {
   'NIFTY METAL': 'NIFTY50',
 }
 
-export function MarketOverview() {
-  const [loading, setLoading] = useState(true)
-  const featured = marketIndices.slice(0, 4)
+interface MarketOverviewProps {
+  loading: boolean
+  indices: any[]
+}
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (loading) {
+export function MarketOverview({ loading, indices }: MarketOverviewProps) {
+  if (loading || !indices || indices.length === 0) {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -51,37 +46,70 @@ export function MarketOverview() {
     )
   }
 
+  // Find live indices or use fallback from static data
+  const nifty50Live = indices.find(idx => idx.index_symbol === 'NIF50')
+  const sensexLive = indices.find(idx => idx.index_symbol === 'SNSXSENSEX' || idx.index_symbol === 'SNSXBSE30')
+  const bankNiftyLive = indices.find(idx => idx.index_symbol === 'NIFBAN')
+  const niftyItLive = indices.find(idx => idx.index_symbol === 'NIFIT')
+
+  const featured = [
+    {
+      name: 'NIFTY 50',
+      value: nifty50Live ? nifty50Live.close_price : marketIndices[0].value,
+      change: nifty50Live ? nifty50Live.points_change : marketIndices[0].change,
+      changePct: nifty50Live ? nifty50Live.change_pct : marketIndices[0].changePct,
+    },
+    {
+      name: 'SENSEX',
+      value: sensexLive ? sensexLive.close_price : marketIndices[1].value,
+      change: sensexLive ? sensexLive.points_change : marketIndices[1].change,
+      changePct: sensexLive ? sensexLive.change_pct : marketIndices[1].changePct,
+    },
+    {
+      name: 'BANK NIFTY',
+      value: bankNiftyLive ? bankNiftyLive.close_price : marketIndices[2].value,
+      change: bankNiftyLive ? bankNiftyLive.points_change : marketIndices[2].change,
+      changePct: bankNiftyLive ? bankNiftyLive.change_pct : marketIndices[2].changePct,
+    },
+    {
+      name: 'NIFTY IT',
+      value: niftyItLive ? niftyItLive.close_price : marketIndices[3].value,
+      change: niftyItLive ? niftyItLive.points_change : marketIndices[3].change,
+      changePct: niftyItLive ? niftyItLive.change_pct : marketIndices[3].changePct,
+    },
+  ]
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 animate-count-up">
-      {featured.map((idx) => {
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {featured.map((idx, i) => {
         const positive = idx.change >= 0
         const slug = INDEX_SLUG[idx.name] ?? 'NIFTY50'
         return (
           <Link key={idx.name} to={`/index/${slug}`} className="block">
-            <Card className="hover:border-accent/40 hover:shadow-md transition-all duration-200 cursor-pointer bg-surface">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
+            <Card className={`hover:border-accent/30 cursor-pointer bg-surface rounded-2xl animate-count-up stagger-${Math.min(i + 1, 4)}`}>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-5">
                 <div>
-                  <CardTitle className="text-sm font-semibold tracking-tight">
+                  <CardTitle className="text-sm font-bold tracking-tight text-textPrimary">
                     {idx.name}
                   </CardTitle>
-                  <p className="text-[11px] text-muted-foreground">NSE Index</p>
+                  <p className="text-[10px] text-textMuted font-medium mt-0.5">NSE Index</p>
                 </div>
                 <span
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-mono tabular ${
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-bold tabular-nums ${
                     positive
-                      ? "bg-positive-soft text-positive"
-                      : "bg-negative-soft text-negative"
+                      ? 'bg-positive-soft text-positive'
+                      : 'bg-negative-soft text-negative'
                   }`}
                 >
                   {formatPct(idx.changePct)}
                 </span>
               </CardHeader>
-              <CardContent>
-                <div className="font-mono tabular text-2xl font-semibold tracking-tight text-textPrimary">
+              <CardContent className="px-5 pb-4">
+                <div className="font-mono tabular text-xl font-black tracking-tight text-textPrimary">
                   {formatNumber(idx.value, 2)}
                 </div>
-                <div className={`mt-1 font-mono tabular text-xs ${changeClass(idx.change)}`}>
-                  {idx.change >= 0 ? "+" : ""}
+                <div className={`mt-1 font-mono tabular text-xs font-semibold ${changeClass(idx.change)}`}>
+                  {idx.change >= 0 ? '+' : ''}
                   {formatNumber(idx.change, 2)} pts
                 </div>
               </CardContent>
@@ -93,15 +121,14 @@ export function MarketOverview() {
   )
 }
 
-export function BreadthCards() {
-  const [loading, setLoading] = useState(true)
+interface BreadthCardsProps {
+  loading: boolean
+  indices: any[]
+  quotes: Record<string, any>
+}
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (loading) {
+export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
+  if (loading || !quotes || Object.keys(quotes).length === 0) {
     return (
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -117,9 +144,35 @@ export function BreadthCards() {
     )
   }
 
-  const total = marketBreadth.advances + marketBreadth.declines + marketBreadth.unchanged
-  const advPct = (marketBreadth.advances / total) * 100
-  const decPct = (marketBreadth.declines / total) * 100
+  // Calculate Advances and Declines from live quotes
+  let advances = 0
+  let declines = 0
+  let unchanged = 0
+
+  Object.values(quotes).forEach((q: any) => {
+    if (q && q.change) {
+      const changeVal = parseFloat(q.change.replace('%', ''))
+      if (changeVal > 0) advances++
+      else if (changeVal < 0) declines++
+      else unchanged++
+    }
+  })
+
+  // Fallback to mock breadth if quotes are empty
+  if (advances === 0 && declines === 0) {
+    advances = marketBreadth.advances
+    declines = marketBreadth.declines
+    unchanged = marketBreadth.unchanged
+  }
+
+  const total = advances + declines + unchanged
+  const advPct = total > 0 ? (advances / total) * 100 : 50
+  const decPct = total > 0 ? (declines / total) * 100 : 50
+
+  // Find India VIX from indices
+  const vixLive = indices?.find(idx => idx.index_symbol === 'INDVIX')
+  const vixValue = vixLive ? vixLive.close_price : marketBreadth.vix
+  const vixChangePct = vixLive ? vixLive.change_pct : marketBreadth.vixChangePct
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4 animate-count-up">
@@ -130,11 +183,11 @@ export function BreadthCards() {
           </div>
           <div className="mt-1 flex items-baseline gap-2 font-mono tabular">
             <span className="text-positive text-xl font-semibold">
-              {marketBreadth.advances}
+              {advances}
             </span>
             <span className="text-muted-foreground">/</span>
             <span className="text-negative text-xl font-semibold">
-              {marketBreadth.declines}
+              {declines}
             </span>
           </div>
           <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-muted">
@@ -146,8 +199,8 @@ export function BreadthCards() {
 
       <MetricCard
         label="India VIX"
-        value={formatNumber(marketBreadth.vix, 2)}
-        changePct={marketBreadth.vixChangePct}
+        value={formatNumber(vixValue, 2)}
+        changePct={vixChangePct}
         hint="Volatility index"
       />
 

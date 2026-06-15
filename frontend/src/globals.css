@@ -1,38 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* FinScreen brand colors - light mode only */
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  /* ── Light mode palette ── */
+  --background: #F4F7FB;
+  --foreground: #0D1829;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #0D1829;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --primary: #1D4ED8;
+  --popover-foreground: #0D1829;
+
+  /* Primary accent — vivid modern blue */
+  --primary: #2563EB;
   --primary-foreground: #FFFFFF;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #0F172A;
-  --muted: #F9FAFB;
-  --muted-foreground: #64748B;
-  --accent: #EFF6FF;
-  --accent-foreground: #1D4ED8;
+
+  --secondary: #F1F4F9;
+  --secondary-foreground: #0D1829;
+  --muted: #F8FAFC;
+  --muted-foreground: #5A6A7E;
+  --accent: #EEF4FF;
+  --accent-foreground: #2563EB;
   --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #1D4ED8;
-  --radius: 0.5rem;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #2563EB;
+  --radius: 0.625rem;
+
+  /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #0F172A;
-  --sidebar-primary: #1D4ED8;
+  --sidebar-foreground: #0D1829;
+  --sidebar-primary: #2563EB;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EFF6FF;
-  --sidebar-accent-foreground: #1D4ED8;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #1D4ED8;
+  --sidebar-accent: #EEF4FF;
+  --sidebar-accent-foreground: #2563EB;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #2563EB;
 
   /* Financial semantic colors */
   --positive: #16A34A;
@@ -43,30 +50,39 @@
   --warning-soft: #FFFBEB;
 
   /* Chart colors */
-  --chart-1: #1D4ED8;
+  --chart-1: #2563EB;
   --chart-2: #16A34A;
   --chart-3: #DC2626;
   --chart-4: #0EA5E9;
   --chart-5: #8B5CF6;
 
-  /* Centralized Theme Semantic Variables */
+  /* ── Semantic design tokens ── */
   --surface: #FFFFFF;
-  --surface-muted: #F9FAFB;
-  --text-primary: #0F172A;
-  --text-secondary: #64748B;
-  --text-muted: #94A3B8;
-  --accent-soft: #EFF6FF;
+  --surface-muted: #F8FAFC;
+  --text-primary: #0D1829;
+  --text-secondary: #5A6A7E;
+  --text-muted: #8A99AD;
+  --accent-color: #2563EB;
+  --accent-soft: #EEF4FF;
   --info: #0EA5E9;
-  --table-row-hover: #EFF6FF;
+  --table-row-hover: #EEF4FF;
   --skeleton-base: #E2E8F0;
   --skeleton-highlight: #F1F5F9;
+
+  /* ── Shadow scale ── */
+  --shadow-xs: 0 1px 2px rgba(13, 24, 41, 0.04);
+  --shadow-sm: 0 1px 3px rgba(13, 24, 41, 0.06), 0 1px 6px rgba(13, 24, 41, 0.04);
+  --shadow-md: 0 4px 12px rgba(13, 24, 41, 0.08), 0 2px 6px rgba(13, 24, 41, 0.04);
+  --shadow-lg: 0 12px 32px rgba(13, 24, 41, 0.10), 0 4px 12px rgba(13, 24, 41, 0.06);
+  --shadow-xl: 0 24px 48px rgba(13, 24, 41, 0.14), 0 8px 20px rgba(13, 24, 41, 0.08);
+  --shadow-accent: 0 4px 16px rgba(37, 99, 235, 0.20);
 }
 
 @theme inline {
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
-  /* Centralized design tokens mapped to classes */
+  /* ── Color token mappings ── */
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surfaceMuted: var(--surface-muted);
@@ -116,150 +132,160 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
 
+  /* ── Radius scale ── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1rem;
+
+  /* ── Core animations ── */
   --animate-fade-in-up: fadeInUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-shake: shake 0.4s ease-in-out;
-  --animate-scale-in: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  --animate-slide-in-left: slideInLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-slide-in-right: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-scale-in: scaleIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-slide-in-left: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-right: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-down: slideInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
   @keyframes fadeInUp {
-    0% {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-4px); }
-    40%, 80% { transform: translateX(4px); }
+    20%, 60%  { transform: translateX(-4px); }
+    40%, 80%  { transform: translateX(4px); }
   }
-
   @keyframes scaleIn {
-    0% {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
   }
-
   @keyframes slideInLeft {
-    0% {
-      opacity: 0;
-      transform: translateX(-12px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
-
   @keyframes slideInRight {
-    0% {
-      opacity: 0;
-      transform: translateX(12px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
 
+/* ─── Base layer ─────────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-feature-settings: 'cv11', 'ss01';
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'kern';
+    font-optical-sizing: auto;
   }
   .font-mono, code, pre, kbd {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
   }
+
+  /* Native scrollbar styling for main content area */
+  main::-webkit-scrollbar {
+    width: 5px;
+  }
+  main::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  main::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+  }
+  main::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 }
 
+/* ─── Utility layer ──────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* Tabular numbers for financial data alignment */
+  /* Tabular numbers for financial data */
   .tabular {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
   }
 
   /* Financial semantic color utilities */
-  .text-positive { color: var(--positive); }
-  .text-negative { color: var(--negative); }
+  .text-positive  { color: var(--positive); }
+  .text-negative  { color: var(--negative); }
   .bg-positive-soft { background-color: var(--positive-soft); }
   .bg-negative-soft { background-color: var(--negative-soft); }
-  .border-positive { border-color: var(--positive); }
-  .border-negative { border-color: var(--negative); }
+  .border-positive  { border-color: var(--positive); }
+  .border-negative  { border-color: var(--negative); }
 
-  /* Hide scrollbar but allow scrolling */
+  /* Hide scrollbar but keep scrolling */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Gradient text utility */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--primary) 0%, #60A5FA 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
+  .dark .text-gradient {
+    background: linear-gradient(135deg, #60A5FA 0%, #93C5FD 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Stagger animation delays */
+  .stagger-1 { animation-delay: 60ms; }
+  .stagger-2 { animation-delay: 120ms; }
+  .stagger-3 { animation-delay: 180ms; }
+  .stagger-4 { animation-delay: 240ms; }
 }
 
-/* Indices ticker scrolling animation */
+/* ─── Indices ticker ─────────────────────────────────────────────────────────── */
 @keyframes ticker-scroll {
-  0% { transform: translateX(0); }
+  0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 .ticker-track {
-  animation: ticker-scroll 45s linear infinite;
+  animation: ticker-scroll 50s linear infinite;
   display: flex;
+  flex-shrink: 0;
   width: max-content;
   will-change: transform;
 }
+.ticker-track:hover { animation-play-state: paused; }
 
-.ticker-track:hover {
-  animation-play-state: paused;
-}
-
-/* Expandable table row animation */
+/* ─── Expandable table row ───────────────────────────────────────────────────── */
 @keyframes expand-row {
-  from {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
-    transform: translateY(0);
-  }
+  from { opacity: 0; max-height: 0; transform: translateY(-4px); }
+  to   { opacity: 1; max-height: 500px; transform: translateY(0); }
 }
-
 .row-expand-enter {
   animation: expand-row 0.18s ease-out forwards;
   overflow: hidden;
 }
 
-/* Sidebar collapse transition */
+/* ─── Sidebar collapse ───────────────────────────────────────────────────────── */
 .sidebar-transition {
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sticky table column */
+/* ─── Sticky column for horizontal scroll tables ─────────────────────────────── */
 .sticky-col {
   position: sticky;
   left: 0;
@@ -267,144 +293,134 @@
   background: inherit;
 }
 
-/* Financial table zebra striping */
-.fin-table tr:nth-child(even) {
-  background-color: #F9FAFB;
+/* ─── Financial table styles ─────────────────────────────────────────────────── */
+.fin-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.fin-table thead tr th {
+  background-color: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.fin-table tbody tr {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  transition: background-color 0.12s ease;
+}
+.fin-table tbody tr:nth-child(even) {
+  background-color: color-mix(in srgb, var(--surface-muted) 80%, transparent);
+}
+.fin-table tbody tr:hover {
+  background-color: var(--table-row-hover) !important;
+}
+.fin-table tbody td {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.fin-table tbody td:first-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.fin-table .sticky-col {
+  box-shadow: 2px 0 8px rgba(13, 24, 41, 0.05);
 }
 
-.fin-table tr:hover {
-  background-color: #EFF6FF !important;
-}
-
-/* Gradient fade on right edge of scrollable tables */
+/* Table right-edge fade for scroll hint */
 .table-fade-right::after {
   content: '';
   position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 40px;
-  background: linear-gradient(to right, transparent, white);
+  right: 0; top: 0; bottom: 0;
+  width: 48px;
+  background: linear-gradient(to right, transparent, var(--surface));
   pointer-events: none;
 }
 
-/* Google Fonts preconnect (loaded via next/font in layout) */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: local('Inter');
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: local('JetBrains Mono');
-}
-
-/* ─── Premium UI & Animation Utilities ───────────────────────────────────────── */
-
-/* Premium interactive Card hover elevations */
+/* ─── Card hover elevation ───────────────────────────────────────────────────── */
 .premium-card {
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
-              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .premium-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.08), 
-              0 4px 12px -5px rgba(15, 23, 42, 0.03);
-  border-color: rgba(29, 78, 216, 0.18) !important;
+  box-shadow: var(--shadow-md);
+  border-color: rgba(37, 99, 235, 0.18) !important;
 }
 .premium-card:focus-within {
-  outline: 2px solid rgba(29, 78, 216, 0.2);
-  border-color: rgba(29, 78, 216, 0.4) !important;
+  outline: 2px solid rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.35) !important;
 }
 
-/* Premium Primary CTA Buttons hover scaling */
+/* ─── Button micro-interactions ──────────────────────────────────────────────── */
 .premium-btn-primary {
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
-              background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
-              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.15s ease,
+              box-shadow 0.15s ease;
 }
-.premium-btn-primary:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.15);
-}
-.premium-btn-primary:active {
-  transform: scale(0.98);
-}
-.premium-btn-primary:disabled {
-  opacity: 0.5;
-  transform: none;
-  box-shadow: none;
-  pointer-events: none;
-}
+.premium-btn-primary:hover  { transform: scale(1.015); box-shadow: var(--shadow-accent); }
+.premium-btn-primary:active { transform: scale(0.98); }
+.premium-btn-primary:disabled { opacity: 0.5; transform: none; box-shadow: none; pointer-events: none; }
 
-/* Premium Secondary/Outline Buttons hover brightness */
 .premium-btn-sec {
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
-              background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.15s ease,
+              border-color 0.15s ease;
 }
-.premium-btn-sec:hover {
-  transform: scale(1.01);
-  background-color: var(--secondary);
-}
+.premium-btn-sec:hover  { transform: scale(1.01); }
+.premium-btn-sec:active { transform: scale(0.99); }
 
-/* Tab sliding indicator classes */
-.tab-sliding-indicator {
-  position: relative;
-}
+/* ─── Tab sliding indicator ──────────────────────────────────────────────────── */
+.tab-sliding-indicator { position: relative; }
 .tab-sliding-indicator::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   height: 2px;
   background-color: var(--primary);
   transform: scaleX(0);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.tab-sliding-indicator[data-state=active]::after {
-  transform: scaleX(1);
-}
+.tab-sliding-indicator[data-state=active]::after { transform: scaleX(1); }
 
-/* ─── Dark Mode CSS Variables ──────────────────────────────────────────────── */
+/* ─── Dark mode ──────────────────────────────────────────────────────────────── */
 .dark {
-  --background: #0B1120;
-  --foreground: #E2E8F0;
-  --card: #111827;
-  --card-foreground: #E2E8F0;
-  --popover: #1E293B;
-  --popover-foreground: #E2E8F0;
-  --primary: #3B82F6;
+  --background: #090E1A;
+  --foreground: #EDF2F8;
+  --card: #0F1629;
+  --card-foreground: #EDF2F8;
+  --popover: #141E33;
+  --popover-foreground: #EDF2F8;
+  --primary: #4F8EF7;
   --primary-foreground: #FFFFFF;
-  --secondary: #1E293B;
+  --secondary: #141E33;
   --secondary-foreground: #CBD5E1;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
-  --accent: #3B82F6;
+  --muted: #141E33;
+  --muted-foreground: #8FA3BA;
+  --accent: #4F8EF7;
   --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --border: #1E293B;
-  --input: #1E293B;
-  --ring: #3B82F6;
-  --sidebar: #111827;
-  --sidebar-foreground: #E2E8F0;
-  --sidebar-primary: #3B82F6;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E3A5F;
-  --sidebar-accent-foreground: #93C5FD;
-  --sidebar-border: #1E293B;
-  --sidebar-ring: #3B82F6;
+  --border: #1E2A40;
+  --input: #1E2A40;
+  --ring: #4F8EF7;
 
-  /* Financial semantic colors — dark */
+  --sidebar: #0F1629;
+  --sidebar-foreground: #EDF2F8;
+  --sidebar-primary: #4F8EF7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1A2E52;
+  --sidebar-accent-foreground: #93C5FD;
+  --sidebar-border: #1E2A40;
+  --sidebar-ring: #4F8EF7;
+
+  /* Financial — dark */
   --positive: #22C55E;
   --positive-soft: #052E16;
   --negative: #F87171;
@@ -412,48 +428,57 @@
   --warning: #FBBF24;
   --warning-soft: #1C1400;
 
-  /* Chart colors — dark */
+  /* Chart — dark */
   --chart-1: #60A5FA;
   --chart-2: #34D399;
   --chart-3: #F87171;
   --chart-4: #38BDF8;
   --chart-5: #A78BFA;
 
-  /* Centralized semantic — dark */
-  --surface: #111827;
-  --surface-muted: #1E293B;
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  --accent-soft: #1E3A5F;
+  /* Semantic — dark */
+  --surface: #0F1629;
+  --surface-muted: #141E33;
+  --text-primary: #EDF2F8;
+  --text-secondary: #8FA3BA;
+  --text-muted: #5A7290;
+  --accent-color: #4F8EF7;
+  --accent-soft: #1A2E52;
   --info: #38BDF8;
-  --table-row-hover: #1E3A5F;
-  --skeleton-base: #1E293B;
-  --skeleton-highlight: #2D3F55;
+  --table-row-hover: #1A2E52;
+  --skeleton-base: #1E2A40;
+  --skeleton-highlight: #253347;
+
+  /* Shadows — dark mode (lower opacity) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 6px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.30), 0 2px 6px rgba(0, 0, 0, 0.20);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-accent: 0 4px 16px rgba(79, 142, 247, 0.25);
 }
 
-/* ─── Premium Animation Keyframes ─────────────────────────────────────────── */
+/* ─── Keyframe animations ────────────────────────────────────────────────────── */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
-
 @keyframes pulse-ring {
   0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  50%       { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
 }
-
 @keyframes count-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes glow-line {
   0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  50%       { opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
 }
 
-/* Shimmer skeleton utility */
+/* ─── Animation utilities ────────────────────────────────────────────────────── */
 .shimmer-skeleton {
   background: linear-gradient(
     90deg,
@@ -462,15 +487,32 @@
     var(--skeleton-base) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.pulse-ring     { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-count-up { animation: count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-float  { animation: float 3s ease-in-out infinite; }
+
+/* ─── prefers-reduced-motion: disable decorative animations only ─────────────── */
+/* The ticker (.ticker-track) is exempt — it's a functional data display, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.ticker-track, .ticker-track *),
+  *:not(.ticker-track, .ticker-track *)::before,
+  *:not(.ticker-track, .ticker-track *)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer-skeleton { animation: none; background: var(--skeleton-base); }
+  .pulse-ring       { animation: none; }
 }
 
-/* Pulse ring utility for live indicators */
-.pulse-ring {
-  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@media (pointer: coarse) {
+  /* Hide custom cursor elements on mobile/tablet/touch devices */
+  .cursor-dot,
+  .cursor-ring {
+    display: none !important;
+  }
 }
 
-/* Count-up entrance animation */
-.animate-count-up {
-  animation: count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}

@@ -11,7 +11,11 @@ import { CONFIG } from '../config/index.js'
 export async function createOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<any> {
   try {
     const userId = req.user!.id
-    const orderData = await PaymentsService.createPayuOrder(userId)
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000'
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http'
+    const dynamicBaseUrl = `${proto}://${host}/api`
+    
+    const orderData = await PaymentsService.createPayuOrder(userId, dynamicBaseUrl)
     return res.status(200).json({
       success: true,
       ...orderData
@@ -24,9 +28,15 @@ export async function createOrder(req: AuthenticatedRequest, res: Response, next
 export async function successCallback(req: any, res: Response, _next: NextFunction): Promise<any> {
   try {
     const txnId = await PaymentsService.processSuccessWebhook(req.body)
-    return res.redirect(`${CONFIG.FRONTEND_URL}/pricing?status=success&txnid=${txnId}`)
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000'
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http'
+    const frontendUrl = `${proto}://${host}`
+    return res.redirect(`${frontendUrl}/pricing?status=success&txnid=${txnId}`)
   } catch (error: any) {
-    return res.redirect(`${CONFIG.FRONTEND_URL}/pricing?status=failed&reason=${error.message || 'transaction_exception'}`)
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000'
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http'
+    const frontendUrl = `${proto}://${host}`
+    return res.redirect(`${frontendUrl}/pricing?status=failed&reason=${error.message || 'transaction_exception'}`)
   }
 }
 
@@ -34,8 +44,15 @@ export async function failureCallback(req: any, res: Response, _next: NextFuncti
   try {
     await PaymentsService.processFailureWebhook(req.body)
     const { txnid, message } = req.body
-    return res.redirect(`${CONFIG.FRONTEND_URL}/pricing?status=failed&txnid=${txnid}&reason=${encodeURIComponent(message || 'Payment Declined')}`)
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000'
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http'
+    const frontendUrl = `${proto}://${host}`
+    return res.redirect(`${frontendUrl}/pricing?status=failed&txnid=${txnid}&reason=${encodeURIComponent(message || 'Payment Declined')}`)
   } catch (error: any) {
-    return res.redirect(`${CONFIG.FRONTEND_URL}/pricing?status=failed`)
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000'
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http'
+    const frontendUrl = `${proto}://${host}`
+    return res.redirect(`${frontendUrl}/pricing?status=failed`)
   }
 }
+

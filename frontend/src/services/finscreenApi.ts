@@ -123,9 +123,49 @@ export const finscreenApi = {
     return response.data
   },
 
+  fetchCompanyNotes: async (symbol: string, params?: Record<string, any>): Promise<any> => {
+    const response = await finscreenClient.get<any>(`/company/${symbol}/notes`, { params })
+    return response.data
+  },
+
   searchStockSymbols: async (query?: string): Promise<any[]> => {
     const response = await finscreenClient.get<any[]>('/stock-symbols', { params: { query } })
     return response.data
+  },
+
+  fetchMarketIndices: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/index/market-price/daily-feed')
+    return response.data
+  },
+
+  fetchMultipleQuotes: async (symbols: string[]): Promise<Record<string, any>> => {
+    const response = await finscreenClient.get<Record<string, any>>('/quote', {
+      params: { symbol: symbols }
+    })
+    return response.data
+  },
+
+  fetchPeersList: async (symbol: string): Promise<{ peers: string[] }> => {
+    const response = await finscreenClient.get<{ peers: string[] }>(`/company/${symbol}/peers`)
+    return response.data
+  },
+
+  fetchRefreshedStocks: async (): Promise<any> => {
+    try {
+      const response = await finscreenClient.get<any>('/refreshed-stocks', { params: { days: 1 } })
+      return response.data
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        console.warn('Refreshed stocks returned 401, falling back to core benchmark stocks.')
+      } else {
+        console.error('Failed to fetch refreshed stocks:', err)
+      }
+      return {
+        success: false,
+        fallback: true,
+        data: ['RELIANCE', 'TCS', 'HDFCBANK']
+      }
+    }
   },
 }
 

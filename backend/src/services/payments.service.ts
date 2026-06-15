@@ -34,7 +34,7 @@ export const PaymentsService = {
    * Initializes a pending transaction order in our database
    * and builds cryptographically signed payload for PayU gateway
    */
-  async createPayuOrder(userId: string): Promise<{ checkoutUrl: string; params: PayuOrderParameters }> {
+  async createPayuOrder(userId: string, apiBaseUrl?: string): Promise<{ checkoutUrl: string; params: PayuOrderParameters }> {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) {
       throw new Error('User not found.')
@@ -63,6 +63,9 @@ export const PaymentsService = {
 
     logger.info(`[PaymentsService] Order successfully registered: ${txnid} for User: ${userId}`)
 
+    const successUrl = apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, '')}/payments/payu/success` : CONFIG.PAYU_SUCCESS_URL
+    const failureUrl = apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, '')}/payments/payu/failure` : CONFIG.PAYU_FAILURE_URL
+
     return {
       checkoutUrl: CONFIG.PAYU_CHECKOUT_URL,
       params: {
@@ -73,14 +76,15 @@ export const PaymentsService = {
         firstname: user.name,
         email: user.email,
         phone: '9999999999', // Test cell number
-        surl: CONFIG.PAYU_SUCCESS_URL,
-        furl: CONFIG.PAYU_FAILURE_URL,
+        surl: successUrl,
+        furl: failureUrl,
         hash: paymentHash,
         udf1: userId,
         service_provider: 'payu_paisa',
       },
     }
   },
+
 
   /**
    * Validates cryptographically signed PayU success callback payloads,

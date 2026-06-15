@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronRight, Plus, Edit2, TrendingUp, TrendingDown,
@@ -13,24 +13,17 @@ import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
 import { Label } from '@/components/ui/label'
 import { companies } from '@/lib/data/companies'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface WatchlistStock {
-  id: string
-  symbol: string
-  name: string
-  cmp: number
-  dayChange: number
-  targetPrice: number
-  alertEnabled: boolean
-}
-
-interface Watchlist {
-  id: string
-  name: string
-  stocks: WatchlistStock[]
-}
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  createWatchlist,
+  deleteWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  setTargetPrice,
+  toggleAlert,
+  setActiveWatchlist,
+} from '@/store/slices/watchlistSlice'
+import finscreenApi from '@/services/finscreenApi'
 
 interface UpcomingEvent {
   id: string
@@ -38,45 +31,6 @@ interface UpcomingEvent {
   date: string
   type: 'results' | 'agm' | 'dividend' | 'bonus'
 }
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const INITIAL_WATCHLISTS: Watchlist[] = [
-  {
-    id: 'wl1',
-    name: 'My Watchlist',
-    stocks: [
-      { id: 's1', symbol: 'RELIANCE', name: 'Reliance Industries', cmp: 2847.35, dayChange: 1.24, targetPrice: 3200, alertEnabled: true },
-      { id: 's2', symbol: 'INFY', name: 'Infosys Ltd', cmp: 1521.80, dayChange: -0.78, targetPrice: 1400, alertEnabled: false },
-      { id: 's3', symbol: 'HDFCBANK', name: 'HDFC Bank', cmp: 1687.45, dayChange: 0.52, targetPrice: 1800, alertEnabled: true },
-      { id: 's4', symbol: 'TCS', name: 'TCS Ltd', cmp: 3956.20, dayChange: -1.12, targetPrice: 4200, alertEnabled: true },
-      { id: 's5', symbol: 'ITC', name: 'ITC Ltd', cmp: 453.80, dayChange: 0.34, targetPrice: 430, alertEnabled: false },
-      { id: 's6', symbol: 'NESTLEIND', name: 'Nestle India', cmp: 2298.75, dayChange: 0.18, targetPrice: 2500, alertEnabled: true },
-      { id: 's7', symbol: 'MARUTI', name: 'Maruti Suzuki', cmp: 13240.00, dayChange: 2.12, targetPrice: 12000, alertEnabled: false },
-      { id: 's8', symbol: 'TITAN', name: 'Titan Company', cmp: 3398.00, dayChange: -0.23, targetPrice: 3600, alertEnabled: true },
-    ],
-  },
-  {
-    id: 'wl2',
-    name: 'Tech Stocks',
-    stocks: [
-      { id: 't1', symbol: 'INFY', name: 'Infosys Ltd', cmp: 1521.80, dayChange: -0.78, targetPrice: 1650, alertEnabled: true },
-      { id: 't2', symbol: 'TCS', name: 'TCS Ltd', cmp: 3956.20, dayChange: -1.12, targetPrice: 4100, alertEnabled: false },
-      { id: 't3', symbol: 'WIPRO', name: 'Wipro Ltd', cmp: 459.35, dayChange: -1.44, targetPrice: 500, alertEnabled: true },
-      { id: 't4', symbol: 'HCLTECH', name: 'HCL Technologies', cmp: 1578.60, dayChange: 0.89, targetPrice: 1700, alertEnabled: true },
-    ],
-  },
-  {
-    id: 'wl3',
-    name: 'High Dividend',
-    stocks: [
-      { id: 'h1', symbol: 'ITC', name: 'ITC Ltd', cmp: 453.80, dayChange: 0.34, targetPrice: 480, alertEnabled: false },
-      { id: 'h2', symbol: 'HCLTECH', name: 'HCL Technologies', cmp: 1578.60, dayChange: 0.89, targetPrice: 1700, alertEnabled: true },
-      { id: 'h3', symbol: 'HINDUNILVR', name: 'Hindustan Unilever', cmp: 2412.30, dayChange: -0.52, targetPrice: 2600, alertEnabled: false },
-      { id: 'h4', symbol: 'NESTLEIND', name: 'Nestle India', cmp: 2298.75, dayChange: 0.18, targetPrice: 2400, alertEnabled: true },
-    ],
-  },
-]
 
 const UPCOMING_EVENTS: UpcomingEvent[] = [
   { id: 'e1', title: 'INFY Q4 Results', date: 'May 28', type: 'results' },
@@ -97,28 +51,73 @@ function formatPrice(n: number): string {
 }
 
 export function Watchlists() {
-  const [watchlists, setWatchlists] = useState<Watchlist[]>(INITIAL_WATCHLISTS)
-  const [selectedId, setSelectedId] = useState('wl1')
+  const dispatch = useAppDispatch()
+  const { watchlists, activeWatchlistId } = useAppSelector((state) => state.watchlist)
+  
   const [isEditing, setIsEditing] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [newWatchlistName, setNewWatchlistName] = useState('')
   const [stockSearchQuery, setStockSearchQuery] = useState('')
 
-  const selected = watchlists.find((w) => w.id === selectedId) || watchlists[0]
-  const selectedStocks = selected?.stocks ?? []
+  const selected = watchlists.find((w) => w.id === activeWatchlistId) || watchlists[0]
+  
+  // Live quotes state for watchlist symbols
+  const [quotes, setQuotes] = useState<Record<string, any>>({})
+  const [quotesLoading, setQuotesLoading] = useState(false)
+
+  // Get all unique symbols across all watchlists to fetch quotes
+  const allSymbols = useMemo(() => {
+    const symbolsSet = new Set<string>()
+    watchlists.forEach(wl => {
+      wl.items.forEach(item => {
+        symbolsSet.add(item.symbol)
+      })
+    })
+    return Array.from(symbolsSet)
+  }, [watchlists])
+
+  useEffect(() => {
+    if (allSymbols.length === 0) return
+    async function loadQuotes() {
+      try {
+        setQuotesLoading(true)
+        const response = await finscreenApi.fetchMultipleQuotes(allSymbols)
+        if (response) {
+          setQuotes(response)
+        }
+      } catch (err) {
+        console.error('Failed to load quotes for watchlists:', err)
+      } finally {
+        setQuotesLoading(false)
+      }
+    }
+    loadQuotes()
+  }, [allSymbols])
+
+  // Map Redux watchlist items to local model with live quotes
+  const selectedStocks = useMemo(() => {
+    if (!selected) return []
+    return selected.items.map((item) => {
+      const q = quotes[item.symbol] || {}
+      const changeVal = q.change ? parseFloat(q.change.replace('%', '')) : 0
+      const price = q.current_price || q.close_price || 0
+      return {
+        id: item.symbol, // use symbol as target stock ID
+        symbol: item.symbol,
+        name: item.name,
+        cmp: price,
+        dayChange: changeVal,
+        targetPrice: item.targetPrice || 0,
+        alertEnabled: item.alertEnabled,
+      }
+    })
+  }, [selected, quotes])
 
   // Create new watchlist
   const handleCreateWatchlist = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newWatchlistName.trim()) return
-    const newId = `wl-${Date.now()}`
-    const newWl: Watchlist = {
-      id: newId,
-      name: newWatchlistName.trim(),
-      stocks: []
-    }
-    setWatchlists(prev => [...prev, newWl])
-    setSelectedId(newId)
+    dispatch(createWatchlist({ name: newWatchlistName.trim() }))
     setNewWatchlistName('')
     setIsCreateModalOpen(false)
   }
@@ -129,32 +128,16 @@ export function Watchlists() {
       alert("You must keep at least one watchlist.")
       return
     }
-    const index = watchlists.findIndex(w => w.id === id)
-    const nextWatchlists = watchlists.filter(w => w.id !== id)
-    setWatchlists(nextWatchlists)
-    if (selectedId === id) {
-      const nextSelected = nextWatchlists[Math.max(0, index - 1)]?.id || nextWatchlists[0]?.id
-      setSelectedId(nextSelected)
-    }
+    dispatch(deleteWatchlist(id))
   }
 
   // Add stock to current watchlist
   const addStockToWatchlist = (comp: typeof companies[0]) => {
-    setWatchlists(prev => prev.map(wl => {
-      if (wl.id !== selectedId) return wl
-      if (wl.stocks.some(s => s.symbol === comp.symbol)) return wl
-      const newStock: WatchlistStock = {
-        id: `s-${Date.now()}`,
+    dispatch(addToWatchlist({
+      item: {
         symbol: comp.symbol,
         name: comp.name,
-        cmp: comp.price,
-        dayChange: comp.changePct,
-        targetPrice: Math.round(comp.price * 1.1), // default target +10%
-        alertEnabled: false
-      }
-      return {
-        ...wl,
-        stocks: [...wl.stocks, newStock]
+        sector: comp.sector,
       }
     }))
     setStockSearchQuery('')
@@ -162,13 +145,7 @@ export function Watchlists() {
 
   // Delete stock from current watchlist
   const removeStockFromWatchlist = (stockId: string) => {
-    setWatchlists(prev => prev.map(wl => {
-      if (wl.id !== selectedId) return wl
-      return {
-        ...wl,
-        stocks: wl.stocks.filter(s => s.id !== stockId)
-      }
-    }))
+    dispatch(removeFromWatchlist({ symbol: stockId }))
   }
 
   // Search filter
@@ -185,24 +162,12 @@ export function Watchlists() {
   const updateTarget = (stockId: string, value: string) => {
     const num = parseFloat(value)
     if (isNaN(num)) return
-    setWatchlists(prev => prev.map(wl => {
-      if (wl.id !== selectedId) return wl
-      return {
-        ...wl,
-        stocks: wl.stocks.map(s => s.id === stockId ? { ...s, targetPrice: num } : s)
-      }
-    }))
+    dispatch(setTargetPrice({ symbol: stockId, price: num }))
   }
 
   // Toggle alert switch
-  const toggleAlert = (stockId: string) => {
-    setWatchlists(prev => prev.map(wl => {
-      if (wl.id !== selectedId) return wl
-      return {
-        ...wl,
-        stocks: wl.stocks.map(s => s.id === stockId ? { ...s, alertEnabled: !s.alertEnabled } : s)
-      }
-    }))
+  const handleToggleAlert = (stockId: string) => {
+    dispatch(toggleAlert({ symbol: stockId }))
   }
 
   return (
@@ -224,9 +189,12 @@ export function Watchlists() {
           {watchlists.map((wl) => (
             <div key={wl.id} className="flex items-center justify-between group rounded-lg hover:bg-surfaceMuted transition-colors pr-2">
               <button
-                onClick={() => { setSelectedId(wl.id); setIsEditing(false) }}
+                onClick={() => {
+                  dispatch(setActiveWatchlist(wl.id))
+                  setIsEditing(false)
+                }}
                 className={`flex-1 text-left px-3 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
-                  selectedId === wl.id
+                  selected?.id === wl.id
                     ? 'text-accent font-bold'
                     : 'text-textSecondary'
                 }`}
@@ -235,10 +203,10 @@ export function Watchlists() {
                 <Badge
                   variant="secondary"
                   className={`text-[10px] min-w-[20px] px-1 text-center shadow-none ${
-                    selectedId === wl.id ? 'bg-accent/15 text-accent font-bold' : 'bg-surfaceMuted text-textSecondary border border-border/30'
+                    selected?.id === wl.id ? 'bg-accent/15 text-accent font-bold' : 'bg-surfaceMuted text-textSecondary border border-border/30'
                   }`}
                 >
-                  {wl.stocks.length}
+                  {wl.items.length}
                 </Badge>
               </button>
               {watchlists.length > 1 && (
@@ -269,8 +237,8 @@ export function Watchlists() {
           {/* Watchlist Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <Heading level={2} variant="sectionTitle" className="text-base font-bold text-textPrimary">{selected.name}</Heading>
-              <Text variant="bodyMuted" className="text-xs">{selectedStocks.length} stocks tracked</Text>
+              <Heading level={2} variant="sectionTitle" className="text-base font-bold text-textPrimary">{selected?.name}</Heading>
+              <Text variant="bodyMuted" className="text-xs">{selected?.items.length} stocks tracked</Text>
             </div>
             <Button
               onClick={() => setIsEditing(!isEditing)}
@@ -346,77 +314,92 @@ export function Watchlists() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {selectedStocks.map((stock) => {
-                  const aboveTarget = stock.cmp >= stock.targetPrice
-                  return (
-                    <tr
-                      key={stock.id}
-                      className={`transition-colors duration-150 ${
-                        aboveTarget ? 'hover:bg-positive-soft/10' : 'hover:bg-negative-soft/10'
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <Link to={`/company/${stock.symbol}`} className="block">
-                          <Text variant="body" className="font-semibold hover:text-accent transition-colors text-xs text-textPrimary">
-                            {stock.name}
-                          </Text>
-                          <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-[10px]">{stock.symbol}</Text>
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Text variant="numeric" className="text-xs text-textPrimary font-semibold font-mono tabular-nums">{formatPrice(stock.cmp)}</Text>
-                      </td>
-                      <td className={`px-4 py-3 text-right font-mono tabular-nums text-xs font-semibold ${stock.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
-                        <div className="flex items-center justify-end gap-1">
-                          {stock.dayChange >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                          {stock.dayChange >= 0 ? '+' : ''}{stock.dayChange.toFixed(2)}%
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Target className="w-3.5 h-3.5 text-textMuted" />
-                          <Input
-                            type="number"
-                            value={stock.targetPrice}
-                            onChange={(e) => updateTarget(stock.id, e.target.value)}
-                            className="h-7 w-24 text-xs font-mono text-right border-border bg-surfaceMuted"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] font-bold shadow-none ${
-                            aboveTarget
-                              ? 'bg-positive-soft text-positive border border-green-200'
-                              : 'bg-negative-soft text-negative border border-red-200'
-                          }`}
-                        >
-                          {aboveTarget ? '▲ Above Target' : '▼ Below Target'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Switch
-                          checked={stock.alertEnabled}
-                          onCheckedChange={() => toggleAlert(stock.id)}
-                          className="data-[state=checked]:bg-accent size-sm"
-                        />
-                      </td>
-                      {isEditing && (
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => removeStockFromWatchlist(stock.id)}
-                            className="text-textMuted hover:text-negative p-1.5 rounded-md hover:bg-red-50 transition-colors"
-                            title="Remove from Watchlist"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </td>
-                      )}
+                {quotesLoading && selectedStocks.length === 0 ? (
+                  Array.from({ length: 3 }).map((_, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-3"><div className="h-4 w-24 bg-border/40 shimmer-skeleton rounded" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-16 bg-border/40 shimmer-skeleton rounded ml-auto" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-16 bg-border/40 shimmer-skeleton rounded ml-auto" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-20 bg-border/40 shimmer-skeleton rounded ml-auto" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-20 bg-border/40 shimmer-skeleton rounded mx-auto" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-10 bg-border/40 shimmer-skeleton rounded mx-auto" /></td>
                     </tr>
-                  )
-                })}
-                {selectedStocks.length === 0 && (
+                  ))
+                ) : (
+                  selectedStocks.map((stock) => {
+                    const aboveTarget = stock.cmp >= stock.targetPrice
+                    return (
+                      <tr
+                        key={stock.id}
+                        className={`transition-colors duration-150 ${
+                          aboveTarget ? 'hover:bg-positive-soft/10' : 'hover:bg-negative-soft/10'
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <Link to={`/company/${stock.symbol}`} className="block">
+                            <Text variant="body" className="font-semibold hover:text-accent transition-colors text-xs text-textPrimary">
+                              {stock.name}
+                            </Text>
+                            <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-[10px]">{stock.symbol}</Text>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Text variant="numeric" className="text-xs text-textPrimary font-semibold font-mono tabular-nums">
+                            {stock.cmp > 0 ? formatPrice(stock.cmp) : '0.00'}
+                          </Text>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-mono tabular-nums text-xs font-semibold ${stock.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          <div className="flex items-center justify-end gap-1">
+                            {stock.dayChange >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            {stock.dayChange >= 0 ? '+' : ''}{stock.dayChange.toFixed(2)}%
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Target className="w-3.5 h-3.5 text-textMuted" />
+                            <Input
+                              type="number"
+                              value={stock.targetPrice || ''}
+                              onChange={(e) => updateTarget(stock.id, e.target.value)}
+                              className="h-7 w-24 text-xs font-mono text-right border-border bg-surfaceMuted"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] font-bold shadow-none ${
+                              aboveTarget
+                                ? 'bg-positive-soft text-positive border border-green-200'
+                                : 'bg-negative-soft text-negative border border-red-200'
+                            }`}
+                          >
+                            {aboveTarget ? '▲ Above Target' : '▼ Below Target'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Switch
+                            checked={stock.alertEnabled}
+                            onCheckedChange={() => handleToggleAlert(stock.id)}
+                            className="data-[state=checked]:bg-accent size-sm"
+                          />
+                        </td>
+                        {isEditing && (
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => removeStockFromWatchlist(stock.id)}
+                              className="text-textMuted hover:text-negative p-1.5 rounded-md hover:bg-red-50 transition-colors"
+                              title="Remove from Watchlist"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })
+                )}
+                {selectedStocks.length === 0 && !quotesLoading && (
                   <tr>
                     <td colSpan={isEditing ? 7 : 6} className="py-12 text-center text-xs text-textMuted">
                       No stocks in this watchlist. Click Edit List to add companies.

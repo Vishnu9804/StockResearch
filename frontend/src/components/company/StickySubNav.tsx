@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +11,7 @@ const SECTIONS = [
   { id: 'balance-sheet', label: 'Balance Sheet' },
   { id: 'cash-flow', label: 'Cash Flow' },
   { id: 'ratios', label: 'Key Ratios' },
+  { id: 'operating-ratios', label: 'Operating Ratios' },
   { id: 'analyst', label: 'Analyst Consensus' },
   { id: 'shareholding', label: 'Shareholding' },
   { id: 'corporate-actions', label: 'Corporate Actions' },
@@ -23,13 +24,23 @@ const SECTIONS = [
  */
 const SUBNAV_HEIGHT = 49
 
+
 export function StickySubNav() {
   const navRef = useRef<HTMLElement>(null)
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const sectionIds = SECTIONS.map((s) => s.id)
 
+  const [scrollingTarget, setScrollingTarget] = useState<string | null>(null)
+  const scrollingTargetRef = useRef<string | null>(null)
+
+  const setScrollingTargetWithRef = (target: string | null) => {
+    scrollingTargetRef.current = target
+    setScrollingTarget(target)
+  }
+
   // Scroll-spy: pass the subnav height so the trigger line sits just below the bar.
-  const activeSection = useIntersectionObserver(sectionIds, SUBNAV_HEIGHT)
+  // Pass scrollingTarget to lock the active section state during smooth scrolls.
+  const activeSection = useIntersectionObserver(sectionIds, SUBNAV_HEIGHT, scrollingTarget)
 
   // Keep the active tab visible inside the horizontal scroll container.
   useEffect(() => {
@@ -40,23 +51,133 @@ export function StickySubNav() {
     }
   }, [activeSection])
 
+  const calculateTargetScrollTop = (container: HTMLElement, el: HTMLElement) => {
+    const containerRect = container.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    const absoluteTop = elRect.top - containerRect.top + container.scrollTop
+    return Math.max(0, absoluteTop - SUBNAV_HEIGHT - 8)
+  }
+
+  const adjustScrollPosition = () => {
+    const targetId = scrollingTargetRef.current
+    if (!targetId) return
+    const container = document.querySelector('main') as HTMLElement | null
+    const el = document.getElementById(targetId)
+    if (!container || !el) return
+
+    const targetScrollTop = calculateTargetScrollTop(container, el)
+
+    // Only scroll if the difference is significant (e.g. > 5px) to avoid infinite loop / jitter
+    if (Math.abs(container.scrollTop - targetScrollTop) > 5) {
+      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
+    }
+  }
+
+  // 1. Observe layout shifts (resizes) of the content inside <main> and adjust scroll
+  useEffect(() => {
+    const container = document.querySelector('main') as HTMLElement | null
+    if (!container) return
+
+    const content = container.firstElementChild as HTMLElement | null
+    if (!content) return
+
+    const observer = new ResizeObserver(() => {
+      if (scrollingTargetRef.current) {
+        adjustScrollPosition()
+      }
+    })
+
+    observer.observe(content)
+    return () => observer.disconnect()
+  }, [])
+
+  // 2. Detect user interaction / scroll interruptions and unlock scroll spy
+  useEffect(() => {
+    const container = document.querySelector('main') as HTMLElement | null
+    if (!container) return
+
+    const handleUserInteraction = () => {
+      if (scrollingTargetRef.current) {
+        setScrollingTargetWithRef(null)
+      }
+    }
+
+    container.addEventListener('wheel', handleUserInteraction, { passive: true })
+    container.addEventListener('touchmove', handleUserInteraction, { passive: true })
+    container.addEventListener('keydown', handleUserInteraction, { passive: true })
+    container.addEventListener('mousedown', handleUserInteraction, { passive: true })
+
+    return () => {
+      container.removeEventListener('wheel', handleUserInteraction)
+      container.removeEventListener('touchmove', handleUserInteraction)
+      container.removeEventListener('keydown', handleUserInteraction)
+      container.removeEventListener('mousedown', handleUserInteraction)
+    }
+  }, [])
+
+  // 3. Monitor scroll end to release the scrolling target lock
+  useEffect(() => {
+    const container = document.querySelector('main') as HTMLElement | null
+    if (!container) return
+
+    let scrollTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const handleScrollEnd = () => {
+      const targetId = scrollingTargetRef.current
+      if (targetId) {
+        const el = document.getElementById(targetId)
+        if (el) {
+          const rect = el.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          const diff = Math.abs(rect.top - containerRect.top - (SUBNAV_HEIGHT + 8))
+          const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 5
+
+          // Release lock if we reached close to target, or hit the absolute bottom of page
+          if (diff < 15 || isAtBottom) {
+            setScrollingTargetWithRef(null)
+          }
+        } else {
+          setScrollingTargetWithRef(null)
+        }
+      }
+    }
+
+    const onScroll = () => {
+      if (!scrollingTargetRef.current) return
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+      scrollTimeout = setTimeout(handleScrollEnd, 150)
+    }
+
+    const hasScrollEnd = 'onscrollend' in window
+
+    if (hasScrollEnd) {
+      container.addEventListener('scrollend', handleScrollEnd, { passive: true })
+    }
+    container.addEventListener('scroll', onScroll, { passive: true })
+
+    return () => {
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+      if (hasScrollEnd) {
+        container.removeEventListener('scrollend', handleScrollEnd)
+      }
+      container.removeEventListener('scroll', onScroll)
+    }
+  }, [])
+
   const handleScrollTo = (id: string) => {
     const container = document.querySelector('main') as HTMLElement | null
     const el = document.getElementById(id)
     if (!container || !el) return
 
-    // Lock the active indicator to the clicked tab while the smooth scroll runs.
-    // Duration: generous 1200 ms to cover most scroll distances.
-    const lock = (useIntersectionObserver as any).__lockActive
-    if (typeof lock === 'function') lock(id, 1200)
+    const targetScrollTop = calculateTargetScrollTop(container, el)
 
-    // Compute scroll target: element's absolute top inside the container minus
-    // the subnav height so the section header appears just below the bar.
-    const containerRect = container.getBoundingClientRect()
-    const elRect = el.getBoundingClientRect()
-    const absoluteTop = elRect.top - containerRect.top + container.scrollTop
-    const targetScrollTop = Math.max(0, absoluteTop - SUBNAV_HEIGHT - 8)
+    // If already at target, don't trigger scrolling locks
+    if (Math.abs(container.scrollTop - targetScrollTop) < 5) {
+      setScrollingTargetWithRef(null)
+      return
+    }
 
+    setScrollingTargetWithRef(id)
     container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
   }
 
@@ -98,3 +219,4 @@ export function StickySubNav() {
 }
 
 export default StickySubNav
+

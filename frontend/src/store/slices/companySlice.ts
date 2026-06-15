@@ -29,6 +29,9 @@ export interface CompanyState {
   corporateActions: any | null
   documents: any | null
   shareholdingData: any | null
+  operatingRatios: any | null
+  statementType: 's' | 'c'
+  period: 'annual' | 'quarterly'
 }
 
 const initialState: CompanyState = {
@@ -53,6 +56,9 @@ const initialState: CompanyState = {
   corporateActions: null,
   documents: null,
   shareholdingData: null,
+  operatingRatios: null,
+  statementType: 's',
+  period: 'annual',
 }
 
 const companySlice = createSlice({
@@ -172,6 +178,17 @@ const companySlice = createSlice({
       state.corporateActions = null
       state.documents = null
       state.shareholdingData = null
+      state.statementType = 's'
+      state.period = 'annual'
+    },
+    setStatementType(state, action: PayloadAction<'s' | 'c'>) {
+      state.statementType = action.payload
+    },
+    setPeriod(state, action: PayloadAction<'annual' | 'quarterly'>) {
+      state.period = action.payload
+    },
+    fetchCompanyFinancialsStart(state, _action: PayloadAction<string>) {
+      state.financialsStatus = 'loading'
     },
   },
 })
@@ -200,6 +217,9 @@ export const {
   fetchCompanyShareholdingSuccess,
   fetchCompanyCorporateActionsSuccess,
   fetchCompanyDocumentsSuccess,
+  setStatementType,
+  setPeriod,
+  fetchCompanyFinancialsStart,
 } = companySlice.actions
 
 export const companyReducer = companySlice.reducer

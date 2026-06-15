@@ -7,7 +7,7 @@ import { Heading } from '@/components/ui/Heading'
 
 export function Pricing() {
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-between font-sans text-textPrimary select-none">
+    <div className="min-h-screen bg-gradient-to-b from-background to-accentSoft/20 flex flex-col justify-between font-sans text-textPrimary select-none">
       {/* Mini Nav Header */}
       <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0">
         <Link to="/" className="flex items-center gap-2.5">
@@ -30,7 +30,7 @@ export function Pricing() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 max-w-[1200px] mx-auto w-full">
         {/* Title */}
         <div className="text-center max-w-lg mb-12">
-          <Heading level={1} variant="pageTitle" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-textPrimary">
+          <Heading level={1} variant="pageTitle" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gradient">
             Choose Your FinScreen Plan
           </Heading>
           <Text variant="bodyMuted" className="mt-2 text-xs sm:text-sm text-textSecondary leading-relaxed">
@@ -41,7 +41,7 @@ export function Pricing() {
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
           {/* Basic (Free) */}
-          <Card className="border-border bg-surface shadow-none flex flex-col justify-between h-[450px]">
+          <Card className="border-border bg-surface shadow-[var(--shadow-sm)] flex flex-col justify-between h-[450px] rounded-2xl">
             <div className="p-6">
               <Text variant="label" className="text-[10px] text-textMuted tracking-widest block">
                 Basic Plan
@@ -84,7 +84,7 @@ export function Pricing() {
           </Card>
 
           {/* Premium (Pro) */}
-          <Card className="border-accent/40 relative shadow-none bg-surface ring-1 ring-accent/15 flex flex-col justify-between h-[450px]">
+          <Card className="border-accent/30 relative shadow-[var(--shadow-lg)] bg-surface ring-1 ring-accent/20 flex flex-col justify-between h-[450px] rounded-2xl">
             {/* Best Value Badge */}
             <span className="absolute top-0 right-6 -translate-y-1/2 bg-accent text-white px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shadow-none">
               Most Popular

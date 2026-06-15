@@ -147,9 +147,9 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   const badgeIsPill = unreadCount > 9
 
   return (
-    <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 sticky top-0 z-30 select-none">
+    <header className="h-[60px] bg-surface/95 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sticky top-0 z-30 select-none">
       {/* Sidebar Toggle — visible on all screen sizes (not just md+) */}
-      <div className="flex items-center gap-4 flex-1">
+      <div className="flex items-center gap-3 flex-1">
         <Button
           variant="ghost"
           size="icon"
@@ -159,9 +159,10 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
         >
           <Menu className="size-4" />
         </Button>
+        <span className="font-bold text-lg text-accent tracking-tight hidden sm:block">FS</span>
 
         {/* Central Search Bar */}
-        <div ref={searchRef} className="relative w-full max-w-lg">
+        <div ref={searchRef} className="relative w-full max-w-lg ml-2">
           <form onSubmit={handleSearchSubmit}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-textMuted pointer-events-none" />
@@ -177,7 +178,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onKeyDown={handleKeyDown}
-                className="w-full pl-9 pr-12 h-9 bg-surfaceMuted hover:bg-surfaceMuted/80 focus:bg-surface text-xs border-border focus:border-accent font-medium transition-colors"
+                className="w-full pl-9 pr-12 h-9 rounded-full bg-surfaceMuted hover:bg-surfaceMuted/80 focus:bg-surface text-xs border-border focus:border-accent/60 focus:ring-2 focus:ring-accent/15 font-medium transition-all duration-150"
               />
 
               {/* Clear button is OUTSIDE pointer-events-none so it receives clicks reliably */}
@@ -207,7 +208,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
 
           {/* Autocomplete Dropdown */}
           {showSuggestions && (stockSuggestions.length > 0 || indexSuggestions.length > 0) && (
-            <div className="absolute top-10 left-0 w-full bg-surface border border-border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 py-1">
+            <div className="absolute top-11 left-0 w-full bg-surface border border-border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50 py-1">
               {/* Index results */}
               {indexSuggestions.length > 0 && (
                 <>
@@ -337,7 +338,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
 
               {/* Profile Dropdown */}
               {showProfileMenu && (
-                <div className="absolute right-0 mt-2.5 w-56 bg-surface border border-border rounded-xl shadow-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2.5 w-56 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   {/* User Identity Info */}
                   <div className="px-4 py-3 bg-surfaceMuted border-b border-border/50 flex flex-col gap-0.5">
                     <p className="text-xs font-bold text-textPrimary truncate">{user?.name || 'FinScreen User'}</p>

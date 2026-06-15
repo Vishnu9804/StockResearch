@@ -1,23 +1,25 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Company } from '@/lib/data/companies'
-import { formatNumber, formatPct, changeClass } from '@/lib/formatters'
+import { formatNumber } from '@/lib/formatters'
 import {
   Bookmark,
-  Bell,
   Share2,
-  Building2,
   ArrowUpRight,
   ArrowDownRight,
   Globe,
   ExternalLink,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { toggleWatchlist } from '@/store/slices/companySlice'
 import { addNotification } from '@/store/slices/notificationsSlice'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
+import { AnimatedCompanyName } from './AnimatedCompanyName'
+import { badgePopVariants, containerVariants, itemVariants, springs } from '@/lib/motion'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
 export function CompanyHeader({ company }: { company: Company }) {
   const dispatch = useAppDispatch()
@@ -25,8 +27,8 @@ export function CompanyHeader({ company }: { company: Company }) {
   const watchlist = useAppSelector((state) => state.company.watchlist)
   const { isAuthenticated } = useAppSelector((state) => state.auth)
   const isWatched = watchlist.includes(company.symbol)
-
   const positive = company.change >= 0
+  const prefersReduced = useReducedMotion()
 
   const handleWatchToggle = () => {
     if (!isAuthenticated) {
@@ -36,58 +38,66 @@ export function CompanyHeader({ company }: { company: Company }) {
       return
     }
     dispatch(toggleWatchlist(company.symbol))
-    dispatch(
-      addNotification({
-        type: 'info',
-        title: isWatched ? 'Removed from Watchlist' : 'Added to Watchlist',
-        body: `${company.name} (${company.symbol}) has been ${isWatched ? 'removed from' : 'added to'} your active watchlist.`,
-        symbol: company.symbol,
-        actionUrl: '/watchlists',
-      })
-    )
+    dispatch(addNotification({
+      type: 'info',
+      title: isWatched ? 'Removed from Watchlist' : 'Added to Watchlist',
+      body: `${company.name} (${company.symbol}) has been ${isWatched ? 'removed from' : 'added to'} your active watchlist.`,
+      symbol: company.symbol,
+      actionUrl: '/watchlists',
+    }))
   }
 
   const handleShare = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(window.location.href)
-      // Dispatch in-app notification toast
-      dispatch(
-        addNotification({
-          type: 'info',
-          title: 'Link Copied',
-          body: 'Company profile link has been copied to your clipboard.',
-        })
-      )
+      dispatch(addNotification({
+        type: 'info',
+        title: 'Link Copied',
+        body: 'Company profile link has been copied to your clipboard.',
+      }))
     }
   }
 
+  // Get company initials for the avatar
+  const initials = company.name
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
   return (
     <header className="border-b border-border bg-surface select-none">
-      <div className="px-6 py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex gap-4">
-            <div className="flex size-12 items-center justify-center rounded-lg bg-accentSoft border border-blue-100 text-accent shrink-0">
-              <Building2 className="size-6" />
+      <div className="px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Left: Logo + Info */}
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Gradient company avatar */}
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/10 border border-accent/20 flex items-center justify-center text-accent font-black text-sm shrink-0 shadow-[var(--shadow-sm)]">
+              {initials}
             </div>
+
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight text-textPrimary truncate">
-                  {company.name}
+                <h1 className="text-lg font-bold tracking-tight text-textPrimary leading-tight">
+                  <AnimatedCompanyName name={company.name} />
                 </h1>
-                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border">
+                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border rounded-md">
                   {company.symbol}
                 </Badge>
-                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border">
+                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border rounded-md">
                   {company.exchange}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-textSecondary flex items-center gap-1.5 font-medium">
-                {company.sector} · {company.industry}
+              <p className="mt-1 text-xs text-textSecondary flex flex-wrap items-center gap-1 font-medium">
+                <span>{company.sector}</span>
+                <span className="text-border">·</span>
+                <span>{company.industry}</span>
                 <a
                   href={company.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent hover:text-blue-800 inline-flex items-center gap-0.5 ml-1"
+                  className="text-accent hover:text-accent/80 inline-flex items-center gap-0.5 transition-colors"
                 >
                   <Globe className="size-3" />
                   Website
@@ -97,44 +107,48 @@ export function CompanyHeader({ company }: { company: Company }) {
             </div>
           </div>
 
+          {/* Right: Price + Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2.5">
               <span className="text-2xl font-bold font-mono tracking-tight text-textPrimary tabular-nums">
                 ₹{formatNumber(company.price, 2)}
               </span>
-              <span
+              <motion.span
+                key={company.symbol + company.changePct}
+                variants={prefersReduced ? undefined : badgePopVariants}
+                initial={prefersReduced ? false : 'initial'}
+                animate="animate"
                 className={cn(
-                  'text-xs font-mono font-bold flex items-center gap-0.5',
-                  positive ? 'text-positive' : 'text-negative'
+                  'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-mono font-bold',
+                  positive ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'
                 )}
               >
-                {positive ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                {positive ? '+' : ''}
-                {formatNumber(company.change, 2)} ({positive ? '+' : ''}
-                {company.changePct.toFixed(2)}%)
-              </span>
-            </div>
-            <div className="text-[10px] text-textMuted font-mono font-medium">
-              52W High: ₹{formatNumber(company.high52w)} · 52W Low: ₹{formatNumber(company.low52w)}
+                {positive ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+                {positive ? '+' : ''}{formatNumber(company.change, 2)} ({positive ? '+' : ''}{company.changePct.toFixed(2)}%)
+              </motion.span>
             </div>
 
-            <div className="mt-1 flex items-center gap-1.5">
+            <div className="text-[10px] text-textMuted font-mono">
+              52W High: ₹{formatNumber(company.high52w)} · Low: ₹{formatNumber(company.low52w)}
+            </div>
+
+            <div className="flex items-center gap-1.5 mt-0.5">
               <Button
                 size="sm"
                 variant={isWatched ? 'default' : 'outline'}
                 onClick={handleWatchToggle}
-                className={cn('h-8 text-xs gap-1.5 font-bold uppercase shadow-none', isWatched ? 'bg-accent hover:bg-accent/90 text-white' : '')}
+                className={cn('h-8 text-[11px] gap-1.5 font-bold uppercase tracking-wide', isWatched ? '' : '')}
               >
-                <Bookmark className="size-3.5" />
+                <Bookmark className="size-3" />
                 {isWatched ? 'Watching' : 'Watch'}
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleShare}
-                className="h-8 text-xs gap-1.5 font-bold uppercase border-border text-textSecondary shadow-none hover:bg-surfaceMuted"
+                className="h-8 text-[11px] gap-1.5 font-bold uppercase tracking-wide"
               >
-                <Share2 className="size-3.5" />
+                <Share2 className="size-3" />
                 Share
               </Button>
             </div>
@@ -144,4 +158,5 @@ export function CompanyHeader({ company }: { company: Company }) {
     </header>
   )
 }
+
 export default CompanyHeader

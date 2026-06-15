@@ -1,15 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { IndicesTicker } from '@/components/layout/IndicesTicker'
 import { NotificationCenter } from '@/components/layout/NotificationCenter'
 import { CommandPalette } from '@/components/shared/CommandPalette'
+import { CustomCursor } from '@/components/shared/CustomCursor'
+import { pageVariants } from '@/lib/motion'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
 export function DashboardLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const location = useLocation()
   const mainRef = useRef<HTMLElement>(null)
+  const prefersReduced = useReducedMotion()
 
   // Scroll to top on route change
   useEffect(() => {
@@ -18,9 +23,7 @@ export function DashboardLayout() {
     }
   }, [location.pathname])
 
-  // Ctrl/Cmd+K listener lives here only — Topbar receives onOpenPalette prop
-  // and does NOT attach its own window listener, eliminating the race condition
-  // where both listeners fired causing the palette to open and immediately close.
+  // Ctrl/Cmd+K listener
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -33,34 +36,41 @@ export function DashboardLayout() {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans antialiased text-slate-900">
-      {/* Sidebar Navigation (Left) */}
+    <div className="flex h-screen overflow-hidden bg-background font-sans antialiased text-textPrimary">
+      {/* Custom cursor — desktop only, hidden on touch via CSS */}
+      <CustomCursor />
+
+      {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content Area (Right) */}
+      {/* Right panel */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Market Indices Ticker Bar */}
+        {/* Ticker */}
         <IndicesTicker />
 
-        {/* Top Header Bar */}
+        {/* Topbar */}
         <Topbar onOpenPalette={() => setPaletteOpen(true)} />
 
-        {/* Dynamic Route Content
-            IMPORTANT: key={location.pathname} has been removed from this wrapper.
-            It was causing React to fully unmount+remount every page component on
-            every navigation, firing all 9 company API calls on each route change.
-            The fade animation is retained via the animate-fade-in-up CSS class. */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50">
-          <div className="animate-fade-in-up">
-            <Outlet />
-          </div>
+        {/* Main scrollable area with page transitions */}
+        <main
+          ref={mainRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-background"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={prefersReduced ? undefined : pageVariants}
+              initial={prefersReduced ? false : 'initial'}
+              animate="animate"
+              exit={prefersReduced ? undefined : 'exit'}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
-      {/* Notifications Drawer (Global Portal) */}
       <NotificationCenter />
-
-      {/* Global Command Palette */}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )

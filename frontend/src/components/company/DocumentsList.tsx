@@ -1,10 +1,12 @@
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useAppSelector } from '@/store/hooks'
-import { FileText, Download, Play, Pause, Search, ExternalLink, Headphones } from 'lucide-react'
+import {
+  Bookmark, Download, ExternalLink, FileText, Headphones,
+  Pause, Play, RefreshCw, Search, Volume2,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
 interface DocumentItem {
@@ -13,127 +15,179 @@ interface DocumentItem {
   date: string
   category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating'
   size?: string
-  duration?: string // for concalls
+  duration?: string
 }
 
 const DOCUMENTS: DocumentItem[] = [
   { id: 'doc-001', title: 'Annual Report FY 2024-25', date: '2025-05-15', category: 'annual-report', size: '18.4 MB' },
-  { id: 'doc-002', title: 'Q4 FY25 Earnings Call Audio Recording', date: '2025-04-23', category: 'concall', duration: '54:12' },
+  { id: 'doc-002', title: 'Q4 FY25 Earnings Conference Call Transcript', date: '2025-04-23', category: 'concall', duration: '45:12' },
   { id: 'doc-003', title: 'Credit Rating Upgrade Notice (ICRA AAA)', date: '2025-04-10', category: 'credit-rating', size: '1.2 MB' },
-  { id: 'doc-004', title: 'Transcript of Q4 FY25 Earnings Conference Call', date: '2025-04-28', category: 'announcement', size: '820 KB' },
+  { id: 'doc-004', title: 'Intimation of Board Meeting for Dividend Consideration', date: '2025-04-28', category: 'announcement', size: '820 KB' },
   { id: 'doc-005', title: 'Press Release - Q4 & FY25 Audited Financial Results', date: '2025-04-22', category: 'announcement', size: '4.5 MB' },
   { id: 'doc-006', title: 'Outcome of Board Meeting - Dividends & Audited Financials', date: '2025-04-22', category: 'announcement', size: '2.1 MB' },
   { id: 'doc-007', title: 'Annual Report FY 2023-24', date: '2024-05-18', category: 'annual-report', size: '17.1 MB' },
-  { id: 'doc-008', title: 'Q3 FY25 Earnings Call Recording', date: '2025-01-18', category: 'concall', duration: '48:35' },
+  { id: 'doc-008', title: 'Q3 FY25 Earnings Call Recording', date: '2025-01-18', category: 'concall', duration: '32:45' },
   { id: 'doc-009', title: 'Crisil AAA Credit Rating Report', date: '2025-01-05', category: 'credit-rating', size: '1.4 MB' },
   { id: 'doc-010', title: 'Transcript of Q3 FY25 Earnings Conference Call', date: '2025-01-24', category: 'announcement', size: '750 KB' },
   { id: 'doc-011', title: 'Q2 FY25 Earnings Call Recording', date: '2024-10-18', category: 'concall', duration: '42:15' },
-  { id: 'doc-012', title: 'Transcript of Q2 FY25 Earnings Conference Call', date: '2024-10-24', category: 'announcement', size: '690 KB' },
-  { id: 'doc-013', title: 'Annual Report FY 2022-23', date: '2023-05-20', category: 'annual-report', size: '15.8 MB' },
-  { id: 'doc-014', title: 'Q1 FY25 Earnings Call Recording', date: '2024-07-20', category: 'concall', duration: '38:50' },
-  { id: 'doc-015', title: 'Transcript of Q1 FY25 Earnings Conference Call', date: '2024-07-26', category: 'announcement', size: '720 KB' },
+  { id: 'doc-012', title: 'Annual Report FY 2022-23', date: '2023-05-20', category: 'annual-report', size: '15.8 MB' },
 ]
+
+const TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'announcements', label: 'Announcements' },
+  { id: 'annual-reports', label: 'Annual Reports' },
+  { id: 'concalls', label: 'Concalls' },
+  { id: 'credit-ratings', label: 'Credit Ratings' },
+]
+
+const CATEGORY_LABEL: Record<string, string> = {
+  'announcement': 'NOTICE',
+  'annual-report': 'REPORTS',
+  'concall': 'CONCALL',
+  'credit-rating': 'RATINGS',
+}
+
+const CATEGORY_STYLE: Record<string, string> = {
+  'announcement': 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
+  'annual-report': 'bg-positive-soft text-positive border-positive/20',
+  'concall': 'bg-accentSoft text-accent border-accent/20',
+  'credit-rating': 'bg-warning-soft text-warning border-warning/20',
+}
+
+// ── Inline Audio Player component ────────────────────────────────────────────
+function AudioPlayer({ docId, duration, isPlaying, onToggle }: {
+  docId: string; duration: string; isPlaying: boolean; onToggle: (id: string) => void
+}) {
+  const [progress, setProgress] = useState(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (isPlaying) {
+      setProgress(0)
+      intervalRef.current = setInterval(() => {
+        setProgress((p) => {
+          if (p >= 100) {
+            clearInterval(intervalRef.current!)
+            onToggle(docId)
+            return 0
+          }
+          return p + 0.5
+        })
+      }, 150)
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      setProgress(0)
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [isPlaying])
+
+  // Parse duration to estimate current time
+  const [totMins, totSecs] = duration.split(':').map(Number)
+  const totalSecs = totMins * 60 + totSecs
+  const elapsedSecs = Math.floor((progress / 100) * totalSecs)
+  const elapsedStr = `${String(Math.floor(elapsedSecs / 60)).padStart(2, '0')}:${String(elapsedSecs % 60).padStart(2, '0')}`
+
+  return (
+    <div className="mt-3 bg-surfaceMuted border border-border rounded-lg px-4 py-3 flex items-center gap-3">
+      <button
+        onClick={() => onToggle(docId)}
+        className={cn(
+          "size-9 rounded-full flex items-center justify-center shrink-0 transition-all",
+          isPlaying ? "bg-accent text-white" : "bg-surface border border-border text-textSecondary hover:border-accent hover:text-accent"
+        )}
+      >
+        {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between text-[10px] font-mono text-textMuted mb-1.5">
+          <span>{isPlaying ? elapsedStr : '00:00'}</span>
+          <span>{duration}</span>
+        </div>
+        <div className="relative h-1.5 bg-border rounded-full overflow-hidden cursor-pointer">
+          <div
+            className="h-full bg-accent rounded-full transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+      <Volume2 className="size-3.5 text-textMuted shrink-0" />
+    </div>
+  )
+}
 
 export function DocumentsList() {
   const storeDocuments = useAppSelector((state) => state.company?.documents)
   const activeDocuments = storeDocuments?.documents || DOCUMENTS
 
-  const [activeTab, setActiveTab] = useState<'all' | 'announcements' | 'annual-reports' | 'concalls' | 'credit-ratings'>('all')
+  const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [toastMsg, setToastMsg] = useState<string | null>(null)
-  
-  // Audio Player State for Concalls
   const [playingId, setPlayingId] = useState<string | null>(null)
-  const [audioProgress, setAudioProgress] = useState(0)
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(null), 3000)
   }
 
-  const handleDownload = (title: string) => {
-    showToast(`✓ Starting PDF download: ${title}`)
-  }
-
   const handlePlayToggle = (id: string) => {
-    if (playingId === id) {
-      setPlayingId(null)
-    } else {
-      setPlayingId(id)
-      setAudioProgress(0)
-      // Simulate simple audio progress ticker
-      const interval = setInterval(() => {
-        setAudioProgress((p) => {
-          if (p >= 100) {
-            clearInterval(interval)
-            setPlayingId(null)
-            return 0
-          }
-          return p + 2
-        })
-      }, 500)
-    }
+    setPlayingId((prev) => prev === id ? null : id)
   }
 
   const filteredDocuments = useMemo(() => {
     return activeDocuments.filter((doc: any) => {
-      // Tab Category matching
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'announcements' && doc.category === 'announcement') ||
         (activeTab === 'annual-reports' && doc.category === 'annual-report') ||
         (activeTab === 'concalls' && doc.category === 'concall') ||
         (activeTab === 'credit-ratings' && doc.category === 'credit-rating')
-
-      // Search matching
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase())
-
       return matchesTab && matchesSearch
     })
-  }, [activeTab, searchQuery])
+  }, [activeTab, searchQuery, activeDocuments])
 
   return (
-    <div className="bg-surface border border-border rounded-lg overflow-hidden select-none">
-      <div className="px-5 py-4 border-b border-border/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-surfaceMuted/50">
+    <div className="bg-surface border border-border rounded-xl overflow-hidden select-none">
+      {/* Header row */}
+      <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
-            Corporate filings & reports
-          </h3>
+          <h3 className="text-sm font-bold text-textPrimary">Documents &amp; Announcements</h3>
           <p className="text-[11px] text-textMuted mt-0.5">
-            Institutional archives and audio earnings call recordings
+            Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.
           </p>
         </div>
-        
-        {/* Search Input */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
-          <Input
-            type="text"
-            placeholder="Search reports..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 h-8 text-[11px] font-medium border-border focus:border-blue-700 bg-surface"
-          />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => showToast('✓ Data refreshed')}
+            className="size-8 rounded-lg border border-border bg-surface text-textSecondary hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
+          >
+            <RefreshCw className="size-3.5" />
+          </button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
+            <Input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 h-8 text-[11px] font-medium border-border focus:border-accent bg-surface w-52"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Tabs list */}
-      <div className="flex border-b border-border/50 overflow-x-auto bg-surfaceMuted/20 px-3">
-        {[
-          { id: 'all', label: 'All Files' },
-          { id: 'announcements', label: 'Announcements' },
-          { id: 'annual-reports', label: 'Annual Reports' },
-          { id: 'concalls', label: 'Earnings Calls' },
-          { id: 'credit-ratings', label: 'Credit Ratings' },
-        ].map((tab) => (
+      {/* Filter tabs */}
+      <div className="flex items-center gap-1 border-b border-border/50 overflow-x-auto px-4 py-2 bg-surfaceMuted/10">
+        {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'px-4 py-3 text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap focus:outline-none border-b-2 border-transparent',
+              'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all',
               activeTab === tab.id
-                ? 'border-blue-700 text-accent'
-                : 'text-textSecondary hover:text-textPrimary'
+                ? 'bg-accent text-white'
+                : 'bg-surface border border-border text-textSecondary hover:border-accent/40 hover:text-textPrimary'
             )}
           >
             {tab.label}
@@ -141,12 +195,12 @@ export function DocumentsList() {
         ))}
       </div>
 
-      {/* Documents items list */}
-      <div className="divide-y divide-border/50 max-h-[500px] overflow-y-auto">
+      {/* Document list */}
+      <div className="divide-y divide-border/40">
         {filteredDocuments.length === 0 ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center px-6">
-            <FileText className="size-8 text-slate-200 mb-2" />
-            <p className="text-xs font-semibold text-slate-950">No documents found</p>
+          <div className="py-14 flex flex-col items-center justify-center text-center px-6">
+            <FileText className="size-8 text-border mb-2" />
+            <p className="text-xs font-semibold text-textPrimary">No documents found</p>
             <p className="text-[10px] text-textMuted mt-0.5">Try widening your search terms.</p>
           </div>
         ) : (
@@ -155,79 +209,89 @@ export function DocumentsList() {
             const isPlaying = playingId === doc.id
 
             return (
-              <div key={doc.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-surfaceMuted transition-colors">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="size-8 rounded-lg bg-surfaceMuted border border-border/50 flex items-center justify-center shrink-0 text-textSecondary mt-0.5">
-                    {isConcall ? <Headphones className="size-4" /> : <FileText className="size-4" />}
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-textPrimary leading-snug truncate max-w-md sm:max-w-xl">
-                      {doc.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-textMuted font-mono font-medium">{doc.date}</span>
-                      <span className="text-textMuted">•</span>
-                      <span className="text-[10px] text-textMuted font-mono uppercase tracking-wide">
-                        {doc.category.replace('-', ' ')}
-                      </span>
-                      {doc.size && (
-                        <>
-                          <span className="text-textMuted">•</span>
-                          <span className="text-[10px] text-textMuted font-mono">{doc.size}</span>
-                        </>
+              <div key={doc.id} className="px-5 py-4 hover:bg-surfaceMuted/20 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {/* Date column */}
+                    <div className="text-right shrink-0 w-20 pt-0.5">
+                      <p className="text-[11px] font-bold text-textSecondary font-mono">{doc.date}</p>
+                    </div>
+                    {/* Title + badge */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <h4 className="text-xs font-semibold text-textPrimary leading-snug">{doc.title}</h4>
+                        <span className={cn(
+                          'text-[9px] font-black uppercase tracking-widest border px-1.5 py-0.5 rounded-md shrink-0',
+                          CATEGORY_STYLE[doc.category]
+                        )}>
+                          {CATEGORY_LABEL[doc.category]}
+                        </span>
+                      </div>
+                      {/* Concall inline audio player */}
+                      {isConcall && doc.duration && (
+                        <AudioPlayer
+                          docId={doc.id}
+                          duration={doc.duration}
+                          isPlaying={isPlaying}
+                          onToggle={handlePlayToggle}
+                        />
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="shrink-0 flex items-center gap-2.5 self-end sm:self-center w-full sm:w-auto">
-                  {isConcall && (
-                    <div className="flex-1 sm:flex-initial flex items-center gap-3">
-                      {isPlaying && (
-                        <div className="w-24 sm:w-32 flex flex-col gap-1.5 shrink-0">
-                          <Progress value={audioProgress} className="h-1 bg-surfaceMuted" />
-                          <div className="flex justify-between text-[8px] font-mono text-textMuted leading-none">
-                            <span>Playing</span>
-                            <span>{doc.duration}</span>
-                          </div>
-                        </div>
-                      )}
+                  {/* Actions */}
+                  <div className="shrink-0 flex items-center gap-2">
+                    {isConcall ? (
                       <Button
                         size="sm"
-                        variant={isPlaying ? 'destructive' : 'outline'}
+                        variant="outline"
                         onClick={() => handlePlayToggle(doc.id)}
-                        className="h-8 text-[11px] gap-1.5 w-24 shrink-0 font-bold uppercase"
+                        className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent"
                       >
-                        {isPlaying ? (
-                          <>
-                            <Pause className="size-3" /> Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play className="size-3" /> Listen ({doc.duration})
-                          </>
-                        )}
+                        {isPlaying ? <><Pause className="size-3" /> Pause</> : <><Play className="size-3" /> Listen</>}
                       </Button>
-                    </div>
-                  )}
-
-                  {!isConcall && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(doc.title)}
-                      className="h-8 text-[11px] gap-1.5 font-bold uppercase ml-auto sm:ml-0"
-                    >
-                      <Download className="size-3" /> Download PDF
-                    </Button>
-                  )}
+                    ) : doc.category === 'announcement' ? (
+                      <Button size="sm" variant="outline" className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent">
+                        <ExternalLink className="size-3" /> View Link
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => showToast(`✓ Downloading: ${doc.title}`)}
+                        className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent"
+                      >
+                        <Download className="size-3" /> Download PDF
+                      </Button>
+                    )}
+                    <button className="size-8 rounded-lg border border-border flex items-center justify-center text-textMuted hover:border-accent hover:text-accent transition-colors">
+                      <Bookmark className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )
           })
         )}
       </div>
+
+      {/* Pagination footer */}
+      <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between bg-surfaceMuted/20">
+        <span className="text-[10px] text-textMuted font-medium">
+          Showing 1 to {filteredDocuments.length} of {filteredDocuments.length} entries
+        </span>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3].map((p) => (
+            <button key={p} className={cn("size-7 rounded-md text-[10px] font-bold transition-all", p === 1 ? "bg-accent text-white" : "border border-border text-textSecondary hover:border-accent")}>
+              {p}
+            </button>
+          ))}
+          <span className="text-textMuted text-xs px-1">…</span>
+          <button className="size-7 rounded-md border border-border text-[10px] font-bold text-textSecondary hover:border-accent">250</button>
+        </div>
+      </div>
+
+      {/* Toast */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-xs px-4 py-2 rounded-lg shadow-lg animate-in slide-in-from-bottom-2">
           {toastMsg}

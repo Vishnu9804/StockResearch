@@ -1,50 +1,70 @@
 /**
- * FinScreen Base Design Tokens
- * 
- * This file defines the foundational color palette, typography scale,
- * and font weights for the FinScreen design system.
- * 
- * To update design tokens:
- * 1. Modify the values in the `theme` object below.
- * 2. Ensure that corresponding Tailwind CSS custom properties in `src/globals.css` are aligned.
+ * FinScreen Design Tokens
+ *
+ * Single source of truth for design values.
+ * CSS custom properties in globals.css mirror these tokens.
  */
 export const theme = {
   colors: {
-    background: '#F8FAFC',
-    surface: '#FFFFFF',
-    surfaceMuted: '#F9FAFB',
-    border: '#E5E7EB',
-    textPrimary: '#0F172A',
-    textSecondary: '#64748B',
-    textMuted: '#94A3B8',
-    accent: '#1D4ED8',
-    accentSoft: '#EFF6FF',
-    positive: '#16A34A',
-    negative: '#DC2626',
-    warning: '#D97706',
-    info: '#0EA5E9',
-    tableRowHover: '#EFF6FF',
-    skeletonBase: '#E2E8F0',
-    skeletonHighlight: '#F1F5F9',
+    background:    '#F4F7FB',
+    surface:       '#FFFFFF',
+    surfaceMuted:  '#F8FAFC',
+    border:        '#E2E8F0',
+    textPrimary:   '#0D1829',
+    textSecondary: '#5A6A7E',
+    textMuted:     '#8A99AD',
+    accent:        '#2563EB',
+    accentSoft:    '#EEF4FF',
+    positive:      '#16A34A',
+    positiveSoft:  '#F0FDF4',
+    negative:      '#DC2626',
+    negativeSoft:  '#FEF2F2',
+    warning:       '#D97706',
+    warningSoft:   '#FFFBEB',
+    info:          '#0EA5E9',
+    tableRowHover: '#EEF4FF',
+    skeletonBase:  '#E2E8F0',
+    skeletonHigh:  '#F1F5F9',
+  },
+  shadow: {
+    xs: '0 1px 2px rgba(13,24,41,0.04)',
+    sm: '0 1px 3px rgba(13,24,41,0.06), 0 1px 6px rgba(13,24,41,0.04)',
+    md: '0 4px 12px rgba(13,24,41,0.08), 0 2px 6px rgba(13,24,41,0.04)',
+    lg: '0 12px 32px rgba(13,24,41,0.10), 0 4px 12px rgba(13,24,41,0.06)',
+    accent: '0 4px 16px rgba(37,99,235,0.20)',
+  },
+  radius: {
+    sm:  '0.375rem',
+    md:  '0.5rem',
+    lg:  '0.625rem',
+    xl:  '0.875rem',
+    '2xl': '1rem',
+    full: '9999px',
   },
   fontFamily: {
     sans: '"Inter", system-ui, -apple-system, sans-serif',
     mono: '"JetBrains Mono", "Courier New", monospace',
   },
   fontSize: {
-    xs: '0.75rem',
-    sm: '0.875rem',
-    md: '1rem',
-    lg: '1.125rem',
-    xl: '1.25rem',
+    xs:   '0.75rem',
+    sm:   '0.875rem',
+    md:   '1rem',
+    lg:   '1.125rem',
+    xl:   '1.25rem',
     '2xl': '1.5rem',
     '3xl': '1.875rem',
   },
   fontWeight: {
-    regular: '400',
-    medium: '500',
+    regular:  '400',
+    medium:   '500',
     semibold: '600',
-    bold: '700',
+    bold:     '700',
+    black:    '900',
+  },
+  transition: {
+    fast:    '150ms cubic-bezier(0.16, 1, 0.3, 1)',
+    default: '200ms cubic-bezier(0.16, 1, 0.3, 1)',
+    slow:    '350ms cubic-bezier(0.16, 1, 0.3, 1)',
   },
 } as const
 

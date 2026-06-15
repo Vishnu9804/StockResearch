@@ -25,11 +25,28 @@ app.use(helmet({
 }))
 
 app.use(cors({
-  origin: CONFIG.FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    const isAllowed = 
+      CONFIG.NODE_ENV !== 'production' ||
+      origin === CONFIG.FRONTEND_URL ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.includes('.ngrok-free.app') ||
+      origin.includes('ngrok.io') ||
+      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin)
+      
+    if (isAllowed) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID']
 }))
+
 
 app.use(cookieParser())
 app.use(express.json())

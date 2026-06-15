@@ -1,37 +1,17 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * useIntersectionObserver.ts
  *
  * A robust scroll-spy hook that tracks which section is currently in view
  * inside the <main> scrolling container.
- *
- * Strategy:
- * - Attaches a single scroll listener to the <main> element.
- * - On each scroll event, walks the section list top-to-bottom and marks the
- *   last section whose top edge has scrolled past the "trigger line"
- *   (container's scrollTop + navOffset).
- * - Handles boundary conditions: first section at top, last section when
- *   near the bottom of the scroll container.
  */
 export function useIntersectionObserver(
   sectionIds: string[],
-  navOffset = 56        // height of sticky subnav inside <main> (approx 56px)
+  navOffset = 56,        // height of sticky subnav inside <main> (approx 56px)
+  scrollingTarget: string | null = null
 ): string {
   const [activeId, setActiveId] = useState<string>('')
-  // Track whether external code has locked the active id (e.g. tab click)
-  const lockedRef = useRef(false)
-  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Exposed helper so StickySubNav can temporarily lock the active section
-  ;(useIntersectionObserver as any).__lockActive = (id: string, durationMs: number) => {
-    if (lockTimerRef.current) clearTimeout(lockTimerRef.current)
-    lockedRef.current = true
-    setActiveId(id)
-    lockTimerRef.current = setTimeout(() => {
-      lockedRef.current = false
-    }, durationMs)
-  }
 
   useEffect(() => {
     if (sectionIds.length === 0) return
@@ -41,7 +21,11 @@ export function useIntersectionObserver(
     if (!container) return
 
     const compute = () => {
-      if (lockedRef.current) return   // Locked by tab click – skip
+      // If we are actively scrolling to a target, lock to that target
+      if (scrollingTarget) {
+        setActiveId(scrollingTarget)
+        return
+      }
 
       const scrollTop = container.scrollTop
       const containerHeight = container.clientHeight
@@ -60,10 +44,6 @@ export function useIntersectionObserver(
       }
 
       // General: find the last section whose top is above or at the trigger line.
-      // We compute the section's absolute offset from the top of <main>'s content.
-      // el.getBoundingClientRect().top gives viewport position.
-      // container.getBoundingClientRect().top gives viewport position of <main> top.
-      // So: absoluteTopInContainer = rect.top - containerRect.top + scrollTop
       const containerTop = container.getBoundingClientRect().top
       const triggerLine = navOffset + 8   // a few pixels below subnav bottom
 
@@ -86,16 +66,21 @@ export function useIntersectionObserver(
     // Init on mount (after a small delay to let lazy sections render)
     const initTimer = setTimeout(compute, 100)
 
+    // Compute immediately if scrollingTarget changes
+    if (scrollingTarget) {
+      setActiveId(scrollingTarget)
+    }
+
     container.addEventListener('scroll', compute, { passive: true })
     window.addEventListener('resize', compute, { passive: true })
 
     return () => {
       clearTimeout(initTimer)
-      if (lockTimerRef.current) clearTimeout(lockTimerRef.current)
       container.removeEventListener('scroll', compute)
       window.removeEventListener('resize', compute)
     }
-  }, [sectionIds, navOffset])
+  }, [sectionIds, navOffset, scrollingTarget])
 
-  return activeId
+  return activeId || scrollingTarget || sectionIds[0] || ''
 }
+

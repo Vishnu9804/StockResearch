@@ -1,200 +1,276 @@
 
 import { useState } from 'react'
 import { useAppSelector } from '@/store/hooks'
-import { Calendar, Tag, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  corporateActions,
-  upcomingEvents,
-  dividendHistory,
+  corporateActions, upcomingEvents, dividendHistory,
   type CorporateAction,
 } from '@/lib/data/corporate-actions'
 import { formatDate } from '@/lib/formatters'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from 'recharts'
 import { cn } from '@/lib/utils'
+
+type TabKey = 'all' | 'dividends' | 'bonuses' | 'splits'
+const TABS: { id: TabKey; label: string }[] = [
+  { id: 'all', label: 'All Events' },
+  { id: 'dividends', label: 'Dividends' },
+  { id: 'bonuses', label: 'Bonuses' },
+  { id: 'splits', label: 'Splits' },
+]
+
+const YEARS = ['All', '2025', '2024', '2023', '2022', '2021', '2020']
 
 export function CorporateActionsTable() {
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 8
+  const [activeTab, setActiveTab] = useState<TabKey>('all')
+  const [yearFilter, setYearFilter] = useState('2023')
+  const itemsPerPage = 6
 
   const storeActions = useAppSelector((state) => state.company?.corporateActions)
   const activeActions = storeActions?.corporateActions || corporateActions
   const activeUpcoming = storeActions?.upcomingEvents || upcomingEvents
   const activeDividends = storeActions?.dividendHistory || dividendHistory
 
-  // Pagination calculations
-  const totalItems = activeActions.length
-  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  // Filter by tab
+  const tabFiltered = activeActions.filter((a: CorporateAction) => {
+    if (activeTab === 'dividends') return a.type === 'Dividend'
+    if (activeTab === 'bonuses') return a.type === 'Bonus'
+    if (activeTab === 'splits') return a.type === 'Split'
+    return true
+  })
+
+  // Filter by year
+  const filtered = yearFilter === 'All'
+    ? tabFiltered
+    : tabFiltered.filter((a: CorporateAction) => a.announcementDate.startsWith(yearFilter))
+
+  const totalItems = filtered.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedActions = activeActions.slice(startIndex, startIndex + itemsPerPage)
+  const paginatedActions = filtered.slice(startIndex, startIndex + itemsPerPage)
 
   const getBadgeColor = (type: string) => {
     switch (type) {
-      case 'Dividend':
-        return 'bg-accentSoft text-accent border-blue-200'
-      case 'Bonus':
-        return 'bg-positive-soft/40 text-positive border-green-200'
-      case 'Split':
-        return 'bg-purple-50 text-purple-700 border-purple-200'
-      default:
-        return 'bg-warning-soft/40 text-warning border-amber-200'
+      case 'Dividend': return 'bg-accentSoft text-accent border-blue-200 dark:border-blue-800'
+      case 'Bonus': return 'bg-positive-soft/40 text-positive border-green-200 dark:border-green-800'
+      case 'Split': return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800'
+      default: return 'bg-warning-soft/40 text-warning border-amber-200 dark:border-amber-800'
     }
   }
 
-  return (
-    <div className="space-y-6 select-none">
-      {/* 2-Column layout: Actions list & Upcoming Events + Dividend Chart */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
-        {/* Left: Actions List */}
-        <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/50">
-              <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
-                Corporate Actions
-              </h3>
-              <p className="text-[11px] text-textMuted mt-0.5">
-                History of dividend payments, bonus issues, stock splits, and rights issues
-              </p>
-            </div>
+  // Quick stat calculations
+  const dividends = activeActions.filter((a: CorporateAction) => a.type === 'Dividend')
+  const lastDividend = dividends[0]
+  const bonuses = activeActions.filter((a: CorporateAction) => a.type === 'Bonus')
+  const maxBar = Math.max(...activeDividends.map((d: any) => d.amount))
 
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-surfaceMuted">
-                  <TableRow>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">
-                      Type
-                    </TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">
-                      Details
-                    </TableHead>
-                    <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">
-                      Announcement
-                    </TableHead>
-                    <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">
-                      Ex-Date
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedActions.map((action: CorporateAction) => (
-                    <TableRow key={action.id} className="hover:bg-surfaceMuted transition-colors">
-                      <TableCell className="py-3">
-                        <Badge
-                          variant="outline"
-                          className={cn('text-[10px] font-bold uppercase tracking-wide rounded-md', getBadgeColor(action.type))}
-                        >
-                          {action.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs font-semibold text-textPrimary py-3">
-                        {action.details}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-textSecondary font-mono py-3">
-                        {formatDate(action.announcementDate)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-textSecondary font-mono py-3">
-                        {formatDate(action.exDate)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+  return (
+    <div className="space-y-5 select-none">
+
+      {/* ── Quick Stat Cards ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Dividend Yield</p>
+          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">0.82%</p>
+          <p className="text-[10px] text-positive font-semibold mt-0.5">Sector Avg: 0.65%</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Last Dividend</p>
+          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">₹15.00</p>
+          <p className="text-[10px] text-textMuted font-mono mt-0.5">{lastDividend ? formatDate(lastDividend.exDate) : '—'}</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Bonus Ratio</p>
+          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">1:1</p>
+          <p className="text-[10px] text-textMuted font-mono mt-0.5">Last: {bonuses[0] ? formatDate(bonuses[0].exDate) : '—'}</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Total Events</p>
+          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">{activeActions.length}</p>
+          <p className="text-[10px] text-textMuted font-medium mt-0.5">Since IPO</p>
+        </div>
+      </div>
+
+      {/* ── Main panel ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
+
+        {/* Left: Actions table */}
+        <div className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/30">
+            <h3 className="text-sm font-bold text-textPrimary">Corporate Actions</h3>
+            <p className="text-[11px] text-textMuted mt-0.5">
+              Historical record of dividends, bonuses, splits, and rights issues
+            </p>
+          </div>
+
+          {/* Tabs + Year filter */}
+          <div className="flex items-center justify-between border-b border-border/50 px-3 bg-surfaceMuted/20">
+            <div className="flex">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setCurrentPage(1) }}
+                  className={cn(
+                    'px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors',
+                    activeTab === tab.id
+                      ? 'border-accent text-accent'
+                      : 'border-transparent text-textSecondary hover:text-textPrimary'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] text-textMuted font-medium">Filter by year:</span>
+              <select
+                value={yearFilter}
+                onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1) }}
+                className="text-[10px] font-mono font-bold text-textPrimary bg-surface border border-border rounded-md px-2 py-1 focus:outline-none focus:border-accent"
+              >
+                {YEARS.map((y) => <option key={y}>{y}</option>)}
+              </select>
             </div>
           </div>
 
-          {/* Pagination controls */}
-          <div className="px-5 py-4 border-t border-border/50 flex items-center justify-between bg-surfaceMuted/50 shrink-0">
+          {/* Table */}
+          <div className="overflow-x-auto flex-1">
+            <Table>
+              <TableHeader className="bg-surfaceMuted">
+                <TableRow>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Event Type</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Announcement Date</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Record Date</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Ex-Date</TableHead>
+                  <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedActions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-10 text-center text-xs text-textMuted">
+                      No events found for the selected filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedActions.map((action: CorporateAction) => (
+                    <TableRow key={action.id} className="hover:bg-surfaceMuted/50 transition-colors">
+                      <TableCell className="py-3">
+                        <Badge variant="outline" className={cn('text-[10px] font-bold uppercase tracking-wide rounded-md', getBadgeColor(action.type))}>
+                          {action.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.announcementDate)}</TableCell>
+                      <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.recordDate)}</TableCell>
+                      <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.exDate)}</TableCell>
+                      <TableCell className="text-right text-xs font-semibold text-textPrimary py-3">{action.details}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          <div className="px-5 py-3.5 border-t border-border/50 flex items-center justify-between bg-surfaceMuted/30 shrink-0">
             <span className="text-[11px] text-textSecondary font-semibold">
-              Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} actions
+              Showing {totalItems === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} records
             </span>
-            <div className="flex gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
-              >
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 w-8 p-0 border-border">
                 <ChevronLeft className="size-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
-              >
+              {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map((p) => (
+                <Button
+                  key={p}
+                  variant={currentPage === p ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(p)}
+                  className={cn("h-8 w-8 p-0 text-xs font-bold", currentPage === p ? "bg-accent text-white" : "border-border")}
+                >
+                  {p}
+                </Button>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-8 w-8 p-0 border-border">
                 <ChevronRight className="size-4" />
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Right: Upcoming Events & Dividend chart */}
-        <div className="space-y-5">
+        {/* Right: Upcoming Events + CSS Dividend Chart */}
+        <div className="space-y-4">
           {/* Upcoming Events */}
           <Card className="border-border shadow-none">
-            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/50 flex items-center gap-1.5">
+            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/40 flex items-center gap-1.5">
               <Calendar className="size-3.5 text-accent" />
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">
-                Upcoming Events
-              </span>
+              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Upcoming Events</span>
             </div>
             <CardContent className="p-4 space-y-4">
-              {activeUpcoming.map((evt: any) => (
-                <div key={evt.title} className="flex gap-3 items-start last:border-b-0 border-b border-border/50 pb-3 last:pb-0">
-                  <div className="size-8 rounded-lg bg-accentSoft border border-blue-100 flex items-center justify-center shrink-0 text-accent font-bold text-[10px] uppercase font-mono">
-                    {new Date(evt.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }).split(' ').join('\n')}
+              {activeUpcoming.map((evt: any) => {
+                const d = new Date(evt.date)
+                const day = d.toLocaleDateString('en-IN', { day: '2-digit' })
+                const mon = d.toLocaleDateString('en-IN', { month: 'short' }).toUpperCase()
+                return (
+                  <div key={evt.title} className="flex gap-3 items-start border-b border-border/40 pb-3 last:border-0 last:pb-0">
+                    <div className="size-10 rounded-xl bg-accentSoft border border-accent/20 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[9px] font-bold text-accent uppercase leading-none">{mon}</span>
+                      <span className="text-sm font-black text-accent leading-tight">{day}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-textPrimary leading-snug">{evt.title}</h4>
+                      <p className="text-[10px] text-accent font-mono font-bold mt-0.5">{formatDate(evt.date)} &nbsp;·&nbsp; {evt.type === 'EarningsCall' ? '5:00 PM IST' : '11:00 AM IST'}</p>
+                      <p className="text-[10px] text-textSecondary leading-relaxed mt-1">{evt.description.slice(0, 80)}…</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-textPrimary leading-snug">{evt.title}</h4>
-                    <p className="text-[10px] text-textMuted font-medium font-mono mt-0.5">Date: {formatDate(evt.date)}</p>
-                    <p className="text-[11px] text-textSecondary leading-relaxed mt-1">{evt.description}</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </CardContent>
           </Card>
 
-          {/* Dividend Bar Chart */}
+          {/* Pure-CSS Dividend History Chart */}
           <Card className="border-border shadow-none">
-            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/50 flex items-center gap-1.5">
-              <BarChart3 className="size-3.5 text-accent" />
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">
-                Dividend History (₹/Share)
-              </span>
+            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/40 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Download className="size-3.5 text-accent" />
+                <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Dividend History (₹/Share)</span>
+              </div>
             </div>
             <CardContent className="p-4">
-              <div className="h-44 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={activeDividends} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-                    <XAxis dataKey="year" stroke="#94A3B8" fontSize={9} tickLine={false} />
-                    <YAxis stroke="#94A3B8" fontSize={9} tickLine={false} />
-                    <Tooltip
-                      cursor={{ fill: '#F1F5F9' }}
-                      contentStyle={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '10px', fontFamily: 'monospace' }}
-                      formatter={(val: number) => [`₹${val.toFixed(2)}`, 'Dividend']}
-                    />
-                    <Bar dataKey="amount" fill="#1D4ED8" radius={[2, 2, 0, 0]} barSize={18} />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Pure CSS bar chart */}
+              <div className="flex items-end gap-1.5 h-36 w-full">
+                {activeDividends.map((d: any, i: number) => {
+                  const heightPct = maxBar > 0 ? (d.amount / maxBar) * 100 : 0
+                  const isLast = i === activeDividends.length - 1
+                  return (
+                    <div key={d.year} className="flex flex-col items-center flex-1 gap-1 group relative">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        <div className="bg-gray-900 text-white text-[9px] font-mono px-2 py-1 rounded-md whitespace-nowrap">
+                          ₹{d.amount.toFixed(2)}
+                        </div>
+                      </div>
+                      <div
+                        className={cn(
+                          "w-full rounded-t-md transition-all",
+                          isLast ? "bg-accent/40 border-2 border-dashed border-accent" : "bg-accent group-hover:bg-accent/80"
+                        )}
+                        style={{ height: `${heightPct}%` }}
+                      />
+                      <span className="text-[8px] font-mono text-textMuted whitespace-nowrap">{d.year}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-3 text-[9px] text-textMuted">
+                <span className="flex items-center gap-1"><span className="size-2 bg-accent rounded-sm inline-block" /> Paid</span>
+                <span className="flex items-center gap-1"><span className="size-2 bg-accent/30 border border-dashed border-accent rounded-sm inline-block" /> Estimated</span>
               </div>
             </CardContent>
           </Card>

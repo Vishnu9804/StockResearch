@@ -146,13 +146,31 @@ export const FinedgeService = {
         headers: {
           'X-Request-ID': requestId,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-API-Key': apiKey,
         },
         params: {
           ...query,
           token: apiKey,
         },
+        paramsSerializer: {
+          serialize: (params) => {
+            const searchParams = new URLSearchParams()
+            for (const key in params) {
+              const val = params[key]
+              if (Array.isArray(val)) {
+                for (const item of val) {
+                  searchParams.append(key, item)
+                }
+              } else if (val !== undefined && val !== null) {
+                searchParams.append(key, String(val))
+              }
+            }
+            return searchParams.toString()
+          }
+        },
         data: body,
-        timeout: 10000,
+        timeout: 15000,
       }
 
       const response = await axios(axiosConfig)
