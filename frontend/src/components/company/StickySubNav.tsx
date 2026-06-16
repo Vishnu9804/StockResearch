@@ -197,9 +197,9 @@ export function StickySubNav() {
               ref={(el) => { buttonRefs.current[section.id] = el }}
               onClick={() => handleScrollTo(section.id)}
               className={cn(
-                'relative whitespace-nowrap px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors focus:outline-none shrink-0',
+                'relative whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors focus:outline-none shrink-0',
                 isActive
-                  ? 'text-accent font-extrabold'
+                  ? 'text-accent font-medium'
                   : 'text-textSecondary hover:text-textPrimary'
               )}
             >

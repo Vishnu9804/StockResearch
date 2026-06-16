@@ -1,15 +1,12 @@
-
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import {
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Settings2, Download, Bell, X, Columns3, TrendingUp, TrendingDown
+  ChevronLeft, ChevronRight,
+  Download, Bell, X, Columns3, TrendingUp, TrendingDown, ChevronsUpDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -112,6 +109,14 @@ function formatPrice(val: number): string {
   return val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const getFilterChipColors = (label: string) => {
+  if (label.includes("Market Cap")) return { bg: 'var(--fs-info-soft)', text: 'var(--fs-info)' }
+  if (label.includes("ROE")) return { bg: 'var(--fs-positive-soft)', text: '#27500A' }
+  if (label.includes("D/E Ratio")) return { bg: '#EEEDFE', text: '#3C3489' }
+  if (label.includes("Profit Growth")) return { bg: 'var(--fs-warning-soft)', text: 'var(--fs-warning)' }
+  return { bg: 'var(--fs-info-soft)', text: 'var(--fs-info)' }
+}
+
 export function ScreenerResultsTable() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
@@ -131,19 +136,15 @@ export function ScreenerResultsTable() {
     const activeIds = new Set(activeFilters.map((f) => f.id))
 
     if (activeIds.has('f1')) {
-      // Market Cap >= 500 Cr
       list = list.filter((r) => r.marketCap >= 500)
     }
     if (activeIds.has('f2')) {
-      // ROE > 15% (filter by ROCE/ROCE percentage > 15)
       list = list.filter((r) => r.roce > 15)
     }
     if (activeIds.has('f3')) {
-      // D/E Ratio < 1 (filter out banking/NBFC which generally have high leverage)
       list = list.filter((r) => r.sector !== 'Banking' && r.sector !== 'NBFC')
     }
     if (activeIds.has('f4')) {
-      // Profit Growth 3Y > 10% (filter by netProfitChange > 10)
       list = list.filter((r) => r.netProfitChange > 10)
     }
     return list
@@ -175,7 +176,7 @@ export function ScreenerResultsTable() {
     setActiveFilters((prev) => prev.filter((f) => f.id !== id))
     setPage(1)
   }
-  
+
   const clearFilters = () => {
     setActiveFilters([])
     setPage(1)
@@ -229,63 +230,119 @@ export function ScreenerResultsTable() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <SummaryCard label="Matches" value={String(filtered.length)} sub="companies" color="blue" />
-        <SummaryCard label="Avg P/E" value={avgPE.toFixed(1)} sub="industry avg 28.3x" color="gray" />
-        <SummaryCard label="Total Mkt Cap" value={formatCap(totalMktCap)} sub="combined" color="green" />
-        <SummaryCard label="Median ROCE" value={`${medianROCE.toFixed(1)}%`} sub="annualized" color="purple" />
+      {/* Mini Stat Cards Row — 5 cards, all inside right column */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }} className="w-full">
+        <MiniSummaryCard label="Matches" value={String(filtered.length)} sub="companies" color="blue" />
+        <MiniSummaryCard label="Avg P/E Ratio" value={`${avgPE.toFixed(1)}x`} sub="industry avg 28.3x" color="gray" />
+        <MiniSummaryCard label="Total Market Cap" value={formatCap(totalMktCap)} sub="combined" color="gray" />
+        <MiniSummaryCard label="Median ROCE" value={`${medianROCE.toFixed(1)}%`} sub="annualized" color="purple" />
+        <MiniSummaryCard label="Sector Lead" value="Tech (14%)" sub="2nd: Finance (12%)" color="indigo" />
       </div>
 
-      {/* Action bar + filter pills */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between p-3 border-b border-border/50">
-          {/* Active filter pills */}
-          <div className="flex items-center gap-2 flex-wrap">
+      {/* Table Container Card */}
+      <div 
+        style={{ 
+          background: 'var(--fs-surface)', 
+          border: 'var(--fs-border)', 
+          borderRadius: 'var(--fs-radius-md)', 
+          overflow: 'hidden' 
+        }}
+        className="w-full flex flex-col"
+      >
+        {/* Active Filters & Small Action Buttons Row */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            flexWrap: 'wrap', 
+            gap: 'var(--fs-space-sm)' 
+          }} 
+          className="px-5 py-4 border-b border-border/40 select-none"
+        >
+          {/* Left side: chips */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--fs-space-xs)', alignItems: 'center' }}>
             {activeFilters.length > 0 ? (
               <>
-                {activeFilters.map((f) => (
-                  <Badge
-                    key={f.id}
-                    variant="secondary"
-                    className="text-xs bg-accentSoft text-accent border border-blue-200 gap-1 pr-1"
-                  >
-                    {f.label}
-                    <button
+                {activeFilters.map((f) => {
+                  const colors = getFilterChipColors(f.label)
+                  return (
+                    <span
+                      key={f.id}
                       onClick={() => removeFilter(f.id)}
-                      className="ml-0.5 hover:text-red-500 transition-colors"
-                      aria-label="Remove filter"
+                      style={{
+                        fontSize: 'var(--fs-size-sm)',
+                        fontWeight: 'var(--fs-weight-medium)',
+                        padding: '4px 10px',
+                        borderRadius: 'var(--fs-radius-xl)',
+                        background: colors.bg,
+                        color: colors.text,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        cursor: 'pointer',
+                      }}
+                      className="hover:opacity-90 transition-opacity"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-                <button
+                      {f.label}
+                      <X className="size-2.5 shrink-0" />
+                    </span>
+                  )
+                })}
+                <span
                   onClick={clearFilters}
-                  className="text-xs text-textMuted hover:text-red-500 transition-colors ml-1"
+                  style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-negative)', cursor: 'pointer', fontWeight: 'var(--fs-weight-medium)', marginLeft: '4px' }}
+                  className="hover:underline font-medium"
                 >
                   Clear All
-                </button>
+                </span>
               </>
             ) : (
-              <span className="text-xs text-textMuted">No active filters</span>
+              <span style={{ fontSize: 'var(--fs-size-sm)' }} className="text-textMuted font-medium">No active filters</span>
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={openColumnsDialog}>
-              <Columns3 className="w-3.5 h-3.5" />
+          {/* Right side: buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={openColumnsDialog}
+              style={{
+                fontSize: 'var(--fs-size-sm)',
+                padding: '5px 10px',
+                border: 'var(--fs-border)',
+                borderRadius: 'var(--fs-radius-sm)',
+                background: 'var(--fs-surface)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 'var(--fs-weight-medium)',
+              }}
+              className="text-textSecondary hover:bg-surfaceMuted transition-colors"
+            >
+              <Columns3 className="size-3.5 text-textSecondary" />
               Edit Columns
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={handleExport}>
-              <Download className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleExport}
+              style={{
+                fontSize: 'var(--fs-size-sm)',
+                padding: '5px 10px',
+                border: 'var(--fs-border)',
+                borderRadius: 'var(--fs-radius-sm)',
+                background: 'var(--fs-surface)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 'var(--fs-weight-medium)',
+              }}
+              className="text-textSecondary hover:bg-surfaceMuted transition-colors"
+            >
+              <Download className="size-3.5 text-textSecondary" />
               Export Excel
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5"
+            </button>
+            <button
               onClick={() => {
                 if (!isAuthenticated) {
                   toast.error('Please sign in to create alerts.')
@@ -295,115 +352,131 @@ export function ScreenerResultsTable() {
                   showToast('✓ Alert dialog opened (mock)')
                 }
               }}
+              style={{
+                fontSize: 'var(--fs-size-sm)',
+                padding: '5px 10px',
+                border: 'var(--fs-border)',
+                borderRadius: 'var(--fs-radius-sm)',
+                background: 'var(--fs-surface)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 'var(--fs-weight-medium)',
+              }}
+              className="text-textSecondary hover:bg-surfaceMuted transition-colors"
             >
-              <Bell className="w-3.5 h-3.5" />
+              <Bell className="size-3.5 text-textSecondary" />
               Create Alert
-            </Button>
+            </button>
           </div>
         </div>
 
-        {/* Table */}
+        {/* Data Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--fs-size-body)' }}>
             <thead>
-              <tr className="bg-surfaceMuted border-b border-border">
-                <th className="px-4 py-2.5 text-left">
+              <tr style={{ background: 'var(--fs-surface-muted)', borderBottom: 'var(--fs-border)' }}>
+                <th style={{ padding: '10px 12px', textAlign: 'left' }}>
                   <SortHeader label="Company" sortKey="name" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                 </th>
                 {visibleColumns.has('cmp') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="CMP (₹)" sortKey="cmp" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('change') && (
-                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-medium whitespace-nowrap">Day %</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 'var(--fs-size-xs)', fontWeight: 'var(--fs-weight-medium)', textTransform: 'uppercase', letterSpacing: '0.05em' }} className="text-textSecondary whitespace-nowrap">
+                    Day %
+                  </th>
                 )}
                 {visibleColumns.has('pe') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="P/E" sortKey="pe" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('marketCap') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="Mkt Cap" sortKey="marketCap" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('divYield') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="Div Yield" sortKey="divYield" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('netProfit') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="Net Profit" sortKey="netProfit" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('roce') && (
-                  <th className="px-4 py-2.5 text-right">
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <SortHeader label="ROCE %" sortKey="roce" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                 )}
                 {visibleColumns.has('sector') && (
-                  <th className="px-4 py-2.5 text-left text-xs text-textSecondary font-medium">Sector</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 'var(--fs-size-xs)', fontWeight: 'var(--fs-weight-medium)', textTransform: 'uppercase', letterSpacing: '0.05em' }} className="text-textSecondary whitespace-nowrap">
+                    Sector
+                  </th>
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
-              {pageData.map((row) => (
+            <tbody>
+              {pageData.map((row, idx, arr) => (
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/company/${row.symbol.toLowerCase()}`)}
-                  className="hover:bg-accentSoft cursor-pointer transition-colors group"
+                  className="hover:bg-[var(--fs-surface-muted)] cursor-pointer transition-colors group"
+                  style={{ borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' }}
                 >
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-textPrimary group-hover:text-accent text-sm leading-tight">
+                  <td style={{ padding: '11px 12px', verticalAlign: 'middle' }}>
+                    <div style={{ fontSize: 'var(--fs-size-md)', fontWeight: 'var(--fs-weight-medium)' }} className="text-textPrimary group-hover:text-accent transition-colors leading-tight">
                       {row.name}
                     </div>
-                    <div className="text-xs text-textMuted font-mono mt-0.5">{row.symbol}</div>
+                    <div style={{ fontSize: 'var(--fs-size-xs)', letterSpacing: '0.04em' }} className="text-textMuted font-mono uppercase mt-0.5">{row.symbol}</div>
                   </td>
                   {visibleColumns.has('cmp') && (
-                    <td className="px-4 py-3 text-right font-mono text-sm text-textPrimary tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[13px] font-medium text-textPrimary tabular-nums">
                       {formatPrice(row.cmp)}
                     </td>
                   )}
                   {visibleColumns.has('change') && (
-                    <td className={`px-4 py-3 text-right font-mono text-xs tabular-nums ${row.change >= 0 ? 'text-positive' : 'text-negative'}`}>
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle', color: row.change >= 0 ? 'var(--fs-positive)' : 'var(--fs-negative)' }} className="text-right font-mono text-xs font-medium tabular-nums">
                       <div className="flex items-center justify-end gap-0.5">
-                        {row.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {row.change >= 0 ? <TrendingUp className="size-3.5 shrink-0" /> : <TrendingDown className="size-3.5 shrink-0" />}
                         {row.change >= 0 ? '+' : ''}{row.change.toFixed(2)}%
                       </div>
                     </td>
                   )}
                   {visibleColumns.has('pe') && (
-                    <td className="px-4 py-3 text-right font-mono text-sm text-gray-700 tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
                       {row.pe !== null ? row.pe.toFixed(1) : <span className="text-textMuted">—</span>}
                     </td>
                   )}
                   {visibleColumns.has('marketCap') && (
-                    <td className="px-4 py-3 text-right font-mono text-sm text-gray-700 tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
                       {formatCap(row.marketCap)}
                     </td>
                   )}
                   {visibleColumns.has('divYield') && (
-                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-gray-700">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
                       {row.divYield.toFixed(2)}%
                     </td>
                   )}
                   {visibleColumns.has('netProfit') && (
-                    <td className={`px-4 py-3 text-right font-mono text-sm tabular-nums ${row.netProfit >= 0 ? 'text-positive' : 'text-negative'}`}>
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] font-medium text-[var(--fs-positive)] tabular-nums">
                       {row.netProfit >= 0 ? '' : '−'}₹{Math.abs(row.netProfit).toLocaleString('en-IN')}
                     </td>
                   )}
                   {visibleColumns.has('roce') && (
-                    <td className={`px-4 py-3 text-right font-mono text-sm tabular-nums ${row.roce >= 15 ? 'text-positive' : 'text-gray-700'}`}>
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] font-medium text-[var(--fs-brand)] tabular-nums">
                       {row.roce.toFixed(1)}%
                     </td>
                   )}
                   {visibleColumns.has('sector') && (
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary" className="text-xs font-normal bg-surfaceMuted text-textSecondary">
-                        {row.sector}
-                      </Badge>
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-left font-mono text-[12px] text-textSecondary">
+                      {row.sector}
                     </td>
                   )}
                 </tr>
@@ -412,41 +485,85 @@ export function ScreenerResultsTable() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border/50 bg-surfaceMuted">
-          <span className="text-xs text-textSecondary">
+        {/* Table Pagination Row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 14px',
+            borderTop: 'var(--fs-border)'
+          }}
+          className="select-none"
+        >
+          <span style={{ fontSize: 'var(--fs-size-body)' }} className="text-textMuted font-medium">
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
           </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 w-7 p-0"
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: 'var(--fs-radius-sm)',
+                border: 'var(--fs-border)',
+                background: 'var(--fs-surface)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+                opacity: page === 1 ? 0.4 : 1,
+              }}
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
+              className="hover:bg-surfaceMuted transition-colors"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </Button>
-            {pageNums.map((n) => (
-              <Button
-                key={n}
-                variant={n === page ? 'default' : 'outline'}
-                size="sm"
-                className={`h-7 w-7 p-0 text-xs ${n === page ? 'bg-accent hover:bg-accent/90' : ''}`}
-                onClick={() => setPage(n)}
-              >
-                {n}
-              </Button>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 w-7 p-0"
+              <ChevronLeft className="size-4 text-textSecondary" />
+            </button>
+            {pageNums.map((n) => {
+              const isActive = n === page
+              return (
+                <button
+                  key={n}
+                  onClick={() => setPage(n)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: 'var(--fs-radius-sm)',
+                    border: isActive ? '1px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
+                    background: isActive ? 'var(--fs-brand)' : 'var(--fs-surface)',
+                    color: isActive ? 'var(--fs-surface)' : 'var(--fs-text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: 'var(--fs-size-body)',
+                    fontWeight: isActive ? 600 : 500,
+                  }}
+                  className={isActive ? '' : 'hover:bg-surfaceMuted transition-colors'}
+                >
+                  {n}
+                </button>
+              )
+            })}
+            <button
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: 'var(--fs-radius-sm)',
+                border: 'var(--fs-border)',
+                background: 'var(--fs-surface)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                opacity: page === totalPages ? 0.4 : 1,
+              }}
               disabled={page === totalPages}
               onClick={() => setPage((p) => p + 1)}
+              className="hover:bg-surfaceMuted transition-colors"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Button>
+              <ChevronRight className="size-4 text-textSecondary" />
+            </button>
           </div>
         </div>
       </div>
@@ -486,26 +603,39 @@ export function ScreenerResultsTable() {
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-interface SummaryCardProps {
-  label: string
-  value: string
-  sub: string
-  color: 'blue' | 'gray' | 'green' | 'purple'
-}
-
-const colorMap = {
-  blue: 'text-accent',
-  gray: 'text-gray-700',
-  green: 'text-positive',
-  purple: 'text-purple-600',
-}
-
-function SummaryCard({ label, value, sub, color }: SummaryCardProps) {
+function MiniSummaryCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: 'blue' | 'purple' | 'gray' | 'green' | 'indigo' }) {
+  const valueColor =
+    color === 'blue'   ? 'var(--fs-brand)'
+  : color === 'purple' ? '#7C3AED'
+  : color === 'indigo' ? '#534AB7'
+  : 'var(--fs-text-primary)'
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
-      <p className="text-xs text-textSecondary font-medium">{label}</p>
-      <p className={`text-2xl font-bold font-mono mt-1 tabular-nums ${colorMap[color]}`}>{value}</p>
-      <p className="text-xs text-textMuted mt-0.5">{sub}</p>
+    <div
+      style={{
+        background: 'white',
+        border: '0.5px solid rgba(0,0,0,0.10)',
+        borderRadius: '12px',
+        padding: '14px 16px',
+      }}
+      className="flex flex-col select-none"
+    >
+      <span style={{ fontSize: 'var(--fs-size-xs)', marginBottom: '5px', letterSpacing: '0.05em' }} className="text-textSecondary font-medium uppercase tracking-wider">
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: label === 'Total Market Cap' ? '15px' : '18px',
+          fontWeight: 600,
+          color: valueColor,
+          lineHeight: 1.2,
+        }}
+        className="font-mono"
+      >
+        {value}
+      </span>
+      <span style={{ fontSize: 'var(--fs-size-xs)', marginTop: '4px' }} className="text-textMuted">
+        {sub}
+      </span>
     </div>
   )
 }
@@ -523,12 +653,23 @@ function SortHeader({ label, sortKey, currentKey, dir, onSort }: SortHeaderProps
   return (
     <button
       onClick={() => onSort(sortKey)}
-      className="flex items-center gap-1 text-xs text-textSecondary font-medium hover:text-textPrimary transition-colors whitespace-nowrap group"
+      style={{
+        background: 'transparent',
+        border: 'none',
+        fontSize: 'var(--fs-size-xs)',
+        fontWeight: 'var(--fs-weight-medium)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+      className="text-textSecondary hover:text-textPrimary transition-colors"
     >
       {label}
-      <span className={`${active ? 'text-accent' : 'text-textMuted group-hover:text-textMuted'}`}>
-        {active && dir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-      </span>
+      <ChevronsUpDown className="size-3 text-textMuted shrink-0" style={{ opacity: active ? 0.9 : 0.4 }} />
     </button>
   )
 }

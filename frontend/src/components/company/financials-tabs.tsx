@@ -34,13 +34,13 @@ function FinancialTable({
       <Table>
         <TableHeader className="bg-secondary/60">
           <TableRow>
-            <TableHead className="sticky left-0 z-10 bg-secondary/60 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <TableHead className="sticky left-0 z-10 bg-secondary/60 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               In ₹ Cr
             </TableHead>
             {columns.map((c) => (
               <TableHead
                 key={c}
-                className="text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground font-mono"
+                className="text-right text-xs font-medium uppercase tracking-wider text-muted-foreground font-mono"
               >
                 {c}
               </TableHead>
@@ -53,13 +53,13 @@ function FinancialTable({
               key={i}
               className={cn(
                 "hover:bg-secondary/40",
-                row.highlight ? "bg-secondary/30 font-semibold" : "",
+                row.highlight ? "bg-secondary/30 font-medium" : "",
               )}
             >
               <TableCell
                 className={cn(
                   "sticky left-0 z-10 bg-card text-sm",
-                  row.highlight ? "font-semibold bg-secondary/30" : "",
+                  row.highlight ? "font-medium bg-secondary/30" : "",
                 )}
               >
                 {row.label}
@@ -84,10 +84,10 @@ export function FinancialsTabs() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-semibold tracking-tight">
+        <CardTitle className="text-sm font-medium tracking-tight">
           Financials
         </CardTitle>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           10-year history · Standalone view · INR Crores
         </p>
       </CardHeader>

@@ -113,14 +113,17 @@ export function CompanyDetail() {
         </div>
 
         {/* Skeleton for KeyMetricsGrid */}
-        <div className="bg-surface border-y border-border select-none animate-pulse">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 border-b border-border/40">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="px-4 py-4 flex flex-col gap-2 border-r border-border/40 bg-surface">
-                <div className="h-3 w-16 bg-border/40 shimmer-skeleton rounded" />
-                <div className="h-4 w-20 bg-border/40 shimmer-skeleton rounded" />
-              </div>
-            ))}
+        <div className="max-w-[1600px] mx-auto w-full px-6 mt-6 select-none animate-pulse">
+          <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-6">
+            <div className="h-4 w-32 bg-border/40 shimmer-skeleton rounded mb-4" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  <div className="h-3 w-16 bg-border/40 shimmer-skeleton rounded" />
+                  <div className="h-4 w-20 bg-border/40 shimmer-skeleton rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -149,10 +152,10 @@ export function CompanyDetail() {
           <div className="space-y-1">
             <Heading level={2} variant="sectionTitle" className="text-textPrimary">Company Not Found</Heading>
             <Text variant="caption" className="text-textSecondary leading-relaxed text-xs">
-              We couldn&apos;t find any Indian equity mapped to the symbol <span className="font-mono font-bold text-textPrimary">`{symbol?.toUpperCase()}`</span>. Please verify the exchange ticker.
+              We couldn&apos;t find any Indian equity mapped to the symbol <span className="font-mono font-medium text-textPrimary">`{symbol?.toUpperCase()}`</span>. Please verify the exchange ticker.
             </Text>
           </div>
-          <Button asChild className="bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase h-9 shadow-none w-full mt-2">
+          <Button asChild className="bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-9 shadow-none w-full mt-2">
             <Link to="/" className="flex items-center gap-1.5 justify-center">
               <ArrowLeft className="size-3.5" /> Back to Dashboard
             </Link>
@@ -173,7 +176,7 @@ export function CompanyDetail() {
             <span className="size-1.5 rounded-full bg-accent animate-pulse" />
             <span>Create a free account to save this company to your watchlist and get alerts.</span>
           </div>
-          <Link to={`/register?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="font-bold text-accent hover:underline uppercase tracking-wider text-[11px] shrink-0 ml-4">
+          <Link to={`/register?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="font-medium text-accent hover:underline uppercase tracking-wider text-xs shrink-0 ml-4">
             Sign Up Free
           </Link>
         </div>
@@ -191,8 +194,8 @@ export function CompanyDetail() {
         <section id="overview" className="scroll-mt-16">
           <ScrollReveal>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <Card className="xl:col-span-2 border-border shadow-none bg-surface">
-                <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+              <Card className="xl:col-span-2 border-border/40 shadow-xs bg-surface rounded-2xl">
+                <CardHeader className="border-b border-border/40">
                   <CardTitle>
                     <Text variant="label" as="span" className="text-xs text-textPrimary">
                       About {company.name}
@@ -209,8 +212,8 @@ export function CompanyDetail() {
                 </CardContent>
               </Card>
 
-              <Card className="xl:col-span-1 border-border shadow-none bg-surface">
-                <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+              <Card className="xl:col-span-1 border-border/40 shadow-xs bg-surface rounded-2xl">
+                <CardHeader className="border-b border-border/40">
                   <CardTitle>
                     <Text variant="label" as="span" className="text-xs text-textPrimary">
                       Corporate Directory
@@ -252,7 +255,7 @@ export function CompanyDetail() {
                         <ShieldCheck className="size-3.5 text-accent" /> Credit Rating
                       </dt>
                       <dd>
-                        <Badge variant="outline" className="bg-accentSoft text-accent border-accent/20 text-[10px] font-bold shadow-none">
+                        <Badge variant="outline" className="bg-accentSoft text-accent border-accent/20 text-xs font-medium shadow-none">
                           {company.creditRating}
                         </Badge>
                       </dd>
@@ -265,30 +268,30 @@ export function CompanyDetail() {
             {/* Row below: Upcoming Events & Recent Corporate Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Card for Upcoming Events */}
-              <Card className="border-border shadow-none bg-surface">
-                <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 flex flex-row items-center justify-between py-3">
-                  <CardTitle className="text-xs font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
+              <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+                <CardHeader className="border-b border-border/40 flex flex-row items-center justify-between py-3.5">
+                  <CardTitle className="text-sm font-medium text-textPrimary flex items-center gap-2">
                     <Calendar className="size-4 text-accent" /> Upcoming Events
                   </CardTitle>
-                  <Badge variant="outline" className="text-[9px] bg-accentSoft text-accent border-accent/20">FY26 Schedule</Badge>
+                  <Badge variant="outline" className="text-xs bg-accentSoft text-accent border-accent/20">FY26 Schedule</Badge>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-border/40">
                     {upcomingEvents.slice(0, 3).map((event, idx) => (
                       <div key={idx} className="p-4 hover:bg-surfaceMuted/20 transition-colors flex gap-4">
                         <div className="size-11 rounded-xl bg-accentSoft/30 border border-accent/10 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[10px] font-black uppercase text-accent leading-none">
+                          <span className="text-xs font-medium uppercase text-accent leading-none">
                             {new Date(event.date).toLocaleString('en-US', { month: 'short' })}
                           </span>
-                          <span className="text-xs font-mono font-bold text-textPrimary mt-0.5 leading-none">
+                          <span className="text-xs font-mono font-medium text-textPrimary mt-0.5 leading-none">
                             {new Date(event.date).getDate()}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold text-textPrimary flex items-center gap-1.5">
+                          <h4 className="text-xs font-medium text-textPrimary flex items-center gap-1.5">
                             {event.title}
                             <span className={cn(
-                              "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full",
+                              "text-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full",
                               event.type === 'EarningsCall' ? "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400 border border-purple-100" :
                               event.type === 'AGM' ? "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400 border border-green-100" :
                               "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 border border-blue-100"
@@ -296,7 +299,7 @@ export function CompanyDetail() {
                               {event.type}
                             </span>
                           </h4>
-                          <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">{event.description}</p>
+                          <p className="text-xs text-textSecondary mt-1 leading-relaxed">{event.description}</p>
                         </div>
                       </div>
                     ))}
@@ -305,29 +308,29 @@ export function CompanyDetail() {
               </Card>
 
               {/* Card for Recent Corporate Actions */}
-              <Card className="border-border shadow-none bg-surface">
-                <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 flex flex-row items-center justify-between py-3">
-                  <CardTitle className="text-xs font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
+              <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+                <CardHeader className="border-b border-border/40 flex flex-row items-center justify-between py-3.5">
+                  <CardTitle className="text-sm font-medium text-textPrimary flex items-center gap-2">
                     <Activity className="size-4 text-accent" /> Recent Corporate Actions
                   </CardTitle>
-                  <a href="#corporate-actions" className="text-[10px] font-bold text-accent hover:underline uppercase tracking-wider">View All</a>
+                  <a href="#corporate-actions" className="text-xs font-medium text-accent hover:underline uppercase tracking-wider">View All</a>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-border/40">
                     {corporateActions.slice(0, 3).map((action, idx) => (
                       <div key={idx} className="p-4 hover:bg-surfaceMuted/20 transition-colors flex items-center justify-between gap-4">
                         <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-textPrimary flex items-center gap-1.5">
+                          <h4 className="text-xs font-medium text-textPrimary flex items-center gap-1.5">
                             {action.details}
                           </h4>
-                          <p className="text-[10px] text-textMuted mt-1 flex items-center gap-1.5 font-medium">
-                            <span>Ex-Date: <span className="font-mono font-bold text-textSecondary">{action.exDate}</span></span>
+                          <p className="text-xs text-textMuted mt-1 flex items-center gap-1.5 font-medium">
+                            <span>Ex-Date: <span className="font-mono font-medium text-textSecondary">{action.exDate}</span></span>
                             <span className="text-border">·</span>
                             <span>Record Date: <span className="font-mono">{action.recordDate}</span></span>
                           </p>
                         </div>
                         <Badge variant="outline" className={cn(
-                          "text-[9px] font-bold uppercase tracking-wider shadow-none px-2 py-0.5",
+                          "text-xs font-medium uppercase tracking-wider shadow-none px-2 py-0.5",
                           action.type === 'Dividend' ? "bg-positive-soft text-positive border-positive/10" :
                           action.type === 'Bonus' ? "bg-accentSoft text-accent border-accent/10" :
                           "bg-warning-soft text-warning border-warning/10"

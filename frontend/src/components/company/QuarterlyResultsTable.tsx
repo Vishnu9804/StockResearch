@@ -55,7 +55,7 @@ export function QuarterlyResultsTable() {
         <TableRow
           className={cn(
             'hover:bg-surfaceMuted transition-colors',
-            row.highlight ? 'bg-surfaceMuted font-bold' : '',
+            row.highlight ? 'bg-surfaceMuted font-medium' : '',
             depth > 0 ? 'bg-surface' : ''
           )}
         >
@@ -83,7 +83,7 @@ export function QuarterlyResultsTable() {
               key={idx}
               className={cn(
                 'text-right font-mono text-xs tabular-nums text-slate-700',
-                row.highlight ? 'font-bold text-slate-950' : ''
+                row.highlight ? 'font-medium text-slate-950' : ''
               )}
             >
               {renderValue(val, row.isPercent)}
@@ -101,16 +101,16 @@ export function QuarterlyResultsTable() {
     <div className="bg-surface border border-border rounded-lg overflow-hidden select-none">
       <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
         <div>
-          <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
             Quarterly Results
           </h3>
-          <p className="text-[11px] text-textMuted mt-0.5">
+          <p className="text-xs text-textMuted mt-0.5">
             Consolidated Figures in ₹ Crores (except EPS)
           </p>
         </div>
         <button
           onClick={handleExportCSV}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
           title="Export quarterly results to CSV"
         >
           <FileSpreadsheet className="size-3 text-positive" /> Export
@@ -121,13 +121,13 @@ export function QuarterlyResultsTable() {
         <Table className="min-w-[800px]">
           <TableHeader className="bg-surfaceMuted">
             <TableRow>
-              <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted z-10">
+              <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
                 Quarter Ending
               </TableHead>
               {quarters.map((q) => (
                 <TableHead
                   key={q}
-                  className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                  className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
                 >
                   {q}
                 </TableHead>

@@ -123,24 +123,24 @@ export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price:
   return (
     <Card className="border-border shadow-none bg-surface">
       <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
-        <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+        <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
           Key Financial Ratios
         </CardTitle>
-        <p className="text-[11px] text-textMuted mt-0.5">Compared against NSE sector median · LTM data</p>
+        <p className="text-xs text-textMuted mt-0.5">Compared against NSE sector median · LTM data</p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-border/50">
           {groups.map((group) => (
             <div key={group.title} className="p-5">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-textMuted mb-3 flex items-center gap-1.5">
+              <h4 className="text-xs font-medium uppercase tracking-wider text-textMuted mb-3 flex items-center gap-1.5">
                 <span>{group.emoji}</span> {group.title}
               </h4>
               <div className="space-y-3">
                 {group.rows.map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-textPrimary truncate">{row.label}</p>
-                      <p className="text-[10px] text-textMuted">{row.description}</p>
+                      <p className="text-xs font-medium text-textPrimary truncate">{row.label}</p>
+                      <p className="text-xs text-textMuted">{row.description}</p>
                     </div>
                     <div className="shrink-0 flex items-center gap-3">
                       <div className="w-16 bg-surfaceMuted rounded-full h-1.5 relative overflow-hidden">
@@ -150,10 +150,10 @@ export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price:
                         />
                       </div>
                       <div className="text-right w-16">
-                        <p className={cn('text-xs font-bold font-mono tabular-nums', row.aboveAvg ? 'text-positive' : 'text-textPrimary')}>
+                        <p className={cn('text-xs font-medium font-mono tabular-nums', row.aboveAvg ? 'text-positive' : 'text-textPrimary')}>
                           {row.value}
                         </p>
-                        <p className="text-[9px] text-textMuted font-mono">avg {row.sectorAvg}</p>
+                        <p className="text-xs text-textMuted font-mono">avg {row.sectorAvg}</p>
                       </div>
                     </div>
                   </div>

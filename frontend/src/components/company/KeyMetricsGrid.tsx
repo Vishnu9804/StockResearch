@@ -55,27 +55,27 @@ export function KeyMetricsGrid(props: KeyMetricsGridProps) {
   ]
 
   return (
-    <div className="bg-surface border-y border-border select-none animate-count-up">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 divide-border/40">
-        {metrics.map((m, i) => (
-          <div
-            key={m.label}
-            className={cn(
-              'px-4 py-3.5 flex flex-col gap-1 border-r border-b border-border/40 bg-surface',
-              'hover:bg-accentSoft/20 transition-colors duration-150',
-            )}
-          >
-            <span className="text-[9px] font-bold text-textMuted uppercase tracking-[0.08em] leading-none">
-              {m.label}
-            </span>
-            <span className={cn(
-              'text-sm font-mono font-bold text-textPrimary tabular-nums leading-snug',
-              m.color,
-            )}>
-              {m.value}
-            </span>
-          </div>
-        ))}
+    <div className="max-w-[1600px] mx-auto w-full px-6 mt-6 select-none animate-count-up">
+      <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-6">
+        <h3 className="text-xs font-medium text-textPrimary uppercase tracking-wider mb-4">Key Fundamentals</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          {metrics.map((m, i) => (
+            <div
+              key={m.label}
+              className="flex flex-col gap-1.5 hover:bg-surfaceMuted/50 p-2 rounded-lg transition-colors"
+            >
+              <span className="text-xs font-medium text-textMuted uppercase tracking-wider leading-none">
+                {m.label}
+              </span>
+              <span className={cn(
+                'text-sm font-mono font-medium text-textPrimary tabular-nums leading-snug',
+                m.color,
+              )}>
+                {m.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -257,8 +257,8 @@ export function Home() {
       <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-border px-6 py-3.5 shadow-[var(--shadow-xs)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-extrabold text-gradient leading-none">Markets Today</h1>
-            <p className="text-[11px] text-textSecondary mt-0.5 font-medium">
+            <h1 className="text-3xl font-semibold text-gradient leading-tight">Markets Today</h1>
+            <p className="text-body text-textSecondary mt-0.5 font-normal">
               Institutional Terminal &nbsp;·&nbsp; Global Equities
             </p>
           </div>
@@ -272,417 +272,649 @@ export function Home() {
               <span className={cn("size-1.5 rounded-full", marketStatus.isOpen ? "bg-positive animate-pulse" : "bg-textMuted")} />
               {marketStatus.label}
             </span>
-            <span className="font-mono text-[10px] text-textSecondary">NSE · 09:15 – 15:30 IST</span>
+            <span className="font-mono text-xs text-textSecondary">NSE · 09:15 – 15:30 IST</span>
           </div>
         </div>
       </div>
 
       {/* ── Guest Banner ─────────────────────────────────────────────── */}
       {!isAuthenticated && (
-        <div className="mx-6 mt-4 p-4 rounded-2xl bg-gradient-to-r from-accentSoft to-accentSoft/40 border border-accent/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-textSecondary select-none">
+        <div className="mx-6 mt-5 p-4.5 rounded-2xl bg-gradient-to-r from-accentSoft to-accentSoft/40 border border-accent/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-textSecondary select-none">
           <div className="flex items-center gap-2.5">
             <div className="size-7 rounded-full bg-accent/15 border border-accent/20 flex items-center justify-center shrink-0">
               <span className="size-2 rounded-full bg-accent animate-pulse" />
             </div>
             <span className="font-medium">Track your watchlist, build custom screeners, and get real-time price alerts.</span>
           </div>
-          <Link to="/register" className="font-bold text-accent hover:text-accent/80 uppercase tracking-wider text-[11px] shrink-0 bg-white/50 dark:bg-surface/50 border border-accent/20 rounded-lg px-3 py-1.5 transition-colors hover:bg-accentSoft">
+          <Link to="/register" className="font-medium text-accent hover:text-accent/80 uppercase tracking-wider text-xs shrink-0 bg-white/50 dark:bg-surface/50 border border-accent/20 rounded-lg px-3 py-1.5 transition-colors hover:bg-accentSoft">
             Create Free Account
           </Link>
         </div>
       )}
 
-      {/* ── Ticker strip — index cards ────────────────────────────────── */}
-      <div className="px-4 pt-5 pb-0 lg:px-6">
-        <MarketOverview loading={loading} indices={indices} />
-      </div>
-
-      {/* ── Breadth + Market Status Row ──────────────────────────────── */}
-      <div className="px-4 pt-4 pb-0 lg:px-6">
-        <BreadthCards loading={loading} indices={indices} quotes={quotes} />
+      {/* ── Markets at a Glance Top Section ──────────────────────────── */}
+      <div className="mx-6 mt-6">
+        <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="size-4 text-accent" />
+              <h2 className="text-xl font-semibold text-textPrimary tracking-tight">Markets at a Glance</h2>
+            </div>
+            <span className="text-xs text-textMuted font-medium">NSE Indices & Breadth Summary</span>
+          </div>
+          <MarketOverview loading={loading} indices={indices} />
+          <BreadthCards loading={loading} indices={indices} quotes={quotes} />
+        </div>
       </div>
 
       {/* ── Main grid ────────────────────────────────────────────────── */}
-      <div className="px-4 py-5 lg:px-6 lg:py-5">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[250px_1fr] xl:grid-cols-[250px_1fr_280px]">
+      {/* ── Main grid (Redesigned Bottom Zone) ────────────────────────── */}
+      <div 
+        className="px-6 pb-12 flex flex-col gap-4 max-w-[1400px] mx-auto w-full select-none"
+        style={{ marginTop: '24px' }}
+      >
+        {/* PANEL 1 — MY WATCHLISTS CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Star className="size-4 text-[var(--fs-info)]" />
+              MY WATCHLISTS
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-accentSoft text-accent px-2 py-0.5 rounded-full text-xs font-medium">
+                {String(mappedWatchlists[0]?.count ?? 3).padStart(2, '0')} stocks
+              </span>
+              <span className={cn(
+                "text-body font-medium",
+                (mappedWatchlists[0]?.positive ?? true) ? "text-positive" : "text-negative"
+              )}>
+                {mappedWatchlists[0]?.change ?? "+1.24%"}
+              </span>
+              <button className="size-5 rounded-md border border-[var(--fs-border-color)] flex items-center justify-center text-textSecondary hover:bg-surfaceMuted transition-colors ml-1">
+                <Plus className="size-3" />
+              </button>
+            </div>
+          </div>
 
-          {/* ══ LEFT: Watchlists + Quick Stats + Refreshed Stocks ═══════ */}
-          <div className="space-y-4">
-            {/* My Watchlists */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-surfaceMuted/40">
-                <div className="flex items-center gap-1.5">
-                  <Star className="size-3.5 text-accent" />
-                  <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">My Watchlists</span>
-                </div>
-                <button className="size-6 rounded-md bg-accentSoft border border-accent/20 flex items-center justify-center text-accent hover:bg-accent hover:text-white transition-colors">
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-              <div className="divide-y divide-border/50">
-                {loading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3">
-                      <div className="h-4 w-24 rounded shimmer-skeleton" />
-                      <div className="h-4 w-12 rounded shimmer-skeleton" />
-                    </div>
-                  ))
-                ) : (
-                  mappedWatchlists.map((wl) => (
-                    <Link key={wl.name} to="/watchlists" className="flex items-center justify-between px-4 py-3 hover:bg-surfaceMuted/60 transition-colors group">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="size-2 rounded-full bg-accent/40 group-hover:bg-accent transition-colors shrink-0" />
-                        <span className="text-xs font-semibold text-textPrimary truncate">{wl.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={cn("text-[10px] font-mono font-bold tabular-nums", wl.positive ? "text-positive" : "text-negative")}>{wl.change}</span>
-                        <span className="text-[10px] font-mono text-textMuted bg-surfaceMuted rounded-full px-1.5 py-0.5">{String(wl.count).padStart(2, "0")}</span>
-                      </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full">
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5">
+              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">TOTAL VALUE</span>
+              <span className="text-lg font-semibold text-textPrimary">₹42,85,900</span>
+            </div>
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5">
+              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DAILY CHANGE</span>
+              <span className="text-lg font-semibold text-positive">+1.24%</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between w-full mt-1">
+            <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">RECENTLY REFRESHED</span>
+            <span className="bg-positive-soft text-positive px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-[var(--fs-positive)] animate-pulse" />
+              LIVE
+            </span>
+          </div>
+
+          <div className="flex flex-col w-full">
+            {[
+              { symbol: "RELIANCE", defaultPrice: 1396.50, defaultChange: "+1.04%" },
+              { symbol: "TCS", defaultPrice: 2162.60, defaultChange: "+0.06%" },
+              { symbol: "HDFCBANK", defaultPrice: 777.45, defaultChange: "+0.45%" },
+            ].map((s, idx, arr) => {
+              const q = quotes[s.symbol] || {}
+              const price = q.current_price || q.close_price || s.defaultPrice
+              const changeVal = q.change ? parseFloat(q.change.replace('%', '')) : null
+              const changeText = changeVal !== null ? (changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`) : s.defaultChange
+              const isPos = changeVal !== null ? changeVal >= 0 : s.defaultChange.startsWith('+')
+              
+              return (
+                <div 
+                  key={s.symbol}
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '7px 0', 
+                    borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+                  }}
+                  className="w-full"
+                >
+                  <div className="flex items-center gap-3">
+                    <Link to={`/company/${s.symbol}`} className="text-body font-normal text-accent hover:underline font-mono">
+                      {s.symbol}
                     </Link>
-                  ))
-                )}
+                    <span className="text-sm color-textSecondary font-normal">14s ago</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-body font-normal text-textPrimary">
+                      ₹{price.toFixed(2)}
+                    </span>
+                    <span className={cn(
+                      "font-mono w-16 text-right text-body font-medium",
+                      isPos ? "text-positive" : "text-negative"
+                    )}>
+                      {changeText}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* PANEL 2 — TOP MOVERS CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <TrendingUp className="size-4 text-[var(--fs-info)]" />
+              TOP MOVERS
+            </div>
+            <span className="text-textSecondary text-sm font-normal">NSE daily overview</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-lg)' }} className="w-full">
+            {/* Top Gainers */}
+            <div>
+              <div 
+                className="text-xs font-semibold text-positive uppercase tracking-wider pb-1.5"
+              >
+                TOP GAINERS
+              </div>
+              <div className="flex flex-col w-full">
+                {[
+                  { symbol: "MARUTI", price: 13886.00, changePct: 3.29 },
+                  { symbol: "ULTRACEMCO", price: 11468.00, changePct: 3.16 },
+                  { symbol: "LT", price: 4171.00, changePct: 3.01 },
+                  { symbol: "BAJFINANCE", price: 940.95, changePct: 2.47 },
+                ].map((g, idx, arr) => (
+                  <div 
+                    key={g.symbol}
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      padding: '6px 0', 
+                      borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
+                    }}
+                    className="w-full font-mono text-body font-normal"
+                  >
+                    <Link to={`/company/${g.symbol}`} className="font-medium text-accent hover:underline">
+                      {g.symbol}
+                    </Link>
+                    <span style={{ color: 'var(--fs-text-secondary)' }}>{g.price.toFixed(2)}</span>
+                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-positive)' }}>+{g.changePct.toFixed(2)}%</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-4 py-3 border-b border-border/60 bg-surfaceMuted/40">
-                <div className="flex items-center gap-1.5">
-                  <Activity className="size-3.5 text-accent" />
-                  <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Quick Stats</span>
-                </div>
+            {/* Top Losers */}
+            <div>
+              <div 
+                className="text-xs font-semibold text-negative uppercase tracking-wider pb-1.5"
+              >
+                TOP LOSERS
               </div>
-              <div className="px-4 py-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-textSecondary font-medium">Total Value</span>
-                  <span className="text-sm font-mono font-bold text-textPrimary tabular-nums">₹42,85,900</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-textSecondary font-medium">Daily Change</span>
-                  <span className="text-sm font-mono font-bold text-positive tabular-nums">+1.24%</span>
-                </div>
-                <div className="w-full h-1.5 bg-surfaceMuted rounded-full overflow-hidden mt-1">
-                  <div className="h-full bg-gradient-to-r from-positive to-accent rounded-full" style={{ width: "62%" }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Refreshed Stocks */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-4 py-3 border-b border-border/60 bg-surfaceMuted/40 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Activity className="size-3.5 text-accent" />
-                  <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Recently Refreshed</span>
-                </div>
-                <span className="text-[9px] font-bold bg-accentSoft text-accent border border-accent/20 px-1.5 py-0.5 rounded-full">LIVE</span>
-              </div>
-              <div className="p-3 space-y-2">
-                {loading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-2">
-                      <div className="space-y-1">
-                        <div className="h-3 w-16 rounded shimmer-skeleton" />
-                        <div className="h-2.5 w-10 rounded shimmer-skeleton" />
-                      </div>
-                      <div className="space-y-1 text-right">
-                        <div className="h-3 w-14 rounded shimmer-skeleton ml-auto" />
-                        <div className="h-2.5 w-10 rounded shimmer-skeleton ml-auto" />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  refreshedStocks.map((symbol) => {
-                    const q = quotes[symbol] || {}
-                    const changeVal = q.change ? parseFloat(q.change.replace('%', '')) : 0
-                    const price = q.current_price || 0
-                    return (
-                      <Link key={symbol} to={`/company/${symbol}`} className="flex items-center justify-between p-2 rounded-lg hover:bg-surfaceMuted/40 transition-colors border border-transparent hover:border-border">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-textPrimary">{symbol}</span>
-                          <span className="text-[10px] text-textMuted font-mono">1d ago</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-mono font-bold block tabular-nums">
-                            ₹{price ? price.toFixed(2) : '0.00'}
-                          </span>
-                          <span className={cn("text-[10px] font-mono font-bold tabular-nums block", changeVal >= 0 ? "text-positive" : "text-negative")}>
-                            {changeVal >= 0 ? '+' : ''}{changeVal.toFixed(2)}%
-                          </span>
-                        </div>
-                      </Link>
-                    )
-                  })
-                )}
+              <div className="flex flex-col w-full">
+                {[
+                  { symbol: "ICICIBANK", price: 1328.00, changePct: -0.95 },
+                  { symbol: "ASIANPAINT", price: 2730.00, changePct: -0.63 },
+                  { symbol: "HINDUNILVR", price: 2155.90, changePct: -0.59 },
+                  { symbol: "SUNPHARMA", price: 1804.10, changePct: -0.28 },
+                ].map((l, idx, arr) => (
+                  <div 
+                    key={l.symbol}
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      padding: '6px 0', 
+                      borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
+                    }}
+                    className="w-full font-mono text-body font-normal"
+                  >
+                    <Link to={`/company/${l.symbol}`} className="font-medium text-accent hover:underline">
+                      {l.symbol}
+                    </Link>
+                    <span style={{ color: 'var(--fs-text-secondary)' }}>{l.price.toFixed(2)}</span>
+                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-negative)' }}>{l.changePct.toFixed(2)}%</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ══ CENTER: Main content area ══════════════════════════════ */}
-          <div className="space-y-5">
-            {/* Top Gainers & Losers Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {/* Top Gainers */}
-              <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-                <div className="px-4 py-3 border-b border-border/50 flex items-center gap-1.5 bg-positive-soft/20">
-                  <TrendingUp className="size-3.5 text-positive" />
-                  <span className="text-[11px] font-bold text-positive uppercase tracking-wider">Top Gainers</span>
-                </div>
-                <div className="divide-y divide-border/40">
-                  <div className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-1.5 bg-surfaceMuted">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted">SYMBOL</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted text-right">LTP</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted text-right">CHG %</span>
+        {/* PANEL 3 — MARKET PULSE CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Zap className="size-4 text-[var(--fs-info)]" />
+              MARKET PULSE
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => setFeedFilter("all")}
+                style={{
+                  background: feedFilter === 'all' ? '#e5e7eb' : 'transparent',
+                  color: 'var(--fs-text-primary)',
+                  padding: '3px 10px',
+                  borderRadius: 'var(--fs-radius-md)'
+                }}
+                className="text-xs font-medium"
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setFeedFilter("alerts")}
+                style={{
+                  background: feedFilter === 'alerts' ? 'var(--fs-warning-soft)' : 'transparent',
+                  color: 'var(--fs-warning)',
+                  padding: '3px 10px',
+                  borderRadius: 'var(--fs-radius-md)'
+                }}
+                className="text-xs font-medium"
+              >
+                Alerts
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col w-full">
+            {feedFilter === 'all' && (
+              <>
+                {/* Item 1 — TCS report */}
+                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
+                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
+                    <FileText className="size-4" />
                   </div>
-                  {loading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-3 gap-2">
-                        <div className="h-4 w-12 rounded shimmer-skeleton" />
-                        <div className="h-4 w-16 rounded shimmer-skeleton ml-auto" />
-                        <div className="h-4 w-12 rounded shimmer-skeleton ml-auto" />
-                      </div>
-                    ))
-                  ) : (
-                    displayGainers.map((s) => (
-                      <Link key={s.symbol} to={`/company/${s.symbol}`} className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-2.5 hover:bg-surfaceMuted/50 transition-colors">
-                        <span className="text-xs font-bold text-accent font-mono truncate">{s.symbol}</span>
-                        <span className="text-xs font-mono tabular-nums text-textSecondary text-right">{s.price.toFixed(2)}</span>
-                        <span className="text-xs font-mono font-bold text-positive tabular-nums text-right">+{s.changePct.toFixed(2)}%</span>
-                      </Link>
-                    ))
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-body font-semibold text-textPrimary">TCS</span>
+                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">TCS</span>
+                      <span className="text-sm text-textSecondary ml-auto">2h ago</span>
+                    </div>
+                    <p className="text-body text-textPrimary font-normal leading-normal">
+                      Annual report released: detailed FY24 performance and strategic outlook.
+                    </p>
+                    <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
+                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
+                        <ExternalLink className="size-3" /> View report
+                      </a>
+                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
+                        <Bookmark className="size-3" /> Save for later
+                      </a>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Item 2 — HDFC Bank 52w high */}
+                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
+                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
+                    <TrendingUp className="size-4 text-[var(--fs-positive)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-body font-semibold text-textPrimary">HDFC Bank</span>
+                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">HDFCBANK</span>
+                      <span className="text-sm text-textSecondary ml-auto">5h ago</span>
+                    </div>
+                    <p className="text-body text-textPrimary font-normal leading-normal">
+                      Instrument hit a new 52-week high of ₹1,740.00 during the morning session.
+                    </p>
+                    <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
+                      <Link to="/company/HDFCBANK" style={{ background: 'var(--fs-info)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="flex items-center gap-1 hover:bg-[#09325c] transition-colors text-xs font-medium">
+                        <BarChart2 className="size-3" /> Analyze chart
+                      </Link>
+                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
+                        Compare peers
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Item 3 — Infosys earnings */}
+                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
+                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
+                    <Calendar className="size-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-body font-semibold text-textPrimary">Infosys</span>
+                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">INFY</span>
+                      <span className="text-sm text-textSecondary ml-auto">Tomorrow</span>
+                    </div>
+                    <p className="text-body text-textPrimary font-normal leading-normal">
+                      Upcoming earnings call: Q1 financial results and management commentary.
+                    </p>
+                    <p className="text-body text-textSecondary font-mono mt-1 font-normal">
+                      Scheduled: 4:00 PM IST
+                    </p>
+                    <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
+                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
+                        <Bell className="size-3" /> Set reminder
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Item 4 — Reliance alert (Shows in both All and Alerts) */}
+            <div 
+              style={{ 
+                borderLeft: '3px solid #E24B4A', 
+                background: 'var(--fs-negative-soft)', 
+                borderRadius: '0 8px 8px 0', 
+                padding: '10px 12px', 
+                marginTop: '10px',
+                display: 'flex',
+                gap: 'var(--fs-space-md)',
+                alignItems: 'flex-start'
+              }} 
+              className="w-full"
+            >
+              <div style={{ background: 'var(--fs-surface)', border: '0.5px solid rgba(163,45,45,0.2)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[var(--fs-negative)]">
+                <TriangleAlert className="size-4" />
               </div>
-
-              {/* Top Losers */}
-              <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-                <div className="px-4 py-3 border-b border-border/50 flex items-center gap-1.5 bg-negative-soft/20">
-                  <TrendingDown className="size-3.5 text-negative" />
-                  <span className="text-[11px] font-bold text-negative uppercase tracking-wider">Top Losers</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-body font-semibold text-negative">Reliance Industries</span>
+                  <span className="bg-negative-soft text-negative border border-negative/25 px-1.5 py-0.5 rounded text-xs font-mono font-medium">RELIANCE</span>
+                  <span className="text-sm text-negative ml-auto opacity-80">Yesterday</span>
                 </div>
-                <div className="divide-y divide-border/40">
-                  <div className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-1.5 bg-surfaceMuted">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted">SYMBOL</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted text-right">LTP</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted text-right">CHG %</span>
-                  </div>
-                  {loading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-3 gap-2">
-                        <div className="h-4 w-12 rounded shimmer-skeleton" />
-                        <div className="h-4 w-16 rounded shimmer-skeleton ml-auto" />
-                        <div className="h-4 w-12 rounded shimmer-skeleton ml-auto" />
-                      </div>
-                    ))
-                  ) : (
-                    displayLosers.map((s) => (
-                      <Link key={s.symbol} to={`/company/${s.symbol}`} className="grid grid-cols-[1.5fr_1.1fr_1.1fr] px-3 py-2.5 hover:bg-surfaceMuted/50 transition-colors">
-                        <span className="text-xs font-bold text-accent font-mono truncate">{s.symbol}</span>
-                        <span className="text-xs font-mono tabular-nums text-textSecondary text-right">{s.price.toFixed(2)}</span>
-                        <span className="text-xs font-mono font-bold text-negative tabular-nums text-right">{s.changePct.toFixed(2)}%</span>
-                      </Link>
-                    ))
-                  )}
+                <p className="text-body text-negative font-normal leading-normal">
+                  Price alert: stock dropped 2.1% below established support level (₹2,840).
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
+                  <Link to="/company/RELIANCE" style={{ background: 'var(--fs-negative)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="hover:bg-[#852424] transition-colors text-xs font-medium">
+                    Review position
+                  </Link>
+                  <a href="#" style={{ border: '0.5px solid rgba(163,45,45,0.2)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-negative)' }} className="hover:bg-red-100/40 transition-colors text-xs font-medium">
+                    Dismiss
+                  </a>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Market Pulse & Financial News Side-by-Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_280px] gap-5">
-              {/* Market Pulse Feed */}
-              <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-                <div className="px-5 py-3.5 border-b border-border/60 flex items-center justify-between bg-surfaceMuted/30">
-                  <div className="flex items-center gap-2">
-                    <Zap className="size-3.5 text-accent" />
-                    <span className="text-sm font-bold text-textPrimary">Market Pulse &amp; Watchlist Updates</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-surfaceMuted border border-border rounded-lg p-0.5">
-                    {(["all", "alerts"] as const).map((f) => (
-                      <button key={f} onClick={() => setFeedFilter(f)}
-                        className={cn("px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all",
-                          feedFilter === f ? "bg-surface text-accent shadow-[var(--shadow-sm)]" : "text-textSecondary hover:text-textPrimary"
-                        )}
+        {/* PANEL 4 — FINANCIAL NEWS CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Newspaper className="size-4 text-[var(--fs-info)]" />
+              FINANCIAL NEWS
+            </div>
+            <Link to="/" className="text-accent text-sm font-medium flex items-center gap-0.5 hover:underline">
+              View all <ChevronRight className="size-3.5" />
+            </Link>
+          </div>
+
+          <div className="flex flex-col w-full">
+            {[
+              { category: "ECONOMY", color: "var(--fs-brand)", headline: "RBI maintains status quo on repo rates for the 6th consecutive session", time: "14 mins ago · Reuters" },
+              { category: "STOCKS", color: "var(--fs-positive)", headline: "Tata Motors reports 15% YoY jump in global sales for February", time: "42 mins ago · Bloomberg" },
+              { category: "COMMODITIES", color: "var(--fs-warning)", headline: "Gold touches all-time high as USD index weakens on inflation data", time: "1 hour ago · CNBC" },
+              { category: "TECH", color: "#534AB7", headline: "Zomato gets GST demand notice of ₹401 Crore; stock remains stable", time: "2 hours ago · ET" },
+            ].map((news, idx, arr) => (
+              <div 
+                key={news.headline}
+                style={{ 
+                  padding: '11px 0', 
+                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+                }}
+                className="w-full flex flex-col gap-1"
+              >
+                <span style={{ color: news.color }} className="text-xs font-semibold uppercase tracking-wider leading-none">
+                  {news.category}
+                </span>
+                <p className="text-body font-medium leading-normal text-textPrimary">
+                  {news.headline}
+                </p>
+                <span className="text-sm text-textSecondary font-normal">
+                  {news.time}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PANEL 5 — UPCOMING RESULTS CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Calendar className="size-4 text-[var(--fs-info)]" />
+              UPCOMING RESULTS
+            </div>
+            <span className="text-textSecondary text-sm font-normal">This week</span>
+          </div>
+
+          <div className="flex flex-col w-full">
+            {[
+              { day: "MON", date: "Oct 14", items: [] },
+              { day: "TUE", date: "Oct 15", items: ["ICICI Bank", "Axis Bank"] },
+              { day: "WED", date: "Oct 16", items: ["Wipro"] },
+              { day: "THU", date: "Oct 17", items: ["SBI", "Tata Motors"] },
+              { day: "FRI", date: "Oct 18", items: ["Adani Ent."] },
+            ].map((day, idx, arr) => (
+              <div 
+                key={day.date}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 'var(--fs-space-md)', 
+                  padding: '9px 0', 
+                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+                }}
+                className="w-full"
+              >
+                <span className="text-sm font-semibold text-textSecondary uppercase flex-shrink-0 w-9">
+                  {day.day}
+                </span>
+                <span className="text-sm text-textSecondary font-normal w-11 flex-shrink-0 font-mono">
+                  {day.date}
+                </span>
+                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                  {day.items.length === 0 ? (
+                    <span className="text-body text-textMuted font-normal italic">
+                      No results scheduled
+                    </span>
+                  ) : (
+                    day.items.map((item) => (
+                      <span 
+                        key={item}
+                        style={{ 
+                          padding: '2px 9px', 
+                          border: 'var(--fs-border)', 
+                          borderRadius: 'var(--fs-radius-xl)', 
+                          color: 'var(--fs-text-primary)' 
+                        }}
+                        className="text-sm font-medium bg-white"
                       >
-                        {f === "all" ? "All" : "Alerts"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="divide-y divide-border/40">
-                  {filteredFeed.map((item) => (
-                    <div key={item.id} className={cn("px-5 py-4 hover:bg-surfaceMuted/30 transition-colors", item.highlight === "negative" && "border-l-2 border-negative")}>
-                      <div className="flex items-start gap-3">
-                        <FeedIcon type={item.type} icon={item.icon} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-textPrimary">{item.name}</span>
-                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-accentSoft text-accent border border-accent/20">{item.symbol}</span>
-                              {item.highlight === "positive" && <TrendingUp className="size-3 text-positive" />}
-                              {item.highlight === "negative" && <TrendingDown className="size-3 text-negative" />}
-                            </div>
-                            <div className="flex items-center gap-1 text-[10px] text-textMuted shrink-0">
-                              <Clock className="size-2.5" />
-                              <span className="font-mono">{item.time}</span>
-                            </div>
-                          </div>
-                          <p className={cn("text-xs leading-relaxed font-medium", item.highlight === "negative" ? "text-negative" : "text-textSecondary")}>
-                            {item.headline}
-                          </p>
-                          {item.sub && <p className="text-[10px] text-textMuted font-mono mt-0.5">{item.sub}</p>}
-                          <div className="flex items-center gap-2 mt-3 flex-wrap">
-                            {item.actions.map((action) => (
-                              action.label === "Dismiss" ? (
-                                <button key={action.label} className="text-[11px] font-semibold text-textMuted hover:text-textSecondary transition-colors">{action.label}</button>
-                              ) : (
-                                <Link key={action.label} to={action.href}
-                                  className={cn("inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all",
-                                    (action.label === "Analyze Chart" || action.label === "Review Position")
-                                      ? "bg-accent text-white border-transparent hover:bg-accent/90"
-                                      : "bg-surface border-border text-textSecondary hover:bg-surfaceMuted hover:text-textPrimary"
-                                  )}
-                                >
-                                  {action.icon === "external" && <ExternalLink className="size-3" />}
-                                  {action.icon === "chart" && <BarChart2 className="size-3" />}
-                                  {action.icon === "bell" && <Bell className="size-3" />}
-                                  {action.icon === "bookmark" && <Bookmark className="size-3" />}
-                                  {action.label}
-                                </Link>
-                              )
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                        {item}
+                      </span>
+                    ))
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Financial News */}
-              <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-                <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/30">
-                  <div className="flex items-center gap-1.5">
-                    <Newspaper className="size-3.5 text-accent" />
-                    <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Financial News</span>
-                  </div>
-                  <button className="text-[10px] text-accent hover:underline font-bold">VIEW ALL</button>
-                </div>
-                <div className="divide-y divide-border/40">
-                  {FINANCIAL_NEWS.map(news => (
-                    <div key={news.id} className="px-4 py-3 hover:bg-surfaceMuted/20 transition-colors">
-                      <p className={cn("text-[9px] font-bold uppercase tracking-widest mb-1", news.categoryColor)}>{news.category}</p>
-                      <p className="text-[11px] font-semibold text-textPrimary leading-snug">{news.headline}</p>
-                      {news.summary && <p className="text-[10px] text-textMuted leading-relaxed mt-0.5">{news.summary}</p>}
-                      <p className="text-[9px] text-textMuted font-mono mt-1.5">{news.time} · {news.source}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {/* PANEL 6 — MARKET SENTIMENT CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3.5"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Activity className="size-4 text-[var(--fs-info)]" />
+              MARKET SENTIMENT
             </div>
+            <span className="text-textSecondary text-sm font-normal">NSE breadth</span>
+          </div>
 
-            {/* Recent Custom Scans */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/30">
-                <div className="flex items-center gap-2">
-                  <Search className="size-3.5 text-accent" />
-                  <span className="text-sm font-bold text-textPrimary">Recent Custom Scans</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="inline-flex items-center gap-1.5 text-[10px] font-bold text-textSecondary border border-border rounded-lg px-2.5 py-1.5 hover:bg-surfaceMuted transition-colors">
-                    <RefreshCw className="size-3" /> REFRESH SCANS
-                  </button>
-                  <Link to="/screener" className="inline-flex items-center gap-1.5 text-[10px] font-bold text-white bg-accent border border-transparent rounded-lg px-2.5 py-1.5 hover:bg-accent/90 transition-colors">
-                    <Plus className="size-3" /> NEW SCAN
-                  </Link>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-                {CUSTOM_SCANS.map(scan => (
-                  <Link key={scan.label} to="/screener/results" className="bg-surface border border-border rounded-xl p-4 hover:border-accent/30 hover:shadow-sm transition-all group">
-                    <p className="text-[10px] font-bold text-textMuted uppercase tracking-wider mb-1">{scan.label}</p>
-                    <p className="text-2xl font-black font-mono text-textPrimary tabular-nums group-hover:text-accent transition-colors">{scan.count} Stocks</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {scan.tickers.map(t => (
-                        <span key={t} className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", scan.color)}>{t}</span>
-                      ))}
-                    </div>
-                  </Link>
-                ))}
-              </div>
+          <div className="w-full">
+            <div className="flex items-center justify-between text-xs mb-1 font-medium">
+              <span style={{ color: 'var(--fs-positive)' }}>Bullish {bullishPct}%</span>
+              <span style={{ color: 'var(--fs-negative)' }}>Bearish {bearishPct}%</span>
+            </div>
+            <div style={{ height: '8px', borderRadius: '4px', background: '#F09595', overflow: 'hidden' }} className="w-full">
+              <div style={{ width: `${bullishPct}%`, height: '100%', background: '#639922', borderRadius: '4px' }} />
+            </div>
+            <div className="flex items-center justify-between mt-1 text-xs font-medium text-textMuted uppercase tracking-wider">
+              <span>Extreme greed</span>
+              <span>Extreme fear</span>
             </div>
           </div>
 
-          {/* ══ RIGHT: Upcoming Results + Market Sentiment ════════════ */}
-          <div className="space-y-4 lg:col-span-2 xl:col-span-1 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0 xl:block xl:space-y-4">
-            {/* Upcoming Results */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-4 py-3 border-b border-border/60 bg-surfaceMuted/40">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="size-3.5 text-accent" />
-                  <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Upcoming Results</span>
-                </div>
-              </div>
-              <div className="divide-y divide-border/40">
-                {UPCOMING_RESULTS.map((day) => (
-                  <div key={day.date} className="px-4 py-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-textMuted w-7">{day.day}</span>
-                      <span className="text-[10px] font-mono text-textSecondary">{day.date}</span>
-                    </div>
-                    {day.items.length === 0 ? (
-                      <p className="text-[10px] text-textMuted italic ml-9">No results scheduled</p>
-                    ) : (
-                      <div className="space-y-1.5 ml-9">
-                        {day.items.map((item) => (
-                          <Link key={item.symbol} to={`/company/${item.symbol}`} className="flex items-center justify-between group">
-                            <span className="text-xs font-semibold text-textPrimary group-hover:text-accent transition-colors">{item.name}</span>
-                            <ChevronRight className="size-3 text-textMuted group-hover:text-accent transition-colors" />
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div style={{ display: 'block', textAlign: 'center', margin: '6px 0' }} className="w-full">
+            <span style={{ color: '#27500A', padding: '4px 18px', borderRadius: 'var(--fs-radius-xl)', display: 'inline-block' }} className="bg-positive-soft text-body font-medium">
+              Bullish
+            </span>
+          </div>
 
-            {/* Market Sentiment */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
-              <div className="px-4 py-3 border-b border-border/60 bg-surfaceMuted/40">
-                <div className="flex items-center gap-1.5">
-                  <TrendingUp className="size-3.5 text-accent" />
-                  <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Market Sentiment</span>
-                </div>
-              </div>
-              <div className="px-4 py-4">
-                <div className="flex items-center justify-between text-[10px] font-bold mb-2">
-                  <span className="text-positive">Bullish {bullishPct}%</span>
-                  <span className="text-negative">Bearish {bearishPct}%</span>
-                </div>
-                <div className="h-3 w-full rounded-full overflow-hidden flex bg-muted">
-                  <div className="h-full bg-gradient-to-r from-positive to-green-400 transition-all" style={{ width: `${bullishPct}%` }} />
-                  <div className="h-full bg-gradient-to-r from-red-400 to-negative transition-all" style={{ width: `${bearishPct}%` }} />
-                </div>
-                <div className="flex items-center justify-between mt-3 text-[10px] text-textMuted font-medium">
-                  <span>Extreme Greed</span>
-                  <span className="font-bold text-positive text-xs">BULLISH</span>
-                  <span>Extreme Fear</span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="bg-positive-soft/50 border border-positive/20 rounded-lg px-2.5 py-2 text-center">
-                    <div className="text-lg font-black font-mono text-positive tabular-nums">
-                      {loading ? "-" : advances}
-                    </div>
-                    <div className="text-[9px] text-textMuted uppercase tracking-wide">Advancing</div>
-                  </div>
-                  <div className="bg-negative-soft/50 border border-negative/20 rounded-lg px-2.5 py-2 text-center">
-                    <div className="text-lg font-black font-mono text-negative tabular-nums">
-                      {loading ? "-" : declines}
-                    </div>
-                    <div className="text-[9px] text-textMuted uppercase tracking-wide">Declining</div>
-                  </div>
-                </div>
-              </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full mt-1">
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md)', textAlign: 'center' }} className="flex flex-col items-center">
+              <span className="text-2xl font-semibold color-positive font-mono tabular-nums leading-none mb-1">
+                {loading ? "-" : advances}
+              </span>
+              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">ADVANCING</span>
             </div>
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md)', textAlign: 'center' }} className="flex flex-col items-center">
+              <span className="text-2xl font-semibold color-negative font-mono tabular-nums leading-none mb-1">
+                {loading ? "-" : declines}
+              </span>
+              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DECLINING</span>
+            </div>
+          </div>
+        </div>
+
+        {/* PANEL 7 — RECENT CUSTOM SCANS CARD */}
+        <div 
+          style={{ 
+            background: 'var(--fs-surface)', 
+            border: 'var(--fs-border)', 
+            borderRadius: 'var(--fs-radius-md)', 
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+          }}
+          className="w-full flex flex-col gap-3.5"
+        >
+          <div className="flex items-center justify-between w-full">
+            <div 
+              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+            >
+              <Search className="size-4 text-[var(--fs-info)]" />
+              RECENT CUSTOM SCANS
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <button style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '5px 12px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors font-medium uppercase">
+                <RefreshCw className="size-3" /> Refresh
+              </button>
+              <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '5px 12px' }} className="flex items-center gap-1 hover:bg-[#124b82] transition-colors font-medium">
+                <Plus className="size-3.5" /> + New Scan
+              </Link>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-md)', marginTop: '4px' }} className="w-full">
+            {[
+              { title: "RSI OVERSOLD (D)", count: 12, chips: ["ADANIENT", "UPL", "ZEEL"] },
+              { title: "MACD BULLISH C.", count: 42, chips: ["RELIANCE", "BHARTIARTI"] },
+              { title: "GOLDEN CROSSOVER", count: 3, chips: ["HAL", "BHEL"] },
+              { title: "52-WEEK HIGH B.", count: 8, chips: ["TATASTEEL", "ZOMATO"] },
+            ].map((scan) => (
+              <div 
+                key={scan.title}
+                style={{ 
+                  background: 'var(--fs-surface-muted)', 
+                  borderRadius: 'var(--fs-radius-sm)', 
+                  padding: 'var(--fs-space-md) var(--fs-space-lg)' 
+                }}
+                className="flex flex-col"
+              >
+                <span className="text-xs text-textSecondary font-semibold uppercase tracking-wider mb-1">
+                  {scan.title}
+                </span>
+                <div className="font-mono text-2xl font-semibold text-textPrimary leading-none flex items-baseline gap-1">
+                  {scan.count}
+                  <span className="font-sans text-xs text-textSecondary font-normal">stocks</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
+                  {scan.chips.map((chip) => (
+                    <span 
+                      key={chip}
+                      style={{ 
+                        padding: '2px 8px', 
+                        background: 'var(--fs-surface)', 
+                        border: 'var(--fs-border)', 
+                        borderRadius: 'var(--fs-radius-xl)', 
+                        color: '#5F5E5A' 
+                      }}
+                      className="text-xs font-medium"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,85 +1,243 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Filter, TrendingUp, BarChart2, Star, Clock,
-  ArrowRight, Search, Plus, ChevronRight, Sparkles, Zap
+  Clock,
+  ArrowRight,
+  Search,
+  Plus,
+  Flame,
+  SlidersHorizontal,
+  BarChart2,
+  TrendingUp,
+  Rocket,
+  Activity,
+  Star,
+  Scale,
+  Users,
+  LayoutGrid
 } from 'lucide-react'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { SCREENER_TEMPLATES, type ScreenerTemplate } from '@/lib/data/screener'
-import { Heading } from '@/components/ui/Heading'
-import { Text } from '@/components/ui/Text'
 import { cn } from '@/lib/utils'
 
 const CATEGORIES = ['All', 'Valuation', 'Profitability', 'Growth', 'Technical', 'Dividends', 'Debt & Liquidity', 'Shareholding'] as const
 type Category = typeof CATEGORIES[number]
 
-const CATEGORY_ICON: Record<string, React.ElementType> = {
-  All: Filter,
+const CATEGORY_ICONS: Record<Category, React.ElementType> = {
+  All: SlidersHorizontal,
   Valuation: BarChart2,
   Profitability: TrendingUp,
-  Growth: Zap,
-  Technical: BarChart2,
+  Growth: Rocket,
+  Technical: Activity,
   Dividends: Star,
-  'Debt & Liquidity': Filter,
-  Shareholding: Filter,
+  'Debt & Liquidity': Scale,
+  Shareholding: Users,
 }
 
-const CATEGORY_COLOR: Record<string, string> = {
-  Valuation: 'bg-blue-50 text-blue-700 border-blue-200',
-  Profitability: 'bg-green-50 text-green-700 border-green-200',
-  Growth: 'bg-violet-50 text-violet-700 border-violet-200',
-  Technical: 'bg-amber-50 text-amber-700 border-amber-200',
-  Dividends: 'bg-pink-50 text-pink-700 border-pink-200',
-  'Debt & Liquidity': 'bg-red-50 text-red-700 border-red-200',
-  Shareholding: 'bg-teal-50 text-teal-700 border-teal-200',
-  'Management Quality': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+const CATEGORY_COLOR_TINTS: Record<string, { bg: string; text: string }> = {
+  'Debt & Liquidity': { bg: 'var(--fs-info-soft)', text: 'var(--fs-info)' },
+  'Dividends': { bg: 'var(--fs-positive-soft)', text: '#27500A' },
+  'Technical': { bg: '#EEEDFE', text: '#3C3489' },
+  'Valuation': { bg: '#E1F5EE', text: '#085041' },
+  'Management Quality': { bg: 'var(--fs-warning-soft)', text: 'var(--fs-warning)' },
+  'Shareholding': { bg: '#FBEAF0', text: '#72243E' },
+  'Growth': { bg: 'var(--fs-negative-soft)', text: '#791F1F' },
+  'Profitability': { bg: '#F1EFE8', text: '#444441' },
 }
 
-function ScreenCard({ screen }: { screen: ScreenerTemplate }) {
-  const colorClass = CATEGORY_COLOR[screen.category] ?? 'bg-surfaceMuted text-textSecondary border-border'
+function FeaturedScreenCard({ screen }: { screen: ScreenerTemplate }) {
+  const isHighlighted = screen.id === 'high-dividend'
+  const colors = CATEGORY_COLOR_TINTS[screen.category] || { bg: '#e5e7eb', text: 'var(--fs-text-primary)' }
 
   return (
     <Link
       to="/screener/results"
-      className="group flex flex-col justify-between rounded-xl border border-border bg-surface hover:border-accent/40 hover:shadow-md transition-all duration-200 p-5 h-48"
+      className="group flex flex-col justify-between transition-all duration-200"
+      style={{
+        borderRadius: 'var(--fs-radius-md)',
+        border: isHighlighted ? '1.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
+        padding: '20px',
+        background: isHighlighted ? '#f0f6ff' : 'var(--fs-surface)',
+        cursor: 'pointer',
+        height: '100%',
+        minHeight: '190px',
+        boxShadow: isHighlighted ? '0 2px 8px rgba(26, 86, 219, 0.08)' : 'none',
+      }}
+      onMouseEnter={(e) => {
+        if (!isHighlighted) {
+          e.currentTarget.style.borderColor = 'rgba(0,0,0,0.22)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isHighlighted) {
+          e.currentTarget.style.borderColor = 'var(--fs-border-color)'
+        }
+      }}
     >
       <div>
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex flex-wrap gap-1.5">
-            <Badge
-              variant="outline"
-              className={cn('text-[9px] font-bold uppercase tracking-wider border shadow-none', colorClass)}
-            >
-              {screen.category}
-            </Badge>
-            {screen.popular && (
-              <Badge
-                variant="outline"
-                className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-amber-700 border-amber-200 shadow-none"
-              >
-                <Star className="size-2.5 mr-0.5 fill-amber-500" /> Popular
-              </Badge>
-            )}
-          </div>
-          <ArrowRight className="size-4 text-accent opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100 transition-all shrink-0" />
+        {/* Row 1 (category + popular badge row) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)', marginBottom: '12px' }} className="w-full">
+          <span
+            style={{
+              borderRadius: 'var(--fs-radius-xl)',
+              background: colors.bg,
+              color: colors.text,
+            }}
+            className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 leading-none"
+          >
+            {screen.category}
+          </span>
+          <span
+            style={{
+              borderRadius: 'var(--fs-radius-xl)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+            }}
+            className="bg-warning-soft text-warning text-xs font-medium px-2 py-0.5 leading-none"
+          >
+            <Star className="size-2.5 text-[var(--fs-warning)] fill-[var(--fs-warning)]" />
+            Popular
+          </span>
+          {isHighlighted && (
+            <ArrowRight className="size-4 text-[var(--fs-brand)] ml-auto shrink-0 transition-transform group-hover:translate-x-1" />
+          )}
         </div>
-        <h3 className="text-sm font-bold text-textPrimary group-hover:text-accent transition-colors leading-tight">
+
+        {/* Row 2 (title) */}
+        <h3
+          style={{
+            marginBottom: '5px'
+          }}
+          className={cn(
+            "text-lg font-semibold leading-snug",
+            isHighlighted ? "text-accent" : "text-textPrimary"
+          )}
+        >
           {screen.name}
         </h3>
-        <p className="text-[11px] text-textMuted mt-1.5 line-clamp-2 leading-relaxed">
+
+        {/* Row 3 (description) */}
+        <p
+          style={{
+            marginBottom: '16px',
+          }}
+          className="text-body font-normal text-textSecondary leading-normal"
+        >
           {screen.description}
         </p>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-xs font-bold text-accent tabular-nums">{screen.matchCount}</span>
-          <span className="text-[10px] text-textMuted font-medium">stocks matched</span>
+      {/* Row 4 (footer) */}
+      <div className="mt-auto w-full flex items-center justify-between">
+        <span className="text-accent text-sm font-normal">
+          {screen.matchCount} stocks matched
+        </span>
+        <div className="text-textMuted text-sm font-normal flex items-center gap-1">
+          <Clock className="size-3" /> Recently run
         </div>
-        <div className="flex items-center gap-1 text-textMuted text-[10px] font-medium">
+      </div>
+    </Link>
+  )
+}
+
+function BrowseScreenCard({ screen }: { screen: ScreenerTemplate }) {
+  const isHighlighted = screen.id === 'high-dividend' || screen.id === 'promoter-buying'
+  const colors = CATEGORY_COLOR_TINTS[screen.category] || { bg: '#e5e7eb', text: 'var(--fs-text-primary)' }
+
+  return (
+    <Link
+      to="/screener/results"
+      className="group flex flex-col justify-between transition-all duration-200"
+      style={{
+        borderRadius: 'var(--fs-radius-md)',
+        border: isHighlighted ? '1.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
+        padding: 'var(--fs-space-lg) var(--fs-space-lg) var(--fs-space-md)',
+        background: isHighlighted ? '#f0f6ff' : 'var(--fs-surface)',
+        cursor: 'pointer',
+        height: '100%',
+        minHeight: '180px',
+        boxShadow: isHighlighted ? '0 2px 8px rgba(26, 86, 219, 0.08)' : 'none',
+      }}
+      onMouseEnter={(e) => {
+        if (!isHighlighted) {
+          e.currentTarget.style.borderColor = 'rgba(0,0,0,0.22)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isHighlighted) {
+          e.currentTarget.style.borderColor = 'var(--fs-border-color)'
+        }
+      }}
+    >
+      <div>
+        {/* Row 1 (category pills row) */}
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '10px', flexWrap: 'wrap' }} className="w-full">
+          <span
+            style={{
+              borderRadius: 'var(--fs-radius-xl)',
+              background: colors.bg,
+              color: colors.text,
+            }}
+            className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 leading-none"
+          >
+            {screen.category}
+          </span>
+          {screen.popular && (
+            <span
+              style={{
+                borderRadius: 'var(--fs-radius-xl)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+              className="bg-warning-soft text-warning text-xs font-medium px-2 py-0.5 leading-none"
+            >
+              <Star className="size-2.5 text-[var(--fs-warning)] fill-[var(--fs-warning)]" />
+              Popular
+            </span>
+          )}
+        </div>
+
+        {/* Row 2 (title) */}
+        <h3
+          style={{
+            marginBottom: '5px'
+          }}
+          className={cn(
+            "text-lg font-semibold leading-snug",
+            isHighlighted ? "text-accent" : "text-textPrimary"
+          )}
+        >
+          {screen.name}
+        </h3>
+
+        {/* Row 3 (description) */}
+        <p
+          style={{
+            marginBottom: '14px',
+          }}
+          className="text-body font-normal text-textSecondary leading-normal line-clamp-2"
+        >
+          {screen.description}
+        </p>
+      </div>
+
+      {/* Row 4 (footer) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderTop: 'var(--fs-border)',
+          paddingTop: '10px',
+          marginTop: 'auto'
+        }}
+        className="w-full"
+      >
+        <span className="text-accent text-sm font-normal">
+          {screen.matchCount} stocks matched
+        </span>
+        <div className="text-textMuted text-sm font-normal flex items-center gap-1">
           <Clock className="size-3" /> Recently run
         </div>
       </div>
@@ -113,76 +271,127 @@ export function ScreenGallery() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* ── Page Header ── */}
-      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-5">
-        <div className="max-w-[1400px] mx-auto flex flex-wrap items-end justify-between gap-4">
+      <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-border px-6 py-5">
+        <div
+          className="max-w-[1400px] mx-auto w-full"
+          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}
+        >
           <div>
-            <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1.5">
-              <Link to="/" className="hover:text-accent transition-colors">Home</Link>
-              <ChevronRight className="size-3" />
-              <span className="text-textPrimary font-medium">Screen Gallery</span>
-            </nav>
-            <Heading level={1} variant="pageTitle">Screen Gallery</Heading>
-            <Text variant="bodyMuted" className="mt-0.5">
+            <div className="text-sm text-textMuted mb-1 flex items-center gap-1 select-none">
+              <Link to="/" className="hover:underline">Home</Link>
+              <span className="text-textMuted/60 font-normal">›</span>
+              <span className="text-textSecondary">Screen Gallery</span>
+            </div>
+            <h1 className="text-3xl font-semibold text-textPrimary tracking-tight">
+              Screen Gallery
+            </h1>
+            <p className="text-body font-normal text-textSecondary mt-1">
               {SCREENER_TEMPLATES.length} pre-built screeners crafted by expert analysts · click any to view results
-            </Text>
+            </p>
           </div>
-          <Button
-            asChild
-            className="bg-accent hover:bg-accent/90 text-white font-bold text-xs h-9 shadow-none gap-1.5"
+          <Link
+            to="/screener"
+            style={{
+              background: 'var(--fs-brand)',
+              color: 'var(--fs-surface)',
+              border: 'none',
+              borderRadius: 'var(--fs-radius-sm)',
+              padding: 'var(--fs-space-sm) var(--fs-space-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--fs-space-xs)'
+            }}
+            className="hover:bg-[var(--fs-brand)]/90 transition-colors shadow-sm select-none shrink-0 text-sm font-medium"
           >
-            <Link to="/screener">
-              <Plus className="size-3.5" /> Build Custom Screen
-            </Link>
-          </Button>
+            <Plus className="size-3.5" /> Build Custom Screen
+          </Link>
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
-
-        {/* ── Popular Screens ── */}
+      <div className="max-w-[1400px] mx-auto px-6 py-10 space-y-12">
+        {/* ── SECTION 1 — POPULAR SCREENS (Featured Row) ── */}
         <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="size-4 text-amber-500" />
-            <h2 className="text-sm font-bold text-textPrimary uppercase tracking-wide">Popular Screens</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)', marginBottom: '14px' }}>
+            <Flame className="size-4 text-[#BA7517] fill-[#BA7517]/20" />
+            <h2 className="text-xl font-semibold text-textPrimary tracking-tight">
+              Popular Screens
+            </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {popular.slice(0, 4).map((screen) => (
-              <ScreenCard key={screen.id} screen={screen} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[14px] mb-[32px]">
+            {popular.slice(0, 3).map((screen) => (
+              <FeaturedScreenCard key={screen.id} screen={screen} />
             ))}
           </div>
         </section>
 
-        {/* ── Browse All ── */}
+        {/* Separator / Differentiator */}
+        <hr className="border-border/40" />
+
+        {/* ── SECTION 2 — BROWSE ALL SCREENS ── */}
         <section>
-          <div className="flex flex-wrap items-center gap-4 mb-5">
-            <h2 className="text-sm font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
-              <Filter className="size-4 text-accent" /> Browse All Screens
-            </h2>
-            <div className="flex-1 max-w-sm relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
-              <Input
+          {/* Browse Header Row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }} className="w-full flex-wrap gap-4">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)' }}>
+              <LayoutGrid className="size-4 text-textSecondary" />
+              <h2 className="text-xl font-semibold text-textPrimary tracking-tight">
+                Browse All Screens
+              </h2>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                background: 'var(--fs-surface-muted)',
+                borderRadius: 'var(--fs-radius-sm)',
+                padding: 'var(--fs-space-xs) var(--fs-space-md)',
+                border: 'var(--fs-border)',
+                width: '100%',
+                maxWidth: '280px'
+              }}
+              className="text-sm"
+            >
+              <Search className="size-3.5 text-textMuted shrink-0" />
+              <input
+                type="text"
                 placeholder="Search screens…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-xs border-border bg-surfaceMuted shadow-none"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--fs-text-primary)',
+                  width: '100%',
+                  padding: 0,
+                }}
+                className="placeholder:text-textMuted text-body font-normal"
               />
             </div>
           </div>
 
-          {/* Category tabs */}
-          <div className="flex flex-wrap gap-2 mb-6">
+          {/* Filter tab bar */}
+          <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', flexWrap: 'wrap', marginBottom: '18px' }} className="w-full select-none">
             {CATEGORIES.map((cat) => {
-              const Icon = CATEGORY_ICON[cat] ?? Filter
+              const Icon = CATEGORY_ICONS[cat]
+              const isActive = activeCategory === cat
               return (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all',
-                    activeCategory === cat
-                      ? 'bg-accent text-white border-accent'
-                      : 'bg-surface border-border text-textSecondary hover:border-accent/30 hover:text-textPrimary'
-                  )}
+                  style={{
+                    padding: '6px 13px',
+                    borderRadius: 'var(--fs-radius-xl)',
+                    border: isActive ? '0.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
+                    background: isActive ? 'var(--fs-brand)' : 'var(--fs-surface)',
+                    color: isActive ? 'var(--fs-surface)' : 'var(--fs-text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                  className="transition-colors hover:bg-surfaceMuted text-sm font-medium"
                 >
                   <Icon className="size-3.5" />
                   {cat}
@@ -191,24 +400,33 @@ export function ScreenGallery() {
             })}
           </div>
 
-          {/* Results */}
+          {/* Results grid */}
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Filter className="size-10 text-textMuted mb-3" />
-              <h3 className="text-sm font-bold text-textPrimary">No screens found</h3>
+              <LayoutGrid className="size-10 text-textMuted mb-3" />
+              <h3 className="text-sm font-medium text-textPrimary">No screens found</h3>
               <p className="text-xs text-textMuted mt-1">Try a different category or search term</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-[14px]">
               {filtered.map((screen) => (
-                <ScreenCard key={screen.id} screen={screen} />
+                <BrowseScreenCard key={screen.id} screen={screen} />
               ))}
             </div>
           )}
 
-          <p className="text-xs text-textMuted mt-6 text-center">
+          {/* Footer */}
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: '20px',
+              paddingTop: '16px',
+              borderTop: 'var(--fs-border)'
+            }}
+            className="text-textMuted text-sm font-normal select-none"
+          >
             Showing {filtered.length} of {SCREENER_TEMPLATES.length} screens
-          </p>
+          </div>
         </section>
       </div>
     </div>

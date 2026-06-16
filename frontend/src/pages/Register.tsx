@@ -72,22 +72,25 @@ export default function Register() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col items-center justify-center text-center">
-        <div className="size-10 rounded-lg bg-accent flex items-center justify-center font-bold text-white shadow-none text-lg">
+        <div className="size-10 rounded-lg bg-accent flex items-center justify-center font-medium text-white shadow-none text-lg">
           FS
         </div>
-        <Heading level={2} variant="sectionTitle" className="mt-4 text-xl font-bold tracking-tight text-textPrimary">
+        <Heading level={2} variant="sectionTitle" className="mt-4 tracking-tight text-textPrimary">
           Create your account
         </Heading>
-        <Text variant="caption" className="mt-1 text-textMuted">
-          Sign up to access 15-year histories and screeners
-        </Text>
+        <p className="text-body text-textSecondary mt-1">
+          Sign up to access 15-year histories and screeners ·{' '}
+          <span className="font-medium text-accent">
+            Free Workspace
+          </span>
+        </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Full Name */}
         <div className="space-y-1.5">
-          <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+          <Text variant="label" as={Label} className="text-xs tracking-wide">
             Full Name
           </Text>
           <Input
@@ -97,13 +100,13 @@ export default function Register() {
             className={errors.name ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.name && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.name.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.name.message}</Text>
           )}
         </div>
 
         {/* Email */}
         <div className="space-y-1.5">
-          <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+          <Text variant="label" as={Label} className="text-xs tracking-wide">
             Email Address
           </Text>
           <Input
@@ -113,13 +116,13 @@ export default function Register() {
             className={errors.email ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.email && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.email.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.email.message}</Text>
           )}
         </div>
 
         {/* Password */}
         <div className="space-y-1.5">
-          <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+          <Text variant="label" as={Label} className="text-xs tracking-wide">
             Password
           </Text>
           <Input
@@ -129,13 +132,13 @@ export default function Register() {
             className={errors.password ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.password && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.password.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.password.message}</Text>
           )}
         </div>
 
         {/* Confirm Password */}
         <div className="space-y-1.5">
-          <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+          <Text variant="label" as={Label} className="text-xs tracking-wide">
             Confirm Password
           </Text>
           <Input
@@ -145,7 +148,7 @@ export default function Register() {
             className={errors.confirmPassword ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.confirmPassword && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.confirmPassword.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.confirmPassword.message}</Text>
           )}
         </div>
 
@@ -153,11 +156,11 @@ export default function Register() {
         <div className="flex items-start gap-2">
           <Checkbox id="agreeToTerms" {...register('agreeToTerms')} className="border-border data-[state=checked]:bg-accent data-[state=checked]:text-white" defaultChecked />
           <div className="flex flex-col gap-1">
-            <Text variant="bodyMuted" as={Label} htmlFor="agreeToTerms" className="text-xs font-semibold select-none cursor-pointer text-textSecondary leading-tight">
+            <Text variant="bodyMuted" as={Label} htmlFor="agreeToTerms" className="text-xs font-medium select-none cursor-pointer text-textSecondary leading-tight">
               I agree to the terms of service and institutional data agreement
             </Text>
             {errors.agreeToTerms && (
-              <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.agreeToTerms.message}</Text>
+              <Text variant="caption" className="text-xs text-negative font-medium">{errors.agreeToTerms.message}</Text>
             )}
           </div>
         </div>
@@ -166,7 +169,7 @@ export default function Register() {
         <Button
           type="submit"
           disabled={isSubmitting || status === 'loading'}
-          className="w-full bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase h-10 shadow-none mt-2"
+          className="w-full bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-10 shadow-none mt-2"
         >
           {isSubmitting || status === 'loading' ? 'Creating Account...' : 'Create Account'}
         </Button>
@@ -177,7 +180,7 @@ export default function Register() {
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-border/50" />
         </div>
-        <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-wider">
+        <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider">
           <Text variant="caption" as="span" className="bg-surface px-2.5 text-textMuted">Or sign up with</Text>
         </div>
       </div>
@@ -192,7 +195,7 @@ export default function Register() {
             navigate('/')
           }
         }}
-        className="w-full h-10 font-bold text-xs uppercase border-border hover:bg-surfaceMuted text-textSecondary shadow-none flex items-center justify-center gap-2"
+        className="w-full h-10 font-medium text-xs uppercase border-border hover:bg-surfaceMuted text-textSecondary shadow-none flex items-center justify-center gap-2"
       >
         <svg className="size-4 shrink-0" viewBox="0 0 24 24">
           <path
@@ -216,7 +219,7 @@ export default function Register() {
       </Button>
 
       {/* Footer Link */}
-      <div className="text-center text-xs font-semibold text-textSecondary">
+      <div className="text-center text-xs font-medium text-textSecondary">
         Already have an account?{' '}
         <Link to={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"} className="text-accent hover:underline">
           Sign In

@@ -38,9 +38,9 @@ export function MarketHeatmap() {
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <LayoutGrid className="size-4 text-accent" />
-          <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide">Sectoral Heatmap</CardTitle>
+          <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Sectoral Heatmap</CardTitle>
         </div>
-        <p className="text-[11px] text-textMuted">NSE Sectors · Day Change %</p>
+        <p className="text-xs text-textMuted">NSE Sectors · Day Change %</p>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
@@ -57,8 +57,8 @@ export function MarketHeatmap() {
                 className="rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-[1.03] hover:shadow-lg active:scale-[0.97] cursor-pointer select-none"
                 style={{ backgroundColor: bgColor, height: tileHeight, color: textColor }}
               >
-                <span className="text-[10px] font-bold text-center leading-tight px-1 opacity-95">{sector.name}</span>
-                <span className="text-sm font-bold font-mono tabular-nums mt-0.5">
+                <span className="text-xs font-medium text-center leading-tight px-1 opacity-95">{sector.name}</span>
+                <span className="text-sm font-medium font-mono tabular-nums mt-0.5">
                   {positive ? '+' : ''}{sector.change.toFixed(2)}%
                 </span>
               </button>
@@ -78,11 +78,11 @@ export function MarketHeatmap() {
             ].map(l => (
               <div key={l.label} className="flex items-center gap-1">
                 <div className="size-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
-                <span className="text-[9px] text-textMuted font-mono">{l.label}</span>
+                <span className="text-xs text-textMuted font-mono">{l.label}</span>
               </div>
             ))}
           </div>
-          <span className="text-[9px] text-textMuted font-medium">Tile size ∝ sector weight</span>
+          <span className="text-xs text-textMuted font-medium">Tile size ∝ sector weight</span>
         </div>
       </CardContent>
     </Card>

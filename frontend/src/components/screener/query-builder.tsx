@@ -114,7 +114,7 @@ function highlightSQL(sql: string): string {
   let h = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   h = h.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="text-positive font-mono">$1</span>')
   SQL_METRICS.forEach((m) => { h = h.replace(new RegExp(`\\b(${m})\\b`, 'gi'), '<span class="text-purple-600 font-mono">$1</span>') })
-  SQL_KEYWORDS.forEach((kw) => { h = h.replace(new RegExp(`\\b(${kw})\\b`, 'gi'), '<span class="text-accent font-semibold">$1</span>') })
+  SQL_KEYWORDS.forEach((kw) => { h = h.replace(new RegExp(`\\b(${kw})\\b`, 'gi'), '<span class="text-accent font-medium">$1</span>') })
   h = h.replace(/(--[^\n]*)/g, '<span class="text-textMuted italic">$1</span>')
   return h
 }
@@ -301,9 +301,9 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   return (
     <div className="flex flex-col h-full bg-surface">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 flex-shrink-0">
         <div>
-          <h2 className="text-sm font-semibold text-textPrimary">Query Builder</h2>
+          <h2 className="text-sm font-medium text-textPrimary">Query Builder</h2>
           <p className="text-xs text-textSecondary mt-0.5 hidden sm:block">Build filters to screen stocks</p>
         </div>
         <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning, onSa
       </div>
 
       {/* Footer — desktop only (mobile uses page header buttons) */}
-      <div className="border-t border-border p-4 hidden sm:flex items-center gap-2 flex-wrap flex-shrink-0">
+      <div className="border-t border-border/40 p-4 hidden sm:flex items-center gap-2 flex-wrap flex-shrink-0">
         <Button onClick={onRun} disabled={isRunning}
           className="bg-accent hover:bg-accent/90 text-white h-9 px-5 text-sm gap-2">
           <Play className="w-3.5 h-3.5" />
@@ -406,7 +406,7 @@ function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning, onSa
       </div>
 
       {/* Mobile footer: slim, no duplicate run button */}
-      <div className="sm:hidden border-t border-border px-4 py-2.5 flex items-center gap-2 flex-shrink-0">
+      <div className="sm:hidden border-t border-border/40 px-4 py-2.5 flex items-center gap-2 flex-shrink-0">
         <Button variant="ghost" size="sm" className="h-8 px-3 text-xs gap-1.5 text-purple-600 hover:text-purple-700 hover:bg-purple-50">
           <Sparkles className="w-3.5 h-3.5" />
           AI Suggest
@@ -440,7 +440,7 @@ function FilterRowUI({ filter, isFirst, onRemove, onUpdate }: {
         {/* Connector — fixed width */}
         <div className="w-[72px] flex-shrink-0">
           {isFirst ? (
-            <span className="flex items-center justify-center h-8 w-full text-xs font-semibold text-accent bg-accentSoft rounded-md">
+            <span className="flex items-center justify-center h-8 w-full text-xs font-medium text-accent bg-accentSoft rounded-md">
               WHERE
             </span>
           ) : (
@@ -479,11 +479,11 @@ function FilterRowUI({ filter, isFirst, onRemove, onUpdate }: {
       </div>
 
       {/* ── Mobile card ── */}
-      <div className="sm:hidden bg-surface border border-border rounded-lg p-3 space-y-2">
+      <div className="sm:hidden bg-surface border border-border/40 rounded-xl p-3.5 space-y-2.5 shadow-xs">
         {/* Row 1: connector + remove */}
         <div className="flex items-center justify-between">
           {isFirst ? (
-            <span className="text-xs font-semibold text-accent bg-accentSoft px-2.5 py-1 rounded">WHERE</span>
+            <span className="text-xs font-medium text-accent bg-accentSoft px-2.5 py-1 rounded">WHERE</span>
           ) : (
             <ConnectorSelect value={filter.connector} onChange={(v) => onUpdate({ connector: v })} />
           )}
@@ -533,9 +533,9 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
 }) {
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-surfaceMuted flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-surfaceMuted/5 flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs font-semibold text-gray-700 hidden sm:inline">SQL Editor</span>
+          <span className="text-xs font-medium text-gray-700 hidden sm:inline">SQL Editor</span>
           <div className="flex items-center gap-1.5 min-w-0">
             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${validation.valid ? 'bg-green-500' : 'bg-red-500'}`} />
             <span className={`text-xs font-mono truncate ${validation.valid ? 'text-positive' : 'text-red-500'}`}>
@@ -555,7 +555,7 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
 
       <div className="flex-1 relative flex overflow-hidden font-mono text-xs bg-surface min-h-0">
         <div ref={lineNumbersRef}
-          className="w-10 flex-shrink-0 bg-surfaceMuted border-r border-border py-3 px-2 overflow-hidden select-none"
+          className="w-10 flex-shrink-0 bg-surfaceMuted/20 border-r border-border/40 py-3 px-2 overflow-hidden select-none"
           aria-hidden="true">
           {sqlLines.map((_, i) => (
             <div key={i} className="text-right text-textMuted leading-6">{i + 1}</div>
@@ -572,7 +572,7 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
         </div>
       </div>
 
-      <div className="border-t border-border bg-surfaceMuted px-4 py-3 flex items-center gap-3 flex-wrap flex-shrink-0">
+      <div className="border-t border-border/40 bg-surfaceMuted/5 px-4 py-3 flex items-center gap-3 flex-wrap flex-shrink-0">
         <Button onClick={onRun} disabled={isRunning || !validation.valid}
           className="bg-accent hover:bg-accent/90 text-white h-9 px-5 text-sm gap-2">
           <Play className="w-3.5 h-3.5" />

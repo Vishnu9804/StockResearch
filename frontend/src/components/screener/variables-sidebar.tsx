@@ -149,10 +149,10 @@ export function VariablesSidebar({ onInsert }: VariablesSidebarProps) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex flex-col h-full bg-surface border-l border-border">
+      <div className="flex flex-col h-full bg-surface border-l border-border/40">
         {/* Header */}
-        <div className="p-3 border-b border-border">
-          <h3 className="text-sm font-semibold text-textPrimary mb-2">Variables</h3>
+        <div className="p-3 pb-3.5 border-b border-border/40 text-left">
+          <h3 className="text-sm font-medium text-textPrimary mb-2">Variables</h3>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-textMuted" />
             <Input
@@ -191,7 +191,7 @@ export function VariablesSidebar({ onInsert }: VariablesSidebarProps) {
                   <div key={cat} className="mb-1">
                     <button
                       onClick={() => toggleCategory(cat)}
-                      className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-textSecondary hover:bg-surfaceMuted rounded-md transition-colors"
+                      className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-textSecondary hover:bg-surfaceMuted rounded-lg transition-colors"
                     >
                       <span>{cat}</span>
                       <div className="flex items-center gap-1">
@@ -222,17 +222,17 @@ export function VariablesSidebar({ onInsert }: VariablesSidebarProps) {
         </ScrollArea>
 
         {/* Pro upgrade callout */}
-        <div className="p-3 border-t border-border bg-gradient-to-br from-blue-50 to-indigo-50">
-          <div className="flex items-start gap-2">
-            <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div className="p-4 border-t border-border/40 bg-accentSoft/15 mt-auto">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center flex-shrink-0 mt-0.5">
               <Zap className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-textPrimary">Unlock Pro Variables</p>
-              <p className="text-xs text-textSecondary mt-0.5 leading-tight">
+              <p className="text-xs font-medium text-textPrimary">Unlock Pro Variables</p>
+              <p className="text-xs text-textSecondary mt-1 leading-snug">
                 Get access to 15+ locked variables including ROIC, FCF, MACD &amp; more.
               </p>
-              <Button size="sm" className="mt-2 h-7 text-xs bg-accent hover:bg-accent/90 text-white w-full">
+              <Button size="sm" className="mt-3 h-8 text-xs bg-accent hover:bg-accent/90 text-white w-full shadow-none rounded-lg">
                 Upgrade to Pro — ₹4,999/yr
               </Button>
             </div>
@@ -250,7 +250,7 @@ interface VariableRowProps {
 
 function VariableRow({ variable, onInsert }: VariableRowProps) {
   return (
-    <div className="flex items-center justify-between px-2 py-1 rounded-md hover:bg-surfaceMuted group">
+    <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-surfaceMuted/60 group">
       <button
         onClick={() => !variable.locked && onInsert(variable)}
         disabled={variable.locked}
@@ -263,7 +263,7 @@ function VariableRow({ variable, onInsert }: VariableRowProps) {
         )}
         <span
           className={`text-xs truncate ${
-            variable.locked ? 'text-textMuted' : 'text-gray-700 group-hover:text-accent'
+            variable.locked ? 'text-textMuted' : 'text-gray-700 group-hover:text-[var(--fs-info)] font-medium'
           }`}
         >
           {variable.label}
@@ -287,7 +287,7 @@ function VariableRow({ variable, onInsert }: VariableRowProps) {
           </button>
         </TooltipTrigger>
         <TooltipContent side="left" className="max-w-56">
-          <p className="font-semibold text-xs mb-1">{variable.label}</p>
+          <p className="font-medium text-xs mb-1">{variable.label}</p>
           <p className="text-xs text-textMuted leading-snug">{variable.description}</p>
           {variable.unit && (
             <p className="text-xs text-blue-300 mt-1 font-mono">Unit: {variable.unit}</p>

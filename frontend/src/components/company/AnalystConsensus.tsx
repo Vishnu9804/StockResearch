@@ -61,10 +61,10 @@ export function AnalystConsensus({ symbol, cmp, pe }: { symbol: string; cmp: num
   return (
     <Card className="border-border shadow-none bg-surface">
       <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
-        <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+        <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
           Analyst Consensus
         </CardTitle>
-        <p className="text-[11px] text-textMuted mt-0.5">{entries.length} analyst ratings · 12-month target</p>
+        <p className="text-xs text-textMuted mt-0.5">{entries.length} analyst ratings · 12-month target</p>
       </CardHeader>
       <CardContent className="p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -81,32 +81,32 @@ export function AnalystConsensus({ symbol, cmp, pe }: { symbol: string; cmp: num
               </ResponsiveContainer>
               {/* Center label */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xs font-bold text-textPrimary">{consensusLabel}</span>
-                <span className="text-[10px] text-textMuted">{entries.length} analysts</span>
+                <span className="text-xs font-medium text-textPrimary">{consensusLabel}</span>
+                <span className="text-xs text-textMuted">{entries.length} analysts</span>
               </div>
             </div>
 
             {/* Legend */}
             <div className="flex items-center gap-4 mt-3">
               <div className="flex flex-col items-center">
-                <span className="text-lg font-bold text-positive font-mono">{buy}</span>
-                <span className="text-[10px] text-textMuted font-semibold uppercase">Buy</span>
+                <span className="text-lg font-medium text-positive font-mono">{buy}</span>
+                <span className="text-xs text-textMuted font-medium uppercase">Buy</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-lg font-bold text-warning font-mono">{hold}</span>
-                <span className="text-[10px] text-textMuted font-semibold uppercase">Hold</span>
+                <span className="text-lg font-medium text-warning font-mono">{hold}</span>
+                <span className="text-xs text-textMuted font-medium uppercase">Hold</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-lg font-bold text-negative font-mono">{sell}</span>
-                <span className="text-[10px] text-textMuted font-semibold uppercase">Sell</span>
+                <span className="text-lg font-medium text-negative font-mono">{sell}</span>
+                <span className="text-xs text-textMuted font-medium uppercase">Sell</span>
               </div>
             </div>
 
             {/* Consensus target */}
             <div className="mt-4 w-full p-3 rounded-xl bg-surfaceMuted border border-border text-center">
-              <p className="text-[10px] text-textMuted font-semibold uppercase tracking-wider">12M Consensus Target</p>
-              <p className="text-xl font-bold font-mono text-textPrimary mt-1">₹{consensusTarget.toLocaleString('en-IN')}</p>
-              <div className={cn('flex items-center justify-center gap-1 text-xs font-bold mt-0.5', positive ? 'text-positive' : 'text-negative')}>
+              <p className="text-xs text-textMuted font-medium uppercase tracking-wider">12M Consensus Target</p>
+              <p className="text-xl font-medium font-mono text-textPrimary mt-1">₹{consensusTarget.toLocaleString('en-IN')}</p>
+              <div className={cn('flex items-center justify-center gap-1 text-xs font-medium mt-0.5', positive ? 'text-positive' : 'text-negative')}>
                 {positive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
                 {positive ? '+' : ''}{upside.toFixed(1)}% from CMP
               </div>
@@ -118,17 +118,17 @@ export function AnalystConsensus({ symbol, cmp, pe }: { symbol: string; cmp: num
             {entries.map((entry) => (
               <div key={entry.firm} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-surfaceMuted/30 hover:bg-surfaceMuted transition-colors">
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-textPrimary truncate">{entry.firm}</p>
-                  <p className="text-[10px] text-textMuted truncate">{entry.analyst}</p>
+                  <p className="text-xs font-medium text-textPrimary truncate">{entry.firm}</p>
+                  <p className="text-xs text-textMuted truncate">{entry.analyst}</p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2">
                   <div className="text-right">
-                    <p className="text-xs font-mono font-semibold text-textPrimary">₹{entry.target.toLocaleString('en-IN')}</p>
-                    <p className={cn('text-[10px] font-mono', entry.upside >= 0 ? 'text-positive' : 'text-negative')}>
+                    <p className="text-xs font-mono font-medium text-textPrimary">₹{entry.target.toLocaleString('en-IN')}</p>
+                    <p className={cn('text-xs font-mono', entry.upside >= 0 ? 'text-positive' : 'text-negative')}>
                       {entry.upside >= 0 ? '+' : ''}{entry.upside}%
                     </p>
                   </div>
-                  <Badge variant="outline" className={cn('text-[9px] font-bold shadow-none px-1.5', RATING_BADGE[entry.rating])}>
+                  <Badge variant="outline" className={cn('text-xs font-medium shadow-none px-1.5', RATING_BADGE[entry.rating])}>
                     {entry.rating === 'BUY' ? <TrendingUp className="size-2.5 mr-0.5" /> : entry.rating === 'SELL' ? <TrendingDown className="size-2.5 mr-0.5" /> : <Minus className="size-2.5 mr-0.5" />}
                     {entry.rating}
                   </Badge>

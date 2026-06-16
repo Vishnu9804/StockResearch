@@ -53,11 +53,11 @@ export function NotificationCenter() {
         <SheetHeader className="px-5 py-4 border-b border-border/50 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Heading level={3} variant="sectionTitle" className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+              <Heading level={3} variant="sectionTitle" className="text-sm font-medium text-textPrimary uppercase tracking-wide">
                 Notifications
               </Heading>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-accentSoft text-accent border border-accent/15 px-2 py-0.5 text-[10px] font-bold">
+                <span className="rounded-full bg-accentSoft text-accent border border-accent/15 px-2 py-0.5 text-xs font-medium">
                   {unreadCount} new
                 </span>
               )}
@@ -67,7 +67,7 @@ export function NotificationCenter() {
                 variant="ghost"
                 size="sm"
                 onClick={() => dispatch(markAllAsRead())}
-                className="text-xs text-accent hover:text-accent/90 h-8 font-semibold flex items-center gap-1 hover:bg-surfaceMuted"
+                className="text-xs text-accent hover:text-accent/90 h-8 font-medium flex items-center gap-1 hover:bg-surfaceMuted"
               >
                 <Check className="size-3.5" />
                 Mark all read
@@ -84,8 +84,8 @@ export function NotificationCenter() {
               <div className="size-10 rounded-full bg-surfaceMuted flex items-center justify-center mb-3">
                 <Bell className="size-5 text-textMuted" />
               </div>
-              <Text variant="body" className="font-semibold text-textPrimary">No new alerts</Text>
-              <Text variant="caption" className="text-[11px] text-textSecondary mt-1">
+              <Text variant="body" className="font-medium text-textPrimary">No new alerts</Text>
+              <Text variant="caption" className="text-xs text-textSecondary mt-1">
                 Your price alarms and corporate action notifications will appear here.
               </Text>
             </div>
@@ -113,7 +113,7 @@ export function NotificationCenter() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-1.5">
-                      <p className={cn('text-xs text-textPrimary', !item.read ? 'font-bold' : 'font-semibold')}>
+                      <p className={cn('text-xs text-textPrimary', !item.read ? 'font-medium' : 'font-medium')}>
                         {item.title}
                       </p>
                       <button
@@ -126,8 +126,8 @@ export function NotificationCenter() {
                         <X className="size-3" />
                       </button>
                     </div>
-                    <Text variant="caption" className="text-[11px] leading-relaxed text-textSecondary mt-1">{item.body}</Text>
-                    <Text variant="caption" className="text-[10px] text-textMuted font-mono mt-2 block">
+                    <Text variant="caption" className="text-xs leading-relaxed text-textSecondary mt-1">{item.body}</Text>
+                    <Text variant="caption" className="text-xs text-textMuted font-mono mt-2 block">
                       {formatRelativeTime(item.timestamp)}
                     </Text>
                   </div>

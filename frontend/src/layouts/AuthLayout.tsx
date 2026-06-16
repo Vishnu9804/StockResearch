@@ -23,16 +23,16 @@ export function AuthLayout() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className="size-9 rounded-xl bg-accent flex items-center justify-center font-black text-white shadow-[var(--shadow-accent)] text-sm tracking-tight">
+        <div className="size-9 rounded-xl bg-accent flex items-center justify-center font-medium text-white shadow-[var(--shadow-accent)] text-sm tracking-tight">
           FS
         </div>
-        <span className="font-bold text-textPrimary tracking-tight text-xl">
+        <span className="font-medium text-textPrimary tracking-tight text-xl">
           Fin<span className="text-accent">Screen</span>
         </span>
       </motion.div>
 
       {/* Card */}
-      <div className="relative z-10 w-full max-w-md bg-surface border border-border rounded-2xl p-8 shadow-[var(--shadow-lg)] overflow-hidden">
+      <div className="relative z-10 w-full max-w-md bg-surface border border-border/40 rounded-2xl p-8 shadow-md overflow-hidden">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
@@ -47,7 +47,7 @@ export function AuthLayout() {
       </div>
 
       {/* Footer note */}
-      <p className="relative z-10 mt-6 text-[10px] text-textMuted font-medium">
+      <p className="relative z-10 mt-6 text-xs text-textMuted font-medium">
         &copy; {new Date().getFullYear()} FinScreen &middot; Institutional-grade equity research
       </p>
     </div>

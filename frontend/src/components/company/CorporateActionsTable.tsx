@@ -73,26 +73,26 @@ export function CorporateActionsTable() {
     <div className="space-y-5 select-none">
 
       {/* ── Quick Stat Cards ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Dividend Yield</p>
-          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">0.82%</p>
-          <p className="text-[10px] text-positive font-semibold mt-0.5">Sector Avg: 0.65%</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
+          <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Dividend Yield</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">0.82%</p>
+          <p className="text-xs text-positive font-medium mt-0.5">Sector Avg: 0.65%</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Last Dividend</p>
-          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">₹15.00</p>
-          <p className="text-[10px] text-textMuted font-mono mt-0.5">{lastDividend ? formatDate(lastDividend.exDate) : '—'}</p>
+        <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
+          <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Last Dividend</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">₹15.00</p>
+          <p className="text-xs text-textMuted font-mono mt-0.5">{lastDividend ? formatDate(lastDividend.exDate) : '—'}</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Bonus Ratio</p>
-          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">1:1</p>
-          <p className="text-[10px] text-textMuted font-mono mt-0.5">Last: {bonuses[0] ? formatDate(bonuses[0].exDate) : '—'}</p>
+        <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
+          <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Bonus Ratio</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">1:1</p>
+          <p className="text-xs text-textMuted font-mono mt-0.5">Last: {bonuses[0] ? formatDate(bonuses[0].exDate) : '—'}</p>
         </div>
-        <div className="bg-surface border border-border rounded-xl px-4 py-4 shadow-[var(--shadow-sm)]">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">Total Events</p>
-          <p className="text-2xl font-black font-mono text-textPrimary tabular-nums">{activeActions.length}</p>
-          <p className="text-[10px] text-textMuted font-medium mt-0.5">Since IPO</p>
+        <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
+          <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Total Events</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">{activeActions.length}</p>
+          <p className="text-xs text-textMuted font-medium mt-0.5">Since IPO</p>
         </div>
       </div>
 
@@ -100,24 +100,24 @@ export function CorporateActionsTable() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
 
         {/* Left: Actions table */}
-        <div className="bg-surface border border-border rounded-xl overflow-hidden flex flex-col">
+        <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/30">
-            <h3 className="text-sm font-bold text-textPrimary">Corporate Actions</h3>
-            <p className="text-[11px] text-textMuted mt-0.5">
+          <div className="px-5 py-4 border-b border-border/40">
+            <h3 className="text-sm font-medium text-textPrimary">Corporate Actions</h3>
+            <p className="text-xs text-textMuted mt-0.5">
               Historical record of dividends, bonuses, splits, and rights issues
             </p>
           </div>
 
           {/* Tabs + Year filter */}
-          <div className="flex items-center justify-between border-b border-border/50 px-3 bg-surfaceMuted/20">
+          <div className="flex items-center justify-between border-b border-border/40 px-3 bg-surfaceMuted/5">
             <div className="flex">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setCurrentPage(1) }}
                   className={cn(
-                    'px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors',
+                    'px-4 py-3 text-xs font-medium uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors',
                     activeTab === tab.id
                       ? 'border-accent text-accent'
                       : 'border-transparent text-textSecondary hover:text-textPrimary'
@@ -128,11 +128,11 @@ export function CorporateActionsTable() {
               ))}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] text-textMuted font-medium">Filter by year:</span>
+              <span className="text-xs text-textMuted font-medium">Filter by year:</span>
               <select
                 value={yearFilter}
                 onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1) }}
-                className="text-[10px] font-mono font-bold text-textPrimary bg-surface border border-border rounded-md px-2 py-1 focus:outline-none focus:border-accent"
+                className="text-xs font-mono font-medium text-textPrimary bg-surface border border-border rounded-md px-2 py-1 focus:outline-none focus:border-accent"
               >
                 {YEARS.map((y) => <option key={y}>{y}</option>)}
               </select>
@@ -144,11 +144,11 @@ export function CorporateActionsTable() {
             <Table>
               <TableHeader className="bg-surfaceMuted">
                 <TableRow>
-                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Event Type</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Announcement Date</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Record Date</TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-textMuted">Ex-Date</TableHead>
-                  <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted">Details</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Event Type</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Announcement Date</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Record Date</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Ex-Date</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -162,14 +162,14 @@ export function CorporateActionsTable() {
                   paginatedActions.map((action: CorporateAction) => (
                     <TableRow key={action.id} className="hover:bg-surfaceMuted/50 transition-colors">
                       <TableCell className="py-3">
-                        <Badge variant="outline" className={cn('text-[10px] font-bold uppercase tracking-wide rounded-md', getBadgeColor(action.type))}>
+                        <Badge variant="outline" className={cn('text-xs font-medium uppercase tracking-wide rounded-md', getBadgeColor(action.type))}>
                           {action.type}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.announcementDate)}</TableCell>
                       <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.recordDate)}</TableCell>
                       <TableCell className="text-xs text-textSecondary font-mono py-3">{formatDate(action.exDate)}</TableCell>
-                      <TableCell className="text-right text-xs font-semibold text-textPrimary py-3">{action.details}</TableCell>
+                      <TableCell className="text-right text-xs font-medium text-textPrimary py-3">{action.details}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -178,8 +178,8 @@ export function CorporateActionsTable() {
           </div>
 
           {/* Pagination */}
-          <div className="px-5 py-3.5 border-t border-border/50 flex items-center justify-between bg-surfaceMuted/30 shrink-0">
-            <span className="text-[11px] text-textSecondary font-semibold">
+          <div className="px-5 py-3.5 border-t border-border/40 flex items-center justify-between bg-surfaceMuted/5 shrink-0">
+            <span className="text-xs text-textSecondary font-medium">
               Showing {totalItems === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} records
             </span>
             <div className="flex gap-1">
@@ -192,7 +192,7 @@ export function CorporateActionsTable() {
                   variant={currentPage === p ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCurrentPage(p)}
-                  className={cn("h-8 w-8 p-0 text-xs font-bold", currentPage === p ? "bg-accent text-white" : "border-border")}
+                  className={cn("h-8 w-8 p-0 text-xs font-medium", currentPage === p ? "bg-accent text-white" : "border-border")}
                 >
                   {p}
                 </Button>
@@ -207,10 +207,10 @@ export function CorporateActionsTable() {
         {/* Right: Upcoming Events + CSS Dividend Chart */}
         <div className="space-y-4">
           {/* Upcoming Events */}
-          <Card className="border-border shadow-none">
-            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/40 flex items-center gap-1.5">
+          <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+            <div className="px-5 py-3.5 border-b border-border/40 flex items-center gap-1.5">
               <Calendar className="size-3.5 text-accent" />
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Upcoming Events</span>
+              <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">Upcoming Events</span>
             </div>
             <CardContent className="p-4 space-y-4">
               {activeUpcoming.map((evt: any) => {
@@ -220,13 +220,13 @@ export function CorporateActionsTable() {
                 return (
                   <div key={evt.title} className="flex gap-3 items-start border-b border-border/40 pb-3 last:border-0 last:pb-0">
                     <div className="size-10 rounded-xl bg-accentSoft border border-accent/20 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[9px] font-bold text-accent uppercase leading-none">{mon}</span>
-                      <span className="text-sm font-black text-accent leading-tight">{day}</span>
+                      <span className="text-xs font-medium text-accent uppercase leading-none">{mon}</span>
+                      <span className="text-sm font-medium text-accent leading-tight">{day}</span>
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-textPrimary leading-snug">{evt.title}</h4>
-                      <p className="text-[10px] text-accent font-mono font-bold mt-0.5">{formatDate(evt.date)} &nbsp;·&nbsp; {evt.type === 'EarningsCall' ? '5:00 PM IST' : '11:00 AM IST'}</p>
-                      <p className="text-[10px] text-textSecondary leading-relaxed mt-1">{evt.description.slice(0, 80)}…</p>
+                      <h4 className="text-xs font-medium text-textPrimary leading-snug">{evt.title}</h4>
+                      <p className="text-xs text-accent font-mono font-medium mt-0.5">{formatDate(evt.date)} &nbsp;·&nbsp; {evt.type === 'EarningsCall' ? '5:00 PM IST' : '11:00 AM IST'}</p>
+                      <p className="text-xs text-textSecondary leading-relaxed mt-1">{evt.description.slice(0, 80)}…</p>
                     </div>
                   </div>
                 )
@@ -235,11 +235,11 @@ export function CorporateActionsTable() {
           </Card>
 
           {/* Pure-CSS Dividend History Chart */}
-          <Card className="border-border shadow-none">
-            <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/40 flex items-center justify-between">
+          <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+            <div className="px-5 py-3.5 border-b border-border/40 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Download className="size-3.5 text-accent" />
-                <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Dividend History (₹/Share)</span>
+                <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">Dividend History (₹/Share)</span>
               </div>
             </div>
             <CardContent className="p-4">
@@ -252,7 +252,7 @@ export function CorporateActionsTable() {
                     <div key={d.year} className="flex flex-col items-center flex-1 gap-1 group relative">
                       {/* Tooltip */}
                       <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        <div className="bg-gray-900 text-white text-[9px] font-mono px-2 py-1 rounded-md whitespace-nowrap">
+                        <div className="bg-gray-900 text-white text-xs font-mono px-2 py-1 rounded-md whitespace-nowrap">
                           ₹{d.amount.toFixed(2)}
                         </div>
                       </div>
@@ -263,12 +263,12 @@ export function CorporateActionsTable() {
                         )}
                         style={{ height: `${heightPct}%` }}
                       />
-                      <span className="text-[8px] font-mono text-textMuted whitespace-nowrap">{d.year}</span>
+                      <span className="text-xs font-mono text-textMuted whitespace-nowrap">{d.year}</span>
                     </div>
                   )
                 })}
               </div>
-              <div className="mt-2 flex items-center gap-3 text-[9px] text-textMuted">
+              <div className="mt-2 flex items-center gap-3 text-xs text-textMuted">
                 <span className="flex items-center gap-1"><span className="size-2 bg-accent rounded-sm inline-block" /> Paid</span>
                 <span className="flex items-center gap-1"><span className="size-2 bg-accent/30 border border-dashed border-accent rounded-sm inline-block" /> Estimated</span>
               </div>

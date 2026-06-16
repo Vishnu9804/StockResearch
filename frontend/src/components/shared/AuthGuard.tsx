@@ -33,7 +33,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-xl font-bold tracking-tight text-textPrimary">
+            <h1 className="text-xl font-medium tracking-tight text-textPrimary">
               FinScreen
             </h1>
             <p className="text-xs font-medium text-textMuted max-w-[240px] leading-relaxed">

@@ -11,10 +11,10 @@ export function SectorPerformance() {
   return (
     <Card className="border-border shadow-none select-none">
       <CardHeader>
-        <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+        <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
           Sector Performance
         </CardTitle>
-        <p className="text-[11px] text-textMuted mt-0.5">Today&apos;s change across NSE industry segments</p>
+        <p className="text-xs text-textMuted mt-0.5">Today&apos;s change across NSE industry segments</p>
       </CardHeader>
       <CardContent className="space-y-3">
         {sectorPerformance.map((s) => {
@@ -26,7 +26,7 @@ export function SectorPerformance() {
               to={`/screener/results?sector=${encodeURIComponent(s.sector)}`}
               className="flex items-center gap-3 group hover:bg-surfaceMuted/60 rounded-lg -mx-2 px-2 py-1 transition-colors"
             >
-              <div className="w-40 shrink-0 truncate text-xs font-semibold text-slate-700 group-hover:text-accent transition-colors">{s.sector}</div>
+              <div className="w-40 shrink-0 truncate text-xs font-medium text-slate-700 group-hover:text-accent transition-colors">{s.sector}</div>
               <div className="relative flex-1 h-4 bg-surfaceMuted border border-border/50 rounded-sm overflow-hidden">
                 <div className="absolute inset-y-0 left-1/2 w-px bg-slate-200" />
                 <div
@@ -39,13 +39,13 @@ export function SectorPerformance() {
               </div>
               <div
                 className={cn(
-                  "w-16 text-right font-mono font-bold tabular text-xs",
+                  "w-16 text-right font-mono font-medium tabular text-xs",
                   positive ? "text-positive" : "text-negative"
                 )}
               >
                 {positive ? '+' : ''}{s.change.toFixed(2)}%
               </div>
-              <div className="hidden md:block w-24 text-right font-mono tabular text-[10px] text-textMuted font-medium">
+              <div className="hidden md:block w-24 text-right font-mono tabular text-xs text-textMuted font-medium">
                 M.Cap {formatNumber(s.marketCap / 100000, 2)}L Cr
               </div>
             </Link>

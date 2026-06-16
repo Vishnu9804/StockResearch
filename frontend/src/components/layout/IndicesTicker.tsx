@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 export function IndicesTicker() {
   return (
-    <div className="bg-textPrimary text-white h-7 flex items-center overflow-hidden text-[10px] font-semibold border-b border-border/15 select-none shrink-0">
+    <div className="bg-textPrimary text-white h-7 flex items-center overflow-hidden text-xs font-medium border-b border-border/15 select-none shrink-0">
       {/* ticker-track class is defined in globals.css with ticker-scroll keyframes.
           Was incorrectly using animate-ticker which doesn't exist in Tailwind v4. */}
       <div className="ticker-track whitespace-nowrap gap-10 px-4">
@@ -16,7 +16,7 @@ export function IndicesTicker() {
               <span className="text-white tabular-nums">{formatNumber(idx.value, 2)}</span>
               <span
                 className={cn(
-                  'text-[9px] tabular-nums font-bold px-1 rounded-sm border',
+                  'text-xs tabular-nums font-medium px-1 rounded-sm border',
                   positive
                     ? 'bg-positive-soft/20 text-positive border-positive/25'
                     : 'bg-negative-soft/20 text-negative border-negative/25'

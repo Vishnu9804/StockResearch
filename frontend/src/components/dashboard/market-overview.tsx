@@ -26,9 +26,9 @@ interface MarketOverviewProps {
 export function MarketOverview({ loading, indices }: MarketOverviewProps) {
   if (loading || !indices || indices.length === 0) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="border-border shadow-none bg-surface">
+          <Card key={i} className="border-border/40 shadow-xs bg-surface rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
               <div className="space-y-1 flex-1">
                 <div className="h-4 w-24 rounded shimmer-skeleton" />
@@ -80,22 +80,22 @@ export function MarketOverview({ loading, indices }: MarketOverviewProps) {
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
       {featured.map((idx, i) => {
         const positive = idx.change >= 0
         const slug = INDEX_SLUG[idx.name] ?? 'NIFTY50'
         return (
           <Link key={idx.name} to={`/index/${slug}`} className="block">
-            <Card className={`hover:border-accent/30 cursor-pointer bg-surface rounded-2xl animate-count-up stagger-${Math.min(i + 1, 4)}`}>
+            <Card className={`hover:border-accent/30 cursor-pointer bg-surface border-border/40 shadow-xs hover:shadow-sm rounded-xl animate-count-up stagger-${Math.min(i + 1, 4)} transition-all duration-200`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-5">
                 <div>
-                  <CardTitle className="text-sm font-bold tracking-tight text-textPrimary">
+                  <CardTitle className="tracking-tight">
                     {idx.name}
                   </CardTitle>
-                  <p className="text-[10px] text-textMuted font-medium mt-0.5">NSE Index</p>
+                  <p className="text-xs text-textMuted font-medium mt-0.5">NSE Index</p>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-bold tabular-nums ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-mono font-medium tabular-nums ${
                     positive
                       ? 'bg-positive-soft text-positive'
                       : 'bg-negative-soft text-negative'
@@ -105,10 +105,10 @@ export function MarketOverview({ loading, indices }: MarketOverviewProps) {
                 </span>
               </CardHeader>
               <CardContent className="px-5 pb-4">
-                <div className="font-mono tabular text-xl font-black tracking-tight text-textPrimary">
+                <div className="font-mono tabular text-2xl font-semibold tracking-tight text-textPrimary">
                   {formatNumber(idx.value, 2)}
                 </div>
-                <div className={`mt-1 font-mono tabular text-xs font-semibold ${changeClass(idx.change)}`}>
+                <div className={`mt-1 font-mono tabular text-body font-medium ${changeClass(idx.change)}`}>
                   {idx.change >= 0 ? '+' : ''}
                   {formatNumber(idx.change, 2)} pts
                 </div>
@@ -130,9 +130,9 @@ interface BreadthCardsProps {
 export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
   if (loading || !quotes || Object.keys(quotes).length === 0) {
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="border-border shadow-none bg-surface">
+          <Card key={i} className="border-border/40 shadow-xs bg-surface rounded-xl">
             <CardContent className="px-4 py-3.5 space-y-2">
               <div className="h-3 w-20 rounded shimmer-skeleton" />
               <div className="h-6 w-16 rounded shimmer-skeleton" />
@@ -175,18 +175,18 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
   const vixChangePct = vixLive ? vixLive.change_pct : marketBreadth.vixChangePct
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4 animate-count-up">
-      <Card className="bg-surface">
+    <div className="grid grid-cols-2 gap-5 md:grid-cols-4 animate-count-up">
+      <Card className="border-border/40 shadow-xs bg-surface rounded-xl hover:shadow-sm hover:border-accent/20 transition-all duration-200">
         <CardContent className="px-4 py-3">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
             Advance / Decline
           </div>
           <div className="mt-1 flex items-baseline gap-2 font-mono tabular">
-            <span className="text-positive text-xl font-semibold">
+            <span className="text-positive text-2xl font-semibold">
               {advances}
             </span>
             <span className="text-muted-foreground">/</span>
-            <span className="text-negative text-xl font-semibold">
+            <span className="text-negative text-2xl font-semibold">
               {declines}
             </span>
           </div>

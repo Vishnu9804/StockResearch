@@ -66,12 +66,12 @@ export function NewsFeed() {
   return (
     <Card className="border-border shadow-none overflow-hidden select-none">
       <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border/50 bg-surfaceMuted/50 px-5 py-4">
-        <CardTitle className="text-xs font-bold text-textPrimary uppercase tracking-wide">
+        <CardTitle className="text-xs font-medium text-textPrimary uppercase tracking-wide">
           Market News
         </CardTitle>
         <Link
           to="/"
-          className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline uppercase tracking-wide"
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline uppercase tracking-wide"
         >
           All updates <ArrowRight className="size-3" />
         </Link>
@@ -86,24 +86,24 @@ export function NewsFeed() {
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "inline-flex rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+                    "inline-flex rounded border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider",
                     categoryStyles[n.category] ?? ""
                   )}
                 >
                   {n.category}
                 </span>
-                <span className="text-[10px] text-textMuted font-medium font-mono">
+                <span className="text-xs text-textMuted font-medium font-mono">
                   {n.source} · {n.time}
                 </span>
               </div>
-              <p className="mt-2 text-xs font-bold text-slate-850 leading-relaxed">
+              <p className="mt-2 text-xs font-medium text-slate-850 leading-relaxed">
                 {n.title}
               </p>
               {n.symbols && n.symbols.length > 0 ? (
                 <div className="mt-2.5 flex flex-wrap gap-1">
                   {n.symbols.map((s) => (
                     <Link key={s} to={`/company/${s}`}>
-                      <Badge variant="outline" className="font-mono text-[9px] font-bold bg-surfaceMuted border border-border text-textSecondary rounded-sm hover:bg-surfaceMuted">
+                      <Badge variant="outline" className="font-mono text-xs font-medium bg-surfaceMuted border border-border text-textSecondary rounded-sm hover:bg-surfaceMuted">
                         {s}
                       </Badge>
                     </Link>

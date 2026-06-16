@@ -15,7 +15,7 @@ import { toggleWatchlist } from '@/store/slices/companySlice'
 import { addNotification } from '@/store/slices/notificationsSlice'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { cn } from '@/lib/utils'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { AnimatedCompanyName } from './AnimatedCompanyName'
 import { badgePopVariants, containerVariants, itemVariants, springs } from '@/lib/motion'
@@ -69,30 +69,41 @@ export function CompanyHeader({ company }: { company: Company }) {
   return (
     <header className="border-b border-border bg-surface select-none">
       <div className="px-6 py-4">
+        {/* Breadcrumb */}
+        <div className="text-xs text-textSecondary/70 mb-3">
+          <Link to="/" className="hover:text-accent transition-colors">Home</Link>
+          <span className="mx-1.5">›</span>
+          <span className="text-textSecondary">Company</span>
+          <span className="mx-1.5">›</span>
+          <span className="text-accent font-medium">{company.symbol}</span>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Left: Logo + Info */}
           <div className="flex items-center gap-4 min-w-0">
             {/* Gradient company avatar */}
-            <div className="size-12 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/10 border border-accent/20 flex items-center justify-center text-accent font-black text-sm shrink-0 shadow-[var(--shadow-sm)]">
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/10 border border-accent/20 flex items-center justify-center text-accent font-medium text-sm shrink-0 shadow-[var(--shadow-sm)]">
               {initials}
             </div>
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight text-textPrimary leading-tight">
+                <h1 className="text-3xl font-semibold tracking-tight text-textPrimary leading-tight flex items-center gap-2">
                   <AnimatedCompanyName name={company.name} />
                 </h1>
-                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border rounded-md">
+                <Badge variant="outline" className="font-mono text-xs font-medium text-textSecondary bg-surfaceMuted border-border rounded-md">
                   {company.symbol}
                 </Badge>
-                <Badge variant="outline" className="font-mono text-[10px] font-bold text-textSecondary bg-surfaceMuted border-border rounded-md">
+                <Badge variant="outline" className="font-mono text-xs font-medium text-textSecondary bg-surfaceMuted border-border rounded-md">
                   {company.exchange}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-textSecondary flex flex-wrap items-center gap-1 font-medium">
-                <span>{company.sector}</span>
-                <span className="text-border">·</span>
-                <span>{company.industry}</span>
+              <p className="mt-1 text-body text-textSecondary flex flex-wrap items-center gap-1 font-normal">
+                <span>Equity tracking {company.sector} · </span>
+                <span className="font-medium text-accent">
+                  Market Cap ₹{(company.marketCap / 100000).toFixed(1)}L Cr
+                </span>
+                <span className="text-border mx-1">·</span>
                 <a
                   href={company.website}
                   target="_blank"
@@ -110,7 +121,7 @@ export function CompanyHeader({ company }: { company: Company }) {
           {/* Right: Price + Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-2xl font-bold font-mono tracking-tight text-textPrimary tabular-nums">
+              <span className="text-2xl font-medium font-mono tracking-tight text-textPrimary tabular-nums">
                 ₹{formatNumber(company.price, 2)}
               </span>
               <motion.span
@@ -119,7 +130,7 @@ export function CompanyHeader({ company }: { company: Company }) {
                 initial={prefersReduced ? false : 'initial'}
                 animate="animate"
                 className={cn(
-                  'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-mono font-bold',
+                  'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-mono font-medium',
                   positive ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'
                 )}
               >
@@ -128,7 +139,7 @@ export function CompanyHeader({ company }: { company: Company }) {
               </motion.span>
             </div>
 
-            <div className="text-[10px] text-textMuted font-mono">
+            <div className="text-xs text-textMuted font-mono">
               52W High: ₹{formatNumber(company.high52w)} · Low: ₹{formatNumber(company.low52w)}
             </div>
 
@@ -137,7 +148,7 @@ export function CompanyHeader({ company }: { company: Company }) {
                 size="sm"
                 variant={isWatched ? 'default' : 'outline'}
                 onClick={handleWatchToggle}
-                className={cn('h-8 text-[11px] gap-1.5 font-bold uppercase tracking-wide', isWatched ? '' : '')}
+                className={cn('h-8 text-xs gap-1.5 font-medium uppercase tracking-wide', isWatched ? '' : '')}
               >
                 <Bookmark className="size-3" />
                 {isWatched ? 'Watching' : 'Watch'}
@@ -146,7 +157,7 @@ export function CompanyHeader({ company }: { company: Company }) {
                 size="sm"
                 variant="outline"
                 onClick={handleShare}
-                className="h-8 text-[11px] gap-1.5 font-bold uppercase tracking-wide"
+                className="h-8 text-xs gap-1.5 font-medium uppercase tracking-wide"
               >
                 <Share2 className="size-3" />
                 Share

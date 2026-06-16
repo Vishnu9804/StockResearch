@@ -194,7 +194,7 @@ export function BalanceSheetTable() {
           onClick={() => handleRowClick(row.label)}
           className={cn(
             'hover:bg-surfaceMuted transition-colors cursor-pointer select-none',
-            row.highlight ? 'bg-surfaceMuted font-bold' : '',
+            row.highlight ? 'bg-surfaceMuted font-medium' : '',
             depth > 0 ? 'bg-surface' : ''
           )}
         >
@@ -223,7 +223,7 @@ export function BalanceSheetTable() {
               key={idx}
               className={cn(
                 'text-right font-mono text-xs tabular-nums text-slate-700',
-                row.highlight ? 'font-bold text-slate-950' : ''
+                row.highlight ? 'font-medium text-slate-950' : ''
               )}
             >
               {renderValue(val, row.isPercent)}
@@ -235,10 +235,10 @@ export function BalanceSheetTable() {
           <TableRow className="bg-surfaceMuted/20 hover:bg-surfaceMuted/20">
             <TableCell colSpan={visibleValues.length + 1} className="p-0 border-t border-border/30">
               <div className="bg-surfaceMuted/45 border-y border-border/40 p-4 text-xs leading-relaxed text-textSecondary font-medium max-h-48 overflow-y-auto scrollbar-thin">
-                <div className="font-bold text-[10px] text-textMuted uppercase tracking-wider mb-1">
+                <div className="font-medium text-xs text-textMuted uppercase tracking-wider mb-1">
                   Footnotes / Notes to Accounts
                 </div>
-                <div className="whitespace-pre-line text-[11px]">
+                <div className="whitespace-pre-line text-xs">
                   {selectedRowNotes[row.label]}
                 </div>
               </div>
@@ -256,10 +256,10 @@ export function BalanceSheetTable() {
     <div className="bg-surface border border-border rounded-lg overflow-hidden select-none">
       <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-surfaceMuted/50">
         <div>
-          <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
             Balance Sheet
           </h3>
-          <p className="text-[11px] text-textMuted mt-0.5">
+          <p className="text-xs text-textMuted mt-0.5">
             {period === 'annual' ? 'Annual' : 'Quarterly'} {statementType === 's' ? 'Standalone' : 'Consolidated'} figures in ₹ Crores
           </p>
         </div>
@@ -269,7 +269,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => handleToggleStatementType('s')}
               className={cn(
-                'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 statementType === 's'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -280,7 +280,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => handleToggleStatementType('c')}
               className={cn(
-                'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 statementType === 'c'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -295,7 +295,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => handleTogglePeriod('annual')}
               className={cn(
-                'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 period === 'annual'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -306,7 +306,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => handleTogglePeriod('quarterly')}
               className={cn(
-                'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 period === 'quarterly'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -321,7 +321,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => setViewMode('table')}
               className={cn(
-                'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'flex items-center gap-1 px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 viewMode === 'table'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -332,7 +332,7 @@ export function BalanceSheetTable() {
             <button
               onClick={() => setViewMode('chart')}
               className={cn(
-                'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                'flex items-center gap-1 px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                 viewMode === 'chart'
                   ? 'bg-accent text-white'
                   : 'text-textSecondary hover:text-textPrimary'
@@ -344,7 +344,7 @@ export function BalanceSheetTable() {
           {/* Export CSV button */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
             title="Export Balance Sheet to CSV"
           >
             <FileSpreadsheet className="size-3 text-positive" /> Export
@@ -355,7 +355,7 @@ export function BalanceSheetTable() {
       {financialsStatus === 'loading' ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-3 bg-surface">
           <Loader2 className="size-8 text-accent animate-spin" />
-          <span className="text-xs text-textSecondary font-semibold">Loading statement data...</span>
+          <span className="text-xs text-textSecondary font-medium">Loading statement data...</span>
         </div>
       ) : financialsStatus === 'error' ? (
         <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-3 bg-surface">
@@ -363,14 +363,14 @@ export function BalanceSheetTable() {
             <AlertTriangle className="size-5" />
           </div>
           <div className="max-w-md">
-            <h4 className="text-xs font-bold text-textPrimary uppercase tracking-wide">Failed to Load Financials</h4>
-            <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">
+            <h4 className="text-xs font-medium text-textPrimary uppercase tracking-wide">Failed to Load Financials</h4>
+            <p className="text-xs text-textSecondary mt-1 leading-relaxed">
               The requested Balance Sheet figures could not be loaded from FinEdge. Consolidated statements may be missing for this stock symbol, or a network problem occurred.
             </p>
           </div>
           <button
             onClick={() => dispatch(fetchCompanyFinancialsStart(symbol))}
-            className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase rounded-md shadow-sm transition-colors"
+            className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase rounded-md shadow-sm transition-colors"
           >
             Retry Loading
           </button>
@@ -381,10 +381,10 @@ export function BalanceSheetTable() {
             <FileSpreadsheet className="size-5" />
           </div>
           <div className="max-w-md">
-            <h4 className="text-xs font-bold text-textPrimary uppercase tracking-wide">
+            <h4 className="text-xs font-medium text-textPrimary uppercase tracking-wide">
               {statementType === 'c' ? 'Consolidated Statements Not Available' : 'No Financial Data Available'}
             </h4>
-            <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">
+            <p className="text-xs text-textSecondary mt-1 leading-relaxed">
               {statementType === 'c' 
                 ? `Standalone figures are available, but this company does not publish consolidated financial statements.`
                 : `We couldn't retrieve financial statement figures for this stock symbol.`}
@@ -393,7 +393,7 @@ export function BalanceSheetTable() {
           {statementType === 'c' && (
             <button
               onClick={() => handleToggleStatementType('s')}
-              className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase rounded-md shadow-sm transition-colors"
+              className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase rounded-md shadow-sm transition-colors"
             >
               Switch to Standalone
             </button>
@@ -404,13 +404,13 @@ export function BalanceSheetTable() {
           <Table className="min-w-[1000px]">
             <TableHeader className="bg-surfaceMuted">
               <TableRow>
-                <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted z-10">
+                <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
                   Liabilities & Assets
                 </TableHead>
                 {visibleYears.map((y: string) => (
                   <TableHead
                     key={y}
-                    className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                    className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
                   >
                     {y}
                   </TableHead>
@@ -428,12 +428,12 @@ export function BalanceSheetTable() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
                 <XAxis
                   dataKey="year"
-                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
@@ -452,7 +452,7 @@ export function BalanceSheetTable() {
                     name,
                   ]}
                 />
-                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
                 <Bar dataKey="Equity" stackId="a" fill="#3b82f6" name="Equity (Net Worth)" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Borrowings" stackId="a" fill="#ef4444" name="Total Borrowings" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Other Liabilities" stackId="a" fill="#f59e0b" name="Other Liabilities" radius={[4, 4, 0, 0]} />

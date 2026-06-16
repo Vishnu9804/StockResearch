@@ -21,8 +21,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             duration: 4000,
             style: {
               fontFamily: 'var(--font-sans)',
-              fontSize: '13px',
-              borderRadius: '8px',
+              fontSize: 'var(--fs-size-md)',
+              borderRadius: 'var(--fs-radius-sm)',
               border: '1px solid var(--border)',
             },
             success: { style: { borderColor: 'var(--positive)', color: 'var(--positive)' } },

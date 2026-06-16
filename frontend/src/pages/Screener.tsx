@@ -35,40 +35,34 @@ export function Screener() {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Page Header */}
-      <div className="sticky top-0 z-20 bg-surface border-b border-border px-4 lg:px-6 py-4 flex-shrink-0">
+      <div className="sticky top-0 z-20 bg-surface border-b border-border/40 px-4 lg:px-6 py-4 flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1">
-              <Link to="/" className="hover:text-accent transition-colors">
-                Home
-              </Link>
-              <ChevronRight className="w-3 h-3" />
-              <Link
-                to="/screener"
-                className="hover:text-accent transition-colors"
-              >
-                Screener
-              </Link>
-              <ChevronRight className="w-3 h-3" />
-              <Text as="span" variant="bodyMuted" className="text-xs">
-                New Screen
-              </Text>
-            </nav>
+            <div className="text-xs text-textSecondary/70 mb-1.5">
+              <Link to="/" className="hover:text-accent transition-colors">Home</Link>
+              <span className="mx-1.5">›</span>
+              <Link to="/screener" className="hover:text-accent transition-colors">Screener</Link>
+              <span className="mx-1.5">›</span>
+              <span className="text-accent font-medium">New Screen</span>
+            </div>
 
-            <Heading level={1} variant="pageTitle">
+            <Heading level={1} variant="pageTitle" className="text-textPrimary">
               Create a New Screen
             </Heading>
 
-            <Text variant="bodyMuted" className="mt-0.5">
-              Set your filters and run the query to find matching stocks
-            </Text>
+            <p className="text-body text-textSecondary mt-1">
+              Set query filters to find matching stocks ·{' '}
+              <span className="font-medium text-accent">
+                Real-Time Screening
+              </span>
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 lg:gap-3">
             <Link
               to="/screener/results"
-              className="text-sm text-textSecondary hover:text-textPrimary transition-colors flex items-center gap-1 font-semibold"
+              className="text-sm text-textSecondary hover:text-textPrimary transition-colors flex items-center gap-1 font-medium"
             >
               <X className="w-3.5 h-3.5" />
               Cancel
@@ -85,7 +79,7 @@ export function Screener() {
                   toast.success('✓ Screen saved (mock)')
                 }
               }}
-              className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-bold shadow-none"
+              className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-medium shadow-none"
             >
               <Save className="w-3.5 h-3.5" />
               <span className="hidden sm:inline ml-1">Save Screen</span>
@@ -94,7 +88,7 @@ export function Screener() {
             <Button
               id="run-screener-btn"
               onClick={handleRunScreener}
-              className="bg-accent hover:bg-accent/90 text-white h-9 text-xs font-bold shadow-none"
+              className="bg-accent hover:bg-accent/90 text-white h-9 text-xs font-medium shadow-none"
             >
               Run &amp; View Results
             </Button>

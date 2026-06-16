@@ -44,11 +44,11 @@ export function PriceChart({
   const positive = periodChange >= 0
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-baseline justify-between gap-2 pb-2">
+    <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+      <CardHeader className="flex flex-row items-baseline justify-between gap-2 pb-3.5 border-b border-border/40">
         <div>
-          <h3 className="text-sm font-semibold tracking-tight">Price Performance</h3>
-          <p className="text-[11px] text-muted-foreground">
+          <h3 className="text-sm font-medium tracking-tight">Price Performance</h3>
+          <p className="text-xs text-muted-foreground">
             <span className="font-mono">{ranges[rangeIdx].label}</span> ·{" "}
             <span className={positive ? "text-positive" : "text-negative"}>
               {periodChange >= 0 ? "+" : ""}
@@ -56,7 +56,7 @@ export function PriceChart({
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[11px]">
+        <div className="flex items-center gap-1 text-xs">
           {ranges.map((r, i) => (
             <button
               key={r.label}
@@ -93,7 +93,7 @@ export function PriceChart({
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={40}
@@ -103,7 +103,7 @@ export function PriceChart({
               />
               <YAxis
                 domain={["dataMin - 50", "dataMax + 50"]}
-                tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
@@ -132,7 +132,7 @@ export function PriceChart({
                 label={{
                   value: `52W High ${formatNumber(high52, 0)}`,
                   fill: "var(--color-chart-2)",
-                  fontSize: 9,
+                  fontSize: 11,
                   position: "insideTopRight",
                 }}
               />
@@ -144,7 +144,7 @@ export function PriceChart({
                 label={{
                   value: `52W Low ${formatNumber(low52, 0)}`,
                   fill: "var(--color-chart-3)",
-                  fontSize: 9,
+                  fontSize: 11,
                   position: "insideBottomRight",
                 }}
               />

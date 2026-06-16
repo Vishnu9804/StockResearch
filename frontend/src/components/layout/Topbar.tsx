@@ -159,7 +159,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
         >
           <Menu className="size-4" />
         </Button>
-        <span className="font-bold text-lg text-accent tracking-tight hidden sm:block">FS</span>
+        <span className="font-medium text-lg text-accent tracking-tight hidden sm:block">FS</span>
 
         {/* Central Search Bar */}
         <div ref={searchRef} className="relative w-full max-w-lg ml-2">
@@ -198,8 +198,8 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 </button>
               ) : (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none select-none">
-                  <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-surface px-1.5 font-mono text-[9px] font-medium text-textMuted shadow-none">
-                    <span className="text-[8px]">⌘</span>K
+                  <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-surface px-1.5 font-mono text-xs font-medium text-textMuted shadow-none">
+                    <span className="text-xs">⌘</span>K
                   </kbd>
                 </div>
               )}
@@ -212,7 +212,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               {/* Index results */}
               {indexSuggestions.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-textMuted uppercase tracking-wider bg-surfaceMuted">
+                  <div className="px-3 py-1.5 text-xs font-medium text-textMuted uppercase tracking-wider bg-surfaceMuted">
                     Indices
                   </div>
                   {indexSuggestions.map((idx, i) => (
@@ -225,12 +225,12 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                       )}
                     >
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-accent">{idx.name}</span>
-                        <span className="text-[10px] text-textSecondary">{idx.exchange} Index</span>
+                        <span className="text-xs font-medium text-accent">{idx.name}</span>
+                        <span className="text-xs text-textSecondary">{idx.exchange} Index</span>
                       </div>
                       <div className="flex flex-col items-end shrink-0">
                         <span className="text-xs font-mono font-medium text-textPrimary">{idx.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        <span className={cn('text-[9px] font-mono font-medium', idx.changePct >= 0 ? 'text-positive' : 'text-negative')}>
+                        <span className={cn('text-xs font-mono font-medium', idx.changePct >= 0 ? 'text-positive' : 'text-negative')}>
                           {idx.changePct >= 0 ? '+' : ''}{idx.changePct.toFixed(2)}%
                         </span>
                       </div>
@@ -241,7 +241,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               {/* Stock results */}
               {stockSuggestions.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-textMuted uppercase tracking-wider bg-surfaceMuted">
+                  <div className="px-3 py-1.5 text-xs font-medium text-textMuted uppercase tracking-wider bg-surfaceMuted">
                     Stocks
                   </div>
                   {stockSuggestions.map((company, i) => {
@@ -257,14 +257,14 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         )}
                       >
                         <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-textPrimary">{company.symbol}</span>
-                          <span className="text-[10px] text-textSecondary truncate max-w-[280px]">{company.name}</span>
+                          <span className="text-xs font-medium text-textPrimary">{company.symbol}</span>
+                          <span className="text-xs text-textSecondary truncate max-w-[280px]">{company.name}</span>
                         </div>
                         <div className="flex flex-col items-end shrink-0">
                           <span className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</span>
                           <span
                             className={cn(
-                              'text-[9px] font-mono font-medium flex items-center gap-0.5',
+                              'text-xs font-mono font-medium flex items-center gap-0.5',
                               company.change >= 0 ? 'text-positive' : 'text-negative'
                             )}
                           >
@@ -279,7 +279,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               )}
               {stockSuggestions.length === 0 && indexSuggestions.length === 0 && searchQuery.trim() && (
                 <div className="px-4 py-6 text-center">
-                  <p className="text-xs text-textMuted">No results for <span className="font-bold text-textPrimary">{searchQuery}</span></p>
+                  <p className="text-xs text-textMuted">No results for <span className="font-medium text-textPrimary">{searchQuery}</span></p>
                 </div>
               )}
             </div>
@@ -310,7 +310,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               {unreadCount > 0 && (
                 <span
                   className={cn(
-                    'absolute top-0.5 right-0.5 bg-negative border-2 border-surface flex items-center justify-center text-[7px] font-bold text-white leading-none',
+                    'absolute top-0.5 right-0.5 bg-negative border-2 border-surface flex items-center justify-center text-xs font-medium text-white leading-none',
                     badgeIsPill
                       ? 'rounded-full px-1 py-0.5 min-w-[16px] h-4'
                       : 'rounded-full size-3.5'
@@ -330,7 +330,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               >
                 <Avatar className="size-8 cursor-pointer border border-border hover:ring-2 hover:ring-accent/20 hover:border-accent transition-all">
                   <AvatarImage src="" />
-                  <AvatarFallback className="bg-accentSoft text-accent text-xs font-bold font-sans">
+                  <AvatarFallback className="bg-accentSoft text-accent text-xs font-medium font-sans">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
@@ -341,11 +341,11 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                 <div className="absolute right-0 mt-2.5 w-56 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   {/* User Identity Info */}
                   <div className="px-4 py-3 bg-surfaceMuted border-b border-border/50 flex flex-col gap-0.5">
-                    <p className="text-xs font-bold text-textPrimary truncate">{user?.name || 'FinScreen User'}</p>
-                    <p className="text-[10px] text-textSecondary font-medium truncate">{user?.email || 'user@finscreen.in'}</p>
+                    <p className="text-xs font-medium text-textPrimary truncate">{user?.name || 'FinScreen User'}</p>
+                    <p className="text-xs text-textSecondary font-medium truncate">{user?.email || 'user@finscreen.in'}</p>
                     <div className="mt-1.5 flex items-center">
                       <span className={cn(
-                        'text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none',
+                        'text-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-none',
                         user?.plan === 'PRO' ? 'bg-warning-soft/40 text-warning border-amber-200' : 'bg-surfaceMuted text-textSecondary border-border'
                       )}>
                         {user?.plan || 'FREE'} Tier
@@ -360,7 +360,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         setShowProfileMenu(false)
                         navigate('/account')
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
                     >
                       <UserIcon className="size-4 text-textMuted" />
                       My Account
@@ -371,7 +371,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                           setShowProfileMenu(false)
                           navigate('/pricing')
                         }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-accent hover:text-accent/90 hover:bg-accentSoft/50 transition-colors text-left"
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-accent hover:text-accent/90 hover:bg-accentSoft/50 transition-colors text-left"
                       >
                         <ShieldAlert className="size-4 text-accent" />
                         Upgrade to PRO
@@ -382,7 +382,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         setShowProfileMenu(false)
                         navigate('/account?tab=settings')
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
                     >
                       <Settings className="size-4 text-textMuted" />
                       Account Settings
@@ -396,7 +396,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         setShowProfileMenu(false)
                         dispatch(logoutStart())
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-negative hover:text-negative/90 hover:bg-negative-soft transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-negative hover:text-negative/90 hover:bg-negative-soft transition-colors text-left"
                     >
                       <LogOut className="size-4 text-negative" />
                       Log Out
@@ -412,14 +412,14 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/login')}
-              className="text-textSecondary hover:text-textPrimary font-semibold text-xs h-9 px-3 hover:bg-surfaceMuted"
+              className="text-textSecondary hover:text-textPrimary font-medium text-xs h-9 px-3 hover:bg-surfaceMuted"
             >
               Login
             </Button>
             <Button
               size="sm"
               onClick={() => navigate('/register')}
-              className="bg-accent hover:bg-accent/90 text-white font-semibold text-xs h-9 px-3 shadow-none"
+              className="bg-accent hover:bg-accent/90 text-white font-medium text-xs h-9 px-3 shadow-none"
             >
               Register
             </Button>

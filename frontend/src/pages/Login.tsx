@@ -62,22 +62,25 @@ export default function Login() {
     <div className="space-y-6">
       {/* Brand Header */}
       <div className="flex flex-col items-center justify-center text-center">
-        <div className="size-10 rounded-lg bg-accent flex items-center justify-center font-bold text-white shadow-none text-lg">
+        <div className="size-10 rounded-lg bg-accent flex items-center justify-center font-medium text-white shadow-none text-lg">
           FS
         </div>
-        <Heading level={2} variant="sectionTitle" className="mt-4 text-xl font-bold tracking-tight text-textPrimary">
+        <Heading level={2} variant="sectionTitle" className="mt-4 tracking-tight text-textPrimary">
           Sign in to FinScreen
         </Heading>
-        <Text variant="caption" className="mt-1 text-textMuted">
-          Enter your institutional credentials to continue
-        </Text>
+        <p className="text-body text-textSecondary mt-1">
+          Enter your institutional credentials to continue ·{' '}
+          <span className="font-medium text-accent">
+            Secure Session
+          </span>
+        </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Email */}
         <div className="space-y-1.5">
-          <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+          <Text variant="label" as={Label} className="text-xs tracking-wide">
             Email Address
           </Text>
           <Input
@@ -87,14 +90,14 @@ export default function Login() {
             className={errors.email ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.email && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.email.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.email.message}</Text>
           )}
         </div>
 
         {/* Password */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Text variant="label" as={Label} className="text-[10px] tracking-wide">
+            <Text variant="label" as={Label} className="text-xs tracking-wide">
               Password
             </Text>
             <a
@@ -103,7 +106,7 @@ export default function Login() {
                 e.preventDefault()
                 toast.success('Reset link sent to email (Mocked)')
               }}
-              className="text-[10px] font-bold text-accent hover:underline uppercase tracking-wide"
+              className="text-xs font-medium text-accent hover:underline uppercase tracking-wide"
             >
               Forgot?
             </a>
@@ -115,14 +118,14 @@ export default function Login() {
             className={errors.password ? 'border-negative focus:border-negative bg-surfaceMuted text-xs' : 'bg-surfaceMuted text-xs border-border'}
           />
           {errors.password && (
-            <Text variant="caption" className="text-[10px] text-negative font-semibold">{errors.password.message}</Text>
+            <Text variant="caption" className="text-xs text-negative font-medium">{errors.password.message}</Text>
           )}
         </div>
 
         {/* Remember me */}
         <div className="flex items-center gap-2">
           <Checkbox id="rememberMe" {...register('rememberMe')} className="border-border data-[state=checked]:bg-accent data-[state=checked]:text-white" />
-          <Text variant="bodyMuted" as={Label} htmlFor="rememberMe" className="text-xs font-semibold select-none cursor-pointer text-textSecondary">
+          <Text variant="bodyMuted" as={Label} htmlFor="rememberMe" className="text-xs font-medium select-none cursor-pointer text-textSecondary">
             Remember this session
           </Text>
         </div>
@@ -131,7 +134,7 @@ export default function Login() {
         <Button
           type="submit"
           disabled={isSubmitting || status === 'loading'}
-          className="w-full bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase h-10 shadow-none mt-2"
+          className="w-full bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-10 shadow-none mt-2"
         >
           {isSubmitting || status === 'loading' ? 'Signing In...' : 'Sign In'}
         </Button>
@@ -142,7 +145,7 @@ export default function Login() {
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-border/50" />
         </div>
-        <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-wider">
+        <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider">
           <Text variant="caption" as="span" className="bg-surface px-2.5 text-textMuted">Or continue with</Text>
         </div>
       </div>
@@ -159,7 +162,7 @@ export default function Login() {
             navigate('/')
           }
         }}
-        className="w-full h-10 font-bold text-xs uppercase border-border hover:bg-surfaceMuted text-textSecondary shadow-none flex items-center justify-center gap-2"
+        className="w-full h-10 font-medium text-xs uppercase border-border hover:bg-surfaceMuted text-textSecondary shadow-none flex items-center justify-center gap-2"
       >
         <svg className="size-4 shrink-0" viewBox="0 0 24 24">
           <path
@@ -183,7 +186,7 @@ export default function Login() {
       </Button>
 
       {/* Footer Link */}
-      <div className="text-center text-xs font-semibold text-textSecondary">
+      <div className="text-center text-xs font-medium text-textSecondary">
         Don&apos;t have an account?{' '}
         <Link to={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : "/register"} className="text-accent hover:underline">
           Register now

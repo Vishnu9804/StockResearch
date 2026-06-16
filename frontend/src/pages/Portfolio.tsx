@@ -172,29 +172,41 @@ export function Portfolio() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
-        <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1">
-          <Link to="/" className="hover:text-accent transition-colors">Home</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Text as="span" variant="bodyMuted" className="text-xs">Portfolio</Text>
-        </nav>
-        <div className="flex items-center justify-between">
-          <Heading level={1} variant="pageTitle">My Portfolio</Heading>
-          <Button
-            onClick={() => setShowAddModal(true)}
-            className="gap-1.5 h-8 text-xs font-bold bg-accent text-white hover:bg-accent/90 shadow-none"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Holding
-          </Button>
+        <div className="max-w-[1400px] mx-auto">
+          <div className="text-xs text-textSecondary/70 mb-1.5">
+            <Link to="/" className="hover:text-accent transition-colors">Home</Link>
+            <span className="mx-1.5">›</span>
+            <span className="text-accent font-medium">Portfolio</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Heading level={1} variant="pageTitle" className="text-textPrimary">
+                My Portfolio
+              </Heading>
+              <p className="text-body text-textSecondary mt-1">
+                Track and analyze your investments ·{' '}
+                <span className="font-medium text-accent">
+                  {holdings.length} Positions
+                </span>
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="gap-1.5 h-8 text-xs font-medium bg-accent text-white hover:bg-accent/90 shadow-none"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Holding
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="p-6 space-y-6">
         {/* Sparkline with period selector */}
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <Text variant="body" className="font-semibold text-textSecondary">Portfolio Performance</Text>
-              <div className={`flex items-center gap-1 text-sm font-mono font-semibold mt-0.5 ${todayPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+              <Text variant="body" className="font-medium text-textSecondary">Portfolio Value Performance</Text>
+              <div className={`flex items-center gap-1 text-sm font-mono font-medium mt-0.5 ${todayPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                 {todayPnl >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                 {todayPnl >= 0 ? '+' : ''}{formatCurrency(todayPnl)} today
               </div>
@@ -204,7 +216,7 @@ export function Portfolio() {
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                     period === p ? 'bg-accent text-white' : 'text-textMuted hover:bg-surfaceMuted'
                   }`}
                 >
@@ -245,9 +257,9 @@ export function Portfolio() {
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Holdings Table */}
-          <div className="xl:col-span-2 bg-surface border border-border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-              <Heading level={3} variant="sectionTitle" className="text-sm font-semibold text-textPrimary">Holdings</Heading>
+          <div className="xl:col-span-2 bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border/40 flex items-center justify-between">
+              <Heading level={3} className="text-lg font-semibold text-textPrimary">Holdings</Heading>
               <Button variant="ghost" size="sm" onClick={() => setShowAddModal(true)}
                 className="h-7 text-xs text-accent hover:text-accent gap-1">
                 <Plus className="w-3 h-3" /> Add
@@ -256,13 +268,13 @@ export function Portfolio() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
-                  <tr className="bg-surfaceMuted border-b border-border/50">
-                    <th className="px-4 py-2 text-left text-xs text-textSecondary font-semibold">Symbol</th>
-                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-semibold">Qty</th>
-                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-semibold">Avg Cost</th>
-                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-semibold">CMP</th>
-                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-semibold">Day %</th>
-                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-semibold">Total P&L</th>
+                  <tr className="bg-surfaceMuted/50 border-b border-border/40">
+                    <th className="px-4 py-2.5 text-left text-xs text-textSecondary font-medium">Symbol</th>
+                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-medium">Qty</th>
+                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-medium">Avg Cost</th>
+                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-medium">CMP</th>
+                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-medium">Day %</th>
+                    <th className="px-4 py-2 text-right text-xs text-textSecondary font-medium">Total P&L</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
@@ -271,7 +283,7 @@ export function Portfolio() {
                     <tr key={h.id} className="hover:bg-tableRowHover transition-colors group">
                       <td className="px-4 py-2.5">
                         <Link to={`/company/${h.symbol.toLowerCase()}`}>
-                          <Text variant="body" className="font-semibold text-textPrimary hover:text-accent transition-colors">{h.symbol}</Text>
+                          <Text variant="body" className="font-medium text-textPrimary hover:text-accent transition-colors">{h.symbol}</Text>
                           <Text variant="caption" className="text-textMuted text-xs">{h.name}</Text>
                         </Link>
                       </td>
@@ -282,7 +294,7 @@ export function Portfolio() {
                         {h.dayChange >= 0 ? '+' : ''}{h.dayChange.toFixed(2)}%
                       </td>
                       <td className={`px-4 py-2.5 text-right tabular-nums ${h.totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                        <div className="font-mono text-sm font-semibold">{h.totalPnl >= 0 ? '+' : ''}{formatCurrency(h.totalPnl)}</div>
+                        <div className="font-mono text-sm font-medium">{h.totalPnl >= 0 ? '+' : ''}{formatCurrency(h.totalPnl)}</div>
                         <div className="font-mono text-xs opacity-75">({h.totalPnlPct >= 0 ? '+' : ''}{h.totalPnlPct.toFixed(2)}%)</div>
                       </td>
                       <td className="px-2 py-2.5">
@@ -296,10 +308,10 @@ export function Portfolio() {
                       </td>
                     </tr>
                   ))}
-                  <tr className="bg-surfaceMuted border-t border-border font-semibold">
-                    <td className="px-4 py-3" colSpan={5}><Text variant="body" className="font-semibold text-textPrimary">Total Portfolio</Text></td>
+                  <tr className="bg-surfaceMuted border-t border-border font-medium">
+                    <td className="px-4 py-3" colSpan={5}><Text variant="body" className="font-medium text-textPrimary">Total Portfolio</Text></td>
                     <td className={`px-4 py-3 text-right font-mono text-sm tabular-nums ${totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      <div className="font-bold">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}</div>
+                      <div className="font-medium">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}</div>
                       <div className="text-xs opacity-75">({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(2)}%)</div>
                     </td>
                     <td />
@@ -312,8 +324,8 @@ export function Portfolio() {
           {/* Right Panel */}
           <div className="space-y-4">
             {/* Donut Chart */}
-            <div className="bg-surface border border-border rounded-xl p-4">
-              <Heading level={3} variant="sectionTitle" className="text-sm font-semibold text-textPrimary mb-3">Allocation</Heading>
+            <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-5">
+              <Heading level={3} className="text-lg font-semibold text-textPrimary mb-3">Allocation</Heading>
               <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">
@@ -344,11 +356,11 @@ export function Portfolio() {
             </div>
 
             {/* Risk alert */}
-            <div className="bg-warning-soft border border-warning/20 rounded-xl p-4">
+            <div className="bg-warning-soft border border-warning/10 rounded-2xl p-4.5">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
                 <div>
-                  <Text variant="body" className="font-semibold text-warning">Concentration Risk</Text>
+                  <Text variant="body" className="font-medium text-warning">Concentration Risk</Text>
                   <Text variant="caption" className="text-textSecondary mt-1 leading-snug text-xs font-medium">
                     IT sector accounts for {((sectorMap['IT'] ?? 0) / totalValue * 100).toFixed(0)}% of your portfolio. Consider diversifying.
                   </Text>
@@ -359,25 +371,25 @@ export function Portfolio() {
         </div>
 
         {/* Transaction History */}
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden">
           <button
             onClick={() => setShowHistory(h => !h)}
-            className="w-full px-4 py-3 flex items-center justify-between border-b border-border/50 hover:bg-surfaceMuted transition-colors"
+            className="w-full px-5 py-4 flex items-center justify-between border-b border-border/40 hover:bg-surfaceMuted transition-colors"
           >
-            <Heading level={3} variant="sectionTitle" className="text-sm font-semibold text-textPrimary">Transaction History</Heading>
-            <span className="text-xs text-textMuted font-semibold">{showHistory ? '▲ Hide' : '▼ Show'} {MOCK_TRANSACTIONS.length} entries</span>
+            <Heading level={3} className="text-lg font-semibold text-textPrimary">Transaction History</Heading>
+            <span className="text-xs text-textMuted font-medium">{showHistory ? '▲ Hide' : '▼ Show'} {MOCK_TRANSACTIONS.length} entries</span>
           </button>
           {showHistory && (
             <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[500px]">
                 <thead>
-                  <tr className="bg-surfaceMuted border-b border-border">
-                    <th className="px-4 py-2 text-left text-textSecondary font-semibold">Date</th>
-                    <th className="px-4 py-2 text-left text-textSecondary font-semibold">Symbol</th>
-                    <th className="px-4 py-2 text-center text-textSecondary font-semibold">Type</th>
-                    <th className="px-4 py-2 text-right text-textSecondary font-semibold">Qty</th>
-                    <th className="px-4 py-2 text-right text-textSecondary font-semibold">Price</th>
-                    <th className="px-4 py-2 text-right text-textSecondary font-semibold">Value</th>
+                  <tr className="bg-surfaceMuted/50 border-b border-border/40">
+                    <th className="px-4 py-2.5 text-left text-textSecondary font-medium">Date</th>
+                    <th className="px-4 py-2 text-left text-textSecondary font-medium">Symbol</th>
+                    <th className="px-4 py-2 text-center text-textSecondary font-medium">Type</th>
+                    <th className="px-4 py-2 text-right text-textSecondary font-medium">Qty</th>
+                    <th className="px-4 py-2 text-right text-textSecondary font-medium">Price</th>
+                    <th className="px-4 py-2 text-right text-textSecondary font-medium">Value</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -385,16 +397,16 @@ export function Portfolio() {
                     <tr key={i} className="hover:bg-tableRowHover transition-colors">
                       <td className="px-4 py-2.5 font-mono text-textMuted">{tx.date}</td>
                       <td className="px-4 py-2.5">
-                        <Link to={`/company/${tx.symbol}`} className="font-bold text-accent hover:underline font-mono">{tx.symbol}</Link>
+                        <Link to={`/company/${tx.symbol}`} className="font-medium text-accent hover:underline font-mono">{tx.symbol}</Link>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${tx.type === 'BUY' ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${tx.type === 'BUY' ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'}`}>
                           {tx.type}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-textSecondary">{tx.qty}</td>
                       <td className="px-4 py-2.5 text-right font-mono text-textSecondary">₹{formatPrice(tx.price)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-textPrimary">{formatCurrency(tx.qty * tx.price)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-medium text-textPrimary">{formatCurrency(tx.qty * tx.price)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,7 +421,7 @@ export function Portfolio() {
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface border border-border w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wider">Add Holding</h3>
+              <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wider">Add Holding</h3>
               <button onClick={() => setShowAddModal(false)} className="text-textMuted hover:text-textPrimary transition-colors">
                 <X className="size-4" />
               </button>
@@ -418,7 +430,7 @@ export function Portfolio() {
             <div className="space-y-4">
               {/* Stock Search */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-textSecondary uppercase tracking-wider">Search Stock</Label>
+                <Label className="text-xs font-medium text-textSecondary uppercase tracking-wider">Search Stock</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
                   <Input
@@ -434,10 +446,10 @@ export function Portfolio() {
                       <button key={c.symbol} onClick={() => { setAddSelected(c); setAddSearch(''); setAddCost(c.price.toFixed(2)) }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-surfaceMuted transition-colors flex items-center justify-between border-b last:border-0 border-border/50">
                         <div>
-                          <span className="font-bold text-textPrimary font-mono">{c.symbol}</span>
-                          <span className="text-textMuted ml-2 text-[10px]">{c.name}</span>
+                          <span className="font-medium text-textPrimary font-mono">{c.symbol}</span>
+                          <span className="text-textMuted ml-2 text-xs">{c.name}</span>
                         </div>
-                        <span className="text-[10px] text-accent font-bold">₹{c.price.toFixed(2)}</span>
+                        <span className="text-xs text-accent font-medium">₹{c.price.toFixed(2)}</span>
                       </button>
                     ))}
                   </div>
@@ -446,12 +458,12 @@ export function Portfolio() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-textSecondary uppercase tracking-wider">Quantity</Label>
+                  <Label className="text-xs font-medium text-textSecondary uppercase tracking-wider">Quantity</Label>
                   <Input type="number" min="1" placeholder="e.g. 50" value={addQty}
                     onChange={e => setAddQty(e.target.value)} className="h-9 text-xs border-border bg-surfaceMuted" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-textSecondary uppercase tracking-wider">Avg Buy Price (₹)</Label>
+                  <Label className="text-xs font-medium text-textSecondary uppercase tracking-wider">Avg Buy Price (₹)</Label>
                   <Input type="number" min="0.01" step="0.01" placeholder="e.g. 2450.00" value={addCost}
                     onChange={e => setAddCost(e.target.value)} className="h-9 text-xs border-border bg-surfaceMuted" />
                 </div>
@@ -459,17 +471,17 @@ export function Portfolio() {
 
               {addSelected && addQty && addCost && (
                 <div className="p-3 bg-accentSoft/40 border border-accent/20 rounded-lg text-xs">
-                  <p className="font-semibold text-textPrimary">Summary: {addQty} × {addSelected.symbol} @ ₹{addCost}</p>
+                  <p className="font-medium text-textPrimary">Summary: {addQty} × {addSelected.symbol} @ ₹{addCost}</p>
                   <p className="text-textSecondary mt-0.5">Total investment: {formatCurrency(parseFloat(addQty) * parseFloat(addCost))}</p>
                 </div>
               )}
 
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowAddModal(false)}
-                  className="h-8 text-xs font-bold border-border">Cancel</Button>
+                  className="h-8 text-xs font-medium border-border">Cancel</Button>
                 <Button type="button" size="sm" onClick={handleAddHolding}
                   disabled={!addSelected || !addQty || !addCost}
-                  className="h-8 text-xs font-bold bg-accent text-white hover:bg-accent/90 shadow-none gap-1.5">
+                  className="h-8 text-xs font-medium bg-accent text-white hover:bg-accent/90 shadow-none gap-1.5">
                   <Plus className="size-3.5" /> Add to Portfolio
                 </Button>
               </div>
@@ -486,11 +498,11 @@ const cardColors = { green: 'text-positive', red: 'text-negative', blue: 'text-a
 
 function SummaryCard({ label, value, sub, color, delta }: SummaryCardProps) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 shadow-none">
-      <Text variant="caption" className="text-textSecondary font-semibold text-xs">{label}</Text>
-      <Text variant="pageTitle" className={`text-xl font-bold font-mono mt-1 ${cardColors[color]}`}>{value}</Text>
+    <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-5 hover:shadow-sm transition-all duration-200">
+      <Text variant="caption" className="text-textSecondary font-medium text-xs">{label}</Text>
+      <Text variant="pageTitle" className={`text-xl font-medium font-mono mt-1.5 ${cardColors[color]}`}>{value}</Text>
       {delta && <Text variant="numeric" className="text-xs text-textSecondary mt-0.5">{delta}</Text>}
-      <Text variant="caption" className="text-textMuted mt-0.5 text-xs">{sub}</Text>
+      <Text variant="caption" className="text-textMuted mt-1 text-xs">{sub}</Text>
     </div>
   )
 }

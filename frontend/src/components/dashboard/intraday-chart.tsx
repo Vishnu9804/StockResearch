@@ -111,23 +111,23 @@ export function IntradayChart() {
     <Card>
       <CardHeader className="flex flex-row items-baseline justify-between gap-2 pb-2">
         <div>
-          <CardTitle className="text-sm font-semibold tracking-tight">
+          <CardTitle className="text-sm font-medium tracking-tight">
             NIFTY 50 Intraday
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {currentConfig.label} · {formatNumber(endVal, 2)} ·{" "}
-            <span className={positive ? "text-positive font-semibold" : "text-negative font-semibold"}>
+            <span className={positive ? "text-positive font-medium" : "text-negative font-medium"}>
               {positive ? "+" : ""}
               {percentChange.toFixed(2)}%
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[11px]">
+        <div className="flex items-center gap-1 text-xs">
           {["1D", "5D", "1M", "1Y", "5Y", "Max"].map((p) => (
             <button
               key={p}
               onClick={() => setActivePeriod(p)}
-              className={`rounded px-2 py-0.5 font-semibold transition-colors duration-150 ${
+              className={`rounded px-2 py-0.5 font-medium transition-colors duration-150 ${
                 p === activePeriod
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary"
@@ -151,13 +151,13 @@ export function IntradayChart() {
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 domain={currentConfig.domain}
-                tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => formatNumber(v, 0)}

@@ -40,12 +40,12 @@ function TabsTrigger({
       data-slot="tabs-trigger"
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5',
-        'text-xs font-semibold whitespace-nowrap text-textSecondary',
+        'text-xs font-medium whitespace-nowrap text-textSecondary',
         'transition-all duration-150 ease-out',
         'hover:text-textPrimary hover:bg-surface/60',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
         'disabled:pointer-events-none disabled:opacity-40',
-        'data-[state=active]:bg-surface data-[state=active]:text-accent data-[state=active]:shadow-[var(--shadow-sm)] data-[state=active]:font-bold',
+        'data-[state=active]:bg-surface data-[state=active]:text-accent data-[state=active]:shadow-[var(--shadow-sm)] data-[state=active]:font-medium',
         '[&_svg]:pointer-events-none [&_svg:not([class*="size-"])]:size-3.5 [&_svg]:shrink-0',
         className,
       )}

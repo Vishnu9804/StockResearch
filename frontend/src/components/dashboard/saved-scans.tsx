@@ -28,18 +28,18 @@ export function SavedScans() {
     <Card className="border-border shadow-none select-none">
       <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border/50 bg-surfaceMuted/50 px-5 py-4">
         <div>
-          <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
             Recent Custom Scans
           </h3>
-          <p className="text-[11px] text-textMuted mt-0.5">Quickly run predefined scans or templates</p>
+          <p className="text-xs text-textMuted mt-0.5">Quickly run predefined scans or templates</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-bold uppercase border-border text-textSecondary">
+          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-medium uppercase border-border text-textSecondary">
             <Link to="/screens" className="flex items-center gap-1">
               View All
             </Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-bold uppercase border-border text-textSecondary">
+          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-medium uppercase border-border text-textSecondary">
             <Link to="/screener" className="flex items-center gap-1">
               <Filter className="size-3.5" />
               New Scan
@@ -60,19 +60,19 @@ export function SavedScans() {
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-xs font-bold text-textPrimary truncate">
+                  <h3 className="text-xs font-medium text-textPrimary truncate">
                     {scan.name}
                   </h3>
                   <ArrowRight className="size-3.5 text-accent opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100 transition-all shrink-0 self-center" />
                 </div>
-                <p className="text-[10px] leading-relaxed text-textMuted mt-1 line-clamp-2">
+                <p className="text-xs leading-relaxed text-textMuted mt-1 line-clamp-2">
                   {scan.description}
                 </p>
               </div>
 
               <div className="mt-2 space-y-2 shrink-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono tabular text-[10px] font-bold text-accent">
+                  <span className="font-mono tabular text-xs font-medium text-accent">
                     {scan.matchCount} stocks found
                   </span>
                 </div>
@@ -85,7 +85,7 @@ export function SavedScans() {
                     >
                       <Badge
                         variant="secondary"
-                        className="font-mono text-[9px] font-bold bg-surfaceMuted border border-border text-textSecondary rounded-sm hover:bg-accentSoft hover:text-accent hover:border-accent/20 transition-colors"
+                        className="font-mono text-xs font-medium bg-surfaceMuted border border-border text-textSecondary rounded-sm hover:bg-accentSoft hover:text-accent hover:border-accent/20 transition-colors"
                       >
                         {s}
                       </Badge>

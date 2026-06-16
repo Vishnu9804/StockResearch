@@ -57,7 +57,7 @@ export function StrengthsLimitations({ company }: { company: Company }) {
       {/* Pros / Strengths Card */}
       <Card className="border-positive/20 bg-positive-soft/10 dark:bg-positive-soft/20 shadow-none">
         <CardHeader className="pb-3 bg-positive-soft/20 border-b border-positive/10">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-positive">
+          <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-positive">
             <span className="flex size-5 items-center justify-center rounded-full bg-positive text-white shrink-0">
               <Check className="size-3" />
             </span>
@@ -79,7 +79,7 @@ export function StrengthsLimitations({ company }: { company: Company }) {
       {/* Cons / Limitations Card */}
       <Card className="border-negative/20 bg-negative-soft/10 dark:bg-negative-soft/20 shadow-none">
         <CardHeader className="pb-3 bg-negative-soft/20 border-b border-negative/10">
-          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-negative">
+          <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-negative">
             <span className="flex size-5 items-center justify-center rounded-full bg-negative text-white shrink-0">
               <AlertTriangle className="size-3" />
             </span>

@@ -15,28 +15,28 @@ export const typography = {
   /** Page-level headings, main screen titles */
   pageTitle: {
     fontFamily: theme.fontFamily.sans,
-    fontSize: theme.fontSize['2xl'],
+    fontSize: theme.fontSize['3xl'],
     fontWeight: theme.fontWeight.semibold,
-    lineHeight: '1.2',
+    lineHeight: '1.25',
   },
   /** Card headers, section dividers, modular headers */
   sectionTitle: {
     fontFamily: theme.fontFamily.sans,
-    fontSize: theme.fontSize.lg,
+    fontSize: theme.fontSize.xl,
     fontWeight: theme.fontWeight.semibold,
     lineHeight: '1.3',
   },
   /** Subtle text descriptive elements directly below a page/section header */
   subtitle: {
     fontFamily: theme.fontFamily.sans,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.body,
     fontWeight: theme.fontWeight.regular,
-    lineHeight: '1.4',
+    lineHeight: '1.5',
   },
   /** Default content, paragraphs, and list items */
   body: {
     fontFamily: theme.fontFamily.sans,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.body,
     fontWeight: theme.fontWeight.regular,
     lineHeight: '1.5',
   },
@@ -51,24 +51,24 @@ export const typography = {
   label: {
     fontFamily: theme.fontFamily.sans,
     fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.semibold,
-    lineHeight: '1.2',
-    letterSpacing: '0.05em',
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: '1.3',
+    letterSpacing: '0.04em',
     textTransform: 'uppercase',
   },
   /** Extra small metadata, table headers, tiny timestamps */
   caption: {
     fontFamily: theme.fontFamily.sans,
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.regular,
-    lineHeight: '1.4',
+    lineHeight: '1.5',
   },
   /** Tabular numbers for financial and mathematical values */
   numeric: {
     fontFamily: theme.fontFamily.mono,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.body,
     fontWeight: theme.fontWeight.regular,
-    lineHeight: '1.4',
+    lineHeight: '1.5',
   },
 } as const
 

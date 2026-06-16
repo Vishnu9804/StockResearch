@@ -74,7 +74,7 @@ export function Sidebar() {
         <div className="h-[60px] flex items-center justify-between px-3.5 border-b border-border shrink-0">
           <Link to="/" className="flex items-center gap-2.5 overflow-hidden min-w-0">
             <motion.div
-              className="size-8 rounded-xl bg-accent flex items-center justify-center font-black text-white shrink-0 shadow-[var(--shadow-accent)] text-xs tracking-tight"
+              className="size-8 rounded-xl bg-accent flex items-center justify-center font-medium text-white shrink-0 shadow-[var(--shadow-accent)] text-xs tracking-tight"
               whileHover={prefersReduced ? {} : { scale: 1.08, rotate: 3 }}
               whileTap={prefersReduced ? {} : { scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 400, damping: 20 }}
@@ -82,7 +82,7 @@ export function Sidebar() {
               FS
             </motion.div>
             {!sidebarCollapsed && (
-              <span className="font-bold text-textPrimary tracking-tight text-base truncate">
+              <span className="font-medium text-textPrimary tracking-tight text-base truncate">
                 Fin<span className="text-accent">Screen</span>
               </span>
             )}
@@ -115,7 +115,7 @@ export function Sidebar() {
                 <Link
                   to={item.href}
                   className={cn(
-                    'relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-semibold z-10',
+                    'relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-medium z-10',
                     'transition-colors duration-150',
                     isActive ? 'text-accent' : 'text-textSecondary hover:text-textPrimary',
                     sidebarCollapsed ? 'justify-center' : ''
@@ -159,7 +159,7 @@ export function Sidebar() {
                       exit={prefersReduced ? undefined : { opacity: 0, x: -4 }}
                       transition={{ duration: 0.15 }}
                     >
-                      <div className="bg-textPrimary text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg shadow-[var(--shadow-lg)] whitespace-nowrap">
+                      <div className="bg-textPrimary text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-[var(--shadow-lg)] whitespace-nowrap">
                         {item.label}
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-textPrimary rotate-45" />
                       </div>
@@ -181,7 +181,7 @@ export function Sidebar() {
             <Link
               to="/pricing"
               className={cn(
-                'flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-semibold',
+                'flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-medium',
                 'text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-all duration-150',
                 sidebarCollapsed ? 'justify-center' : ''
               )}
@@ -198,7 +198,7 @@ export function Sidebar() {
                   exit={prefersReduced ? undefined : { opacity: 0, x: -4 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <div className="bg-textPrimary text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg shadow-[var(--shadow-lg)] whitespace-nowrap">
+                  <div className="bg-textPrimary text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-[var(--shadow-lg)] whitespace-nowrap">
                     Pricing & Pro
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-textPrimary rotate-45" />
                   </div>
@@ -214,16 +214,16 @@ export function Sidebar() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
             >
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-accent uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-accent uppercase tracking-wider">
                 <Zap className="size-3" />
                 Standard Feed
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-textSecondary">
+              <p className="mt-1 text-xs leading-relaxed text-textSecondary">
                 Unlock 15-year histories and custom filters.
               </p>
               <Link
                 to="/pricing"
-                className="mt-2 flex w-full items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-[11px] font-bold text-white hover:bg-accent/90 transition-colors shadow-[var(--shadow-accent)]"
+                className="mt-2 flex w-full items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-[var(--shadow-accent)]"
               >
                 Upgrade to Pro
               </Link>

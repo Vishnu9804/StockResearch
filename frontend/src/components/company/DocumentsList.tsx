@@ -100,7 +100,7 @@ function AudioPlayer({ docId, duration, isPlaying, onToggle }: {
         {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between text-[10px] font-mono text-textMuted mb-1.5">
+        <div className="flex items-center justify-between text-xs font-mono text-textMuted mb-1.5">
           <span>{isPlaying ? elapsedStr : '00:00'}</span>
           <span>{duration}</span>
         </div>
@@ -148,12 +148,12 @@ export function DocumentsList() {
   }, [activeTab, searchQuery, activeDocuments])
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden select-none">
+    <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden select-none">
       {/* Header row */}
-      <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="px-5 py-4 border-b border-border/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-textPrimary">Documents &amp; Announcements</h3>
-          <p className="text-[11px] text-textMuted mt-0.5">
+          <h3 className="text-sm font-medium text-textPrimary">Documents &amp; Announcements</h3>
+          <p className="text-xs text-textMuted mt-0.5">
             Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.
           </p>
         </div>
@@ -171,23 +171,23 @@ export function DocumentsList() {
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 h-8 text-[11px] font-medium border-border focus:border-accent bg-surface w-52"
+              className="pl-8 pr-3 h-8 text-xs font-medium border-border focus:border-accent bg-surface w-52"
             />
           </div>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 border-b border-border/50 overflow-x-auto px-4 py-2 bg-surfaceMuted/10">
+      <div className="flex items-center gap-1 border-b border-border/40 overflow-x-auto px-4 py-2 bg-surfaceMuted/5">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all',
+              'px-4 py-1.5 rounded-lg text-xs font-medium uppercase tracking-wider whitespace-nowrap transition-all',
               activeTab === tab.id
                 ? 'bg-accent text-white'
-                : 'bg-surface border border-border text-textSecondary hover:border-accent/40 hover:text-textPrimary'
+                : 'bg-surface border border-border/40 text-textSecondary hover:border-accent/40 hover:text-textPrimary'
             )}
           >
             {tab.label}
@@ -200,8 +200,8 @@ export function DocumentsList() {
         {filteredDocuments.length === 0 ? (
           <div className="py-14 flex flex-col items-center justify-center text-center px-6">
             <FileText className="size-8 text-border mb-2" />
-            <p className="text-xs font-semibold text-textPrimary">No documents found</p>
-            <p className="text-[10px] text-textMuted mt-0.5">Try widening your search terms.</p>
+            <p className="text-xs font-medium text-textPrimary">No documents found</p>
+            <p className="text-xs text-textMuted mt-0.5">Try widening your search terms.</p>
           </div>
         ) : (
           filteredDocuments.map((doc: any) => {
@@ -214,14 +214,14 @@ export function DocumentsList() {
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     {/* Date column */}
                     <div className="text-right shrink-0 w-20 pt-0.5">
-                      <p className="text-[11px] font-bold text-textSecondary font-mono">{doc.date}</p>
+                      <p className="text-xs font-medium text-textSecondary font-mono">{doc.date}</p>
                     </div>
                     {/* Title + badge */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-2 flex-wrap">
-                        <h4 className="text-xs font-semibold text-textPrimary leading-snug">{doc.title}</h4>
+                        <h4 className="text-xs font-medium text-textPrimary leading-snug">{doc.title}</h4>
                         <span className={cn(
-                          'text-[9px] font-black uppercase tracking-widest border px-1.5 py-0.5 rounded-md shrink-0',
+                          'text-xs font-medium uppercase tracking-widest border-none px-1.5 py-0.5 rounded-md shrink-0',
                           CATEGORY_STYLE[doc.category]
                         )}>
                           {CATEGORY_LABEL[doc.category]}
@@ -246,12 +246,12 @@ export function DocumentsList() {
                         size="sm"
                         variant="outline"
                         onClick={() => handlePlayToggle(doc.id)}
-                        className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent"
+                        className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
                       >
                         {isPlaying ? <><Pause className="size-3" /> Pause</> : <><Play className="size-3" /> Listen</>}
                       </Button>
                     ) : doc.category === 'announcement' ? (
-                      <Button size="sm" variant="outline" className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent">
+                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent">
                         <ExternalLink className="size-3" /> View Link
                       </Button>
                     ) : (
@@ -259,7 +259,7 @@ export function DocumentsList() {
                         size="sm"
                         variant="outline"
                         onClick={() => showToast(`✓ Downloading: ${doc.title}`)}
-                        className="h-8 text-[10px] gap-1.5 font-bold border-border text-textSecondary hover:border-accent hover:text-accent"
+                        className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
                       >
                         <Download className="size-3" /> Download PDF
                       </Button>
@@ -276,18 +276,18 @@ export function DocumentsList() {
       </div>
 
       {/* Pagination footer */}
-      <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between bg-surfaceMuted/20">
-        <span className="text-[10px] text-textMuted font-medium">
+      <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between bg-surfaceMuted/5">
+        <span className="text-xs text-textMuted font-medium">
           Showing 1 to {filteredDocuments.length} of {filteredDocuments.length} entries
         </span>
         <div className="flex items-center gap-1">
           {[1, 2, 3].map((p) => (
-            <button key={p} className={cn("size-7 rounded-md text-[10px] font-bold transition-all", p === 1 ? "bg-accent text-white" : "border border-border text-textSecondary hover:border-accent")}>
+            <button key={p} className={cn("size-7 rounded-md text-xs font-medium transition-all", p === 1 ? "bg-accent text-white" : "border border-border text-textSecondary hover:border-accent")}>
               {p}
             </button>
           ))}
           <span className="text-textMuted text-xs px-1">…</span>
-          <button className="size-7 rounded-md border border-border text-[10px] font-bold text-textSecondary hover:border-accent">250</button>
+          <button className="size-7 rounded-md border border-border text-xs font-medium text-textSecondary hover:border-accent">250</button>
         </div>
       </div>
 

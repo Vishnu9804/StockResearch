@@ -177,9 +177,9 @@ export function IndexDetail() {
           <div className="size-12 rounded-xl bg-negative-soft flex items-center justify-center mx-auto">
             <BarChart2 className="size-6 text-negative" />
           </div>
-          <h2 className="text-lg font-bold text-textPrimary">Index Not Found</h2>
+          <h2 className="text-lg font-medium text-textPrimary">Index Not Found</h2>
           <p className="text-sm text-textSecondary">
-            We couldn't find an index mapped to <span className="font-mono font-bold">{symbol}</span>.
+            We couldn't find an index mapped to <span className="font-mono font-medium">{symbol}</span>.
           </p>
           <Button asChild className="bg-accent text-white">
             <Link to="/"><ArrowLeft className="size-3.5 mr-1.5" /> Back to Dashboard</Link>
@@ -192,14 +192,15 @@ export function IndexDetail() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* ── Header ── */}
-      <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-5">
+      <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-border/40 px-6 py-4 shadow-[var(--shadow-xs)]">
         <div className="max-w-[1400px] mx-auto">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-xs text-textSecondary hover:text-accent transition-colors mb-4 font-semibold"
-          >
-            <ArrowLeft className="size-3.5" /> Back to Markets
-          </Link>
+          <div className="text-xs text-textSecondary/70 mb-2">
+            <Link to="/" className="hover:text-accent transition-colors">Home</Link>
+            <span className="mx-1.5">›</span>
+            <span className="text-textSecondary">Markets</span>
+            <span className="mx-1.5">›</span>
+            <span className="text-accent font-medium">{meta.displayName}</span>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
@@ -207,25 +208,30 @@ export function IndexDetail() {
                   <TrendingUp className="size-5 text-accent" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-textPrimary tracking-tight">{meta.displayName}</h1>
-                  <p className="text-xs text-textSecondary mt-0.5">{meta.fullName} · {meta.exchange}</p>
+                  <h1 className="text-3xl font-semibold text-textPrimary tracking-tight">{meta.displayName}</h1>
+                  <p className="text-body text-textSecondary mt-1">
+                    Index tracking {meta.constituentsCount} top liquidity stocks on {meta.exchange} ·{' '}
+                    <span className="font-medium text-accent">
+                      {positive ? '+' : ''}{indexChangePct.toFixed(2)}% Today
+                    </span>
+                  </p>
                 </div>
               </div>
-              <p className="text-xs text-textSecondary mt-3 max-w-2xl leading-relaxed">{meta.description}</p>
+              <p className="text-body text-textSecondary mt-3 max-w-2xl leading-relaxed">{meta.description}</p>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold font-mono text-textPrimary tabular-nums">
+              <div className="text-3xl font-medium font-mono text-textPrimary tabular-nums">
                 {formatNumber(indexValue, 2)}
               </div>
               <div className={cn(
-                'flex items-center justify-end gap-1 mt-1 font-mono text-sm font-bold tabular-nums',
+                'flex items-center justify-end gap-1 mt-1 font-mono text-sm font-medium tabular-nums',
                 positive ? 'text-positive' : 'text-negative'
               )}>
                 {positive ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />}
                 {positive ? '+' : ''}{formatNumber(indexChange, 2)} ({positive ? '+' : ''}{indexChangePct.toFixed(2)}%)
               </div>
-              <p className="text-[10px] text-textMuted mt-1 font-medium">
-                Launched: {meta.launch} · {meta.constituentsCount} constituents
+              <p className="text-xs text-textMuted mt-1 font-medium">
+                Launched: {meta.launch}
               </p>
             </div>
           </div>
@@ -236,9 +242,9 @@ export function IndexDetail() {
       <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
 
         {/* ── Price Chart ── */}
-        <Card className="border-border shadow-none bg-surface">
-          <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
+        <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+          <CardHeader className="border-b border-border/40 pb-3.5 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-textPrimary flex items-center gap-2">
               <BarChart2 className="size-4 text-accent" /> Index Price Chart
             </CardTitle>
             <div className="flex items-center gap-1">
@@ -247,7 +253,7 @@ export function IndexDetail() {
                   key={r}
                   onClick={() => setRange(r)}
                   className={cn(
-                    'px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors',
+                    'px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
                     range === r
                       ? 'bg-accent text-white'
                       : 'text-textSecondary hover:bg-surfaceMuted'
@@ -267,9 +273,9 @@ export function IndexDetail() {
                     <stop offset="95%" stopColor={positive ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                 <YAxis
-                  tick={{ fontSize: 9, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => formatNumber(v, 0)}
@@ -296,12 +302,12 @@ export function IndexDetail() {
         {/* ── Constituents + Sector Weights ── */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Constituents Table */}
-          <Card className="xl:col-span-2 border-border shadow-none bg-surface">
-            <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 pb-3">
-              <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
+          <Card className="xl:col-span-2 border-border/40 shadow-xs bg-surface rounded-2xl">
+            <CardHeader className="border-b border-border/40 pb-3.5">
+              <CardTitle className="text-sm font-medium text-textPrimary flex items-center gap-2">
                 <Table2 className="size-4 text-accent" /> Top Constituents
               </CardTitle>
-              <p className="text-[11px] text-textMuted mt-0.5">
+              <p className="text-xs text-textMuted mt-0.5">
                 Click any row to view the company's full financial profile
               </p>
             </CardHeader>
@@ -309,35 +315,35 @@ export function IndexDetail() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-surfaceMuted border-b border-border">
-                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted">#</th>
-                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted">Company</th>
-                      <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">CMP (₹)</th>
-                      <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">Day %</th>
-                      <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">Mkt Cap (Cr)</th>
-                      <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono">P/E</th>
+                    <tr className="bg-surfaceMuted/30 border-b border-border/40">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted">#</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted">Company</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted font-mono">CMP (₹)</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted font-mono">Day %</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted font-mono">Mkt Cap (Cr)</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-textMuted font-mono">P/E</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/50">
+                  <tbody className="divide-y divide-border/30">
                     {constituents.map((c, idx) => {
                       const pos = c.change >= 0
                       return (
                         <tr
                           key={c.symbol}
                           onClick={() => navigate(`/company/${c.symbol}`)}
-                          className="hover:bg-accentSoft/30 transition-colors cursor-pointer group"
+                          className="hover:bg-surfaceMuted/50 transition-colors cursor-pointer group"
                         >
                           <td className="px-4 py-2.5 text-textMuted font-mono">{idx + 1}</td>
                           <td className="px-4 py-2.5">
                             <Link to={`/company/${c.symbol}`} className="flex flex-col">
-                              <span className="font-bold text-accent group-hover:underline font-mono">{c.symbol}</span>
-                              <span className="text-[10px] text-textMuted truncate max-w-[180px]">{c.name}</span>
+                              <span className="font-medium text-accent group-hover:underline font-mono">{c.symbol}</span>
+                              <span className="text-xs text-textMuted truncate max-w-[180px]">{c.name}</span>
                             </Link>
                           </td>
-                          <td className="px-4 py-2.5 text-right font-mono tabular-nums text-textPrimary font-semibold">
+                          <td className="px-4 py-2.5 text-right font-mono tabular-nums text-textPrimary font-medium">
                             {formatNumber(c.price, 2)}
                           </td>
-                          <td className={cn('px-4 py-2.5 text-right font-mono tabular-nums font-bold', pos ? 'text-positive' : 'text-negative')}>
+                          <td className={cn('px-4 py-2.5 text-right font-mono tabular-nums font-medium', pos ? 'text-positive' : 'text-negative')}>
                             <span className="inline-flex items-center justify-end gap-0.5">
                               {pos ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
                               {pos ? '+' : ''}{c.changePct.toFixed(2)}%
@@ -356,8 +362,8 @@ export function IndexDetail() {
                 </table>
                 {constituents.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <RefreshCw className="size-8 text-textMuted mb-2" />
-                    <p className="text-sm text-textMuted">Constituents loading…</p>
+                     <RefreshCw className="size-8 text-textMuted mb-2" />
+                     <p className="text-sm text-textMuted">Constituents loading…</p>
                   </div>
                 )}
               </div>
@@ -365,9 +371,9 @@ export function IndexDetail() {
           </Card>
 
           {/* Sector Weight Donut */}
-          <Card className="xl:col-span-1 border-border shadow-none bg-surface">
-            <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 pb-3">
-              <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide flex items-center gap-2">
+          <Card className="xl:col-span-1 border-border/40 shadow-xs bg-surface rounded-2xl">
+            <CardHeader className="border-b border-border/40 pb-3.5">
+              <CardTitle className="text-sm font-medium text-textPrimary flex items-center gap-2">
                 <PieChart className="size-4 text-accent" /> Sector Weights
               </CardTitle>
             </CardHeader>
@@ -402,7 +408,7 @@ export function IndexDetail() {
                       <div className="size-2.5 rounded-full shrink-0" style={{ background: s.color }} />
                       <span className="text-textSecondary font-medium truncate max-w-[140px]">{s.name}</span>
                     </div>
-                    <span className="font-mono font-bold text-textPrimary tabular-nums">{s.weight}%</span>
+                    <span className="font-mono font-medium text-textPrimary tabular-nums">{s.weight}%</span>
                   </div>
                 ))}
               </div>
@@ -418,10 +424,10 @@ export function IndexDetail() {
             { label: 'Total Constituents', value: String(meta.constituentsCount), color: 'text-textPrimary' },
             { label: 'Exchange', value: meta.exchange, color: 'text-accent' },
           ].map((stat) => (
-            <Card key={stat.label} className="border-border shadow-none bg-surface">
-              <CardContent className="px-4 py-3">
-                <p className="text-[10px] uppercase tracking-wider text-textMuted font-bold">{stat.label}</p>
-                <p className={cn('text-xl font-bold font-mono mt-1 tabular-nums', stat.color)}>{stat.value}</p>
+            <Card key={stat.label} className="border-border/40 shadow-xs bg-surface rounded-2xl">
+              <CardContent className="px-5 py-4">
+                <p className="text-xs uppercase tracking-wider text-textMuted font-medium">{stat.label}</p>
+                <p className={cn('text-xl font-medium font-mono mt-1.5 tabular-nums', stat.color)}>{stat.value}</p>
               </CardContent>
             </Card>
           ))}

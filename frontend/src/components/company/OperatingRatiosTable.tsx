@@ -72,17 +72,17 @@ export function OperatingRatiosTable() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {QUICK_METRICS.map((m) => (
           <div key={m.label} className="bg-surface border border-border rounded-xl px-3 py-3.5 shadow-[var(--shadow-sm)]">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-textMuted mb-1">{m.label}</p>
-            <p className="text-xl font-black font-mono tabular-nums text-textPrimary">{m.value}</p>
+            <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">{m.label}</p>
+            <p className="text-xl font-medium font-mono tabular-nums text-textPrimary">{m.value}</p>
             {m.trend ? (
               <div className="flex items-center gap-1 mt-0.5">
                 {m.positive ? <ArrowDown className="size-2.5 text-positive" /> : <ArrowUp className="size-2.5 text-negative" />}
-                <span className={cn("text-[9px] font-semibold", m.positive ? "text-positive" : "text-negative")}>
+                <span className={cn("text-xs font-medium", m.positive ? "text-positive" : "text-negative")}>
                   {m.trend} {m.hint}
                 </span>
               </div>
             ) : (
-              <p className={cn("text-[9px] font-semibold mt-0.5", m.positive ? "text-positive" : "text-textMuted")}>
+              <p className={cn("text-xs font-medium mt-0.5", m.positive ? "text-positive" : "text-textMuted")}>
                 ⊙ {m.hint}
               </p>
             )}
@@ -98,8 +98,8 @@ export function OperatingRatiosTable() {
           {/* Header */}
           <div className="px-5 py-4 border-b border-border/50 bg-surfaceMuted/30 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-textPrimary">Operating Ratios</h3>
-              <p className="text-[10px] text-textMuted mt-0.5 flex items-center gap-1">
+              <h3 className="text-sm font-medium text-textPrimary">Operating Ratios</h3>
+              <p className="text-xs text-textMuted mt-0.5 flex items-center gap-1">
                 <Info className="size-2.5" />
                 Historical operational performance and efficiency metrics. All values in absolute numbers (days) except ROCE (%).
               </p>
@@ -110,7 +110,7 @@ export function OperatingRatiosTable() {
                   key={c}
                   onClick={() => setConsolidation(c)}
                   className={cn(
-                    "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border transition-all",
+                    "px-3 py-1.5 text-xs font-medium uppercase tracking-wider rounded-lg border transition-all",
                     consolidation === c
                       ? "bg-accent text-white border-transparent"
                       : "border-border text-textSecondary hover:bg-surfaceMuted"
@@ -127,11 +127,11 @@ export function OperatingRatiosTable() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surfaceMuted">
-                  <th className="text-left px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-textMuted w-48 sticky left-0 bg-surfaceMuted">
+                  <th className="text-left px-5 py-3 text-xs font-medium uppercase tracking-wider text-textMuted w-48 sticky left-0 bg-surfaceMuted">
                     Metric Name
                   </th>
                   {COLUMNS.map((yr) => (
-                    <th key={yr} className="text-right px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-textMuted whitespace-nowrap">
+                    <th key={yr} className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-textMuted whitespace-nowrap">
                       {yr}
                     </th>
                   ))}
@@ -149,7 +149,7 @@ export function OperatingRatiosTable() {
                   })
                   return (
                     <tr key={rowLabel} className="hover:bg-surfaceMuted/40 transition-colors">
-                      <td className="px-5 py-3 font-semibold text-textPrimary sticky left-0 bg-surface group-hover:bg-surfaceMuted/40 whitespace-nowrap">
+                      <td className="px-5 py-3 font-medium text-textPrimary sticky left-0 bg-surface group-hover:bg-surfaceMuted/40 whitespace-nowrap">
                         {rowLabel.replace(' %', '')}
                       </td>
                       {displayValues.map((val, i) => (
@@ -171,7 +171,7 @@ export function OperatingRatiosTable() {
           <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/30 flex items-center gap-1.5">
               <TrendingUp className="size-3.5 text-accent" />
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Trend Analysis</span>
+              <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">Trend Analysis</span>
             </div>
             <div className="p-4 space-y-4">
               {['Debtor Days', 'Inventory Days', 'Return on Capital Employed %'].map((rowLabel) => {
@@ -182,15 +182,15 @@ export function OperatingRatiosTable() {
                 return (
                   <div key={rowLabel}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-bold text-textSecondary">{rowLabel.replace(' %', '')}</span>
-                      <span className={cn("text-[10px] font-mono font-bold", isPositiveGood ? "text-positive" : "text-textSecondary")}>
+                      <span className="text-xs font-medium text-textSecondary">{rowLabel.replace(' %', '')}</span>
+                      <span className={cn("text-xs font-mono font-medium", isPositiveGood ? "text-positive" : "text-textSecondary")}>
                         {vals[vals.length - 1]?.toFixed(1)}{row.isPercent ? '%' : ''}
                       </span>
                     </div>
                     <div className="h-10">
                       <TrendLine values={vals} positive={!!isPositiveGood} />
                     </div>
-                    <div className="flex items-center justify-between text-[8px] font-mono text-textMuted mt-0.5">
+                    <div className="flex items-center justify-between text-xs font-mono text-textMuted mt-0.5">
                       <span>2020</span>
                       <span>2021</span>
                       <span>2022</span>
@@ -206,20 +206,20 @@ export function OperatingRatiosTable() {
           {/* Efficiency Comparison */}
           <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/30">
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">Efficiency Comparison</span>
+              <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">Efficiency Comparison</span>
             </div>
             <div className="p-4 space-y-4">
               {EFFICIENCY_BARS.map((bar) => (
                 <div key={bar.label}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-semibold text-textSecondary">{bar.label}</span>
+                    <span className="text-xs font-medium text-textSecondary">{bar.label}</span>
                   </div>
                   <div className="h-2.5 w-full bg-surfaceMuted rounded-full overflow-hidden">
                     <div className={cn("h-full rounded-full transition-all", bar.color)} style={{ width: `${bar.value}%` }} />
                   </div>
                 </div>
               ))}
-              <p className="text-[9px] text-textMuted italic mt-2">
+              <p className="text-xs text-textMuted italic mt-2">
                 Compared against 5-year sector average of energy industry.
               </p>
             </div>

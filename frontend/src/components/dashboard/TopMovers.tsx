@@ -45,7 +45,7 @@ export function TopMovers() {
   return (
     <Card className="border-border shadow-none bg-surface">
       <CardHeader className="pb-0">
-        <CardTitle className="text-sm font-bold text-textPrimary uppercase tracking-wide">Top Movers</CardTitle>
+        <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Top Movers</CardTitle>
       </CardHeader>
       <CardContent className="pt-3 pb-4">
         {/* Tabs */}
@@ -58,7 +58,7 @@ export function TopMovers() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'relative flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
+                  'relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium uppercase tracking-wider transition-colors whitespace-nowrap',
                   isActive ? 'text-accent' : 'text-textMuted hover:text-textSecondary'
                 )}
               >
@@ -83,15 +83,15 @@ export function TopMovers() {
                 className="flex items-center justify-between py-2.5 hover:bg-surfaceMuted -mx-1 px-1 rounded-lg transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[10px] font-bold text-textMuted w-4 tabular-nums">{i + 1}</span>
+                  <span className="text-xs font-medium text-textMuted w-4 tabular-nums">{i + 1}</span>
                   <div>
-                    <p className="text-xs font-bold text-textPrimary group-hover:text-accent transition-colors font-mono">{stock.symbol}</p>
-                    <p className="text-[10px] text-textMuted truncate max-w-[120px]">{stock.name}</p>
+                    <p className="text-xs font-medium text-textPrimary group-hover:text-accent transition-colors font-mono">{stock.symbol}</p>
+                    <p className="text-xs text-textMuted truncate max-w-[120px]">{stock.name}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-mono font-semibold text-textPrimary tabular-nums">₹{stock.cmp.toLocaleString('en-IN')}</p>
-                  <p className={cn('text-[10px] font-mono font-bold tabular-nums flex items-center justify-end gap-0.5', positive ? 'text-positive' : 'text-negative')}>
+                  <p className="text-xs font-mono font-medium text-textPrimary tabular-nums">₹{stock.cmp.toLocaleString('en-IN')}</p>
+                  <p className={cn('text-xs font-mono font-medium tabular-nums flex items-center justify-end gap-0.5', positive ? 'text-positive' : 'text-negative')}>
                     {positive ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
                     {positive ? '+' : ''}{stock.change.toFixed(2)}%
                   </p>

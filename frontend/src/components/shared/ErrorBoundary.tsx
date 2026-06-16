@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               
               <div className="space-y-2">
-                <Heading level={1} variant="pageTitle" className="text-textPrimary text-2xl font-bold">
+                <Heading level={1} variant="pageTitle" className="text-textPrimary text-2xl font-medium">
                   System Error Detected
                 </Heading>
                 <Text variant="caption" className="text-textSecondary leading-relaxed text-xs">
@@ -72,14 +72,14 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="w-full flex gap-3 mt-2">
                 <Button 
                   onClick={this.handleRetry} 
-                  className="flex-1 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase h-10 shadow-none"
+                  className="flex-1 bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-10 shadow-none"
                 >
                   <RotateCcw className="size-3.5 mr-1.5" /> Retry Session
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={this.handleGoHome} 
-                  className="flex-1 border-border bg-surfaceMuted hover:bg-slate-100 text-textPrimary font-bold text-xs uppercase h-10 shadow-none"
+                  className="flex-1 border-border bg-surfaceMuted hover:bg-slate-100 text-textPrimary font-medium text-xs uppercase h-10 shadow-none"
                 >
                   <Home className="size-3.5 mr-1.5" /> Dashboard
                 </Button>
@@ -96,16 +96,16 @@ export class ErrorBoundary extends Component<Props, State> {
             <AlertOctagon className="size-5" />
           </div>
           <div className="space-y-1">
-            <Heading level={3} variant="sectionTitle" className="text-textPrimary text-sm font-bold">
+            <Heading level={3} variant="sectionTitle" className="text-textPrimary text-sm font-medium">
               {title || 'Component Unavailable'}
             </Heading>
-            <Text variant="caption" className="text-textMuted text-[10px] leading-relaxed max-w-[280px]">
+            <Text variant="caption" className="text-textMuted text-xs leading-relaxed max-w-[280px]">
               This analytical metric card failed to mount correctly. Try refreshing this individual section.
             </Text>
           </div>
           <Button 
             onClick={this.handleRetry} 
-            className="bg-accentSoft hover:bg-accent/10 border border-accent/20 text-accent font-bold text-[10px] uppercase h-7 px-3 rounded-lg shadow-none flex items-center gap-1 mt-1"
+            className="bg-accentSoft hover:bg-accent/10 border border-accent/20 text-accent font-medium text-xs uppercase h-7 px-3 rounded-lg shadow-none flex items-center gap-1 mt-1"
           >
             <RotateCcw className="size-3" /> Refresh Section
           </Button>

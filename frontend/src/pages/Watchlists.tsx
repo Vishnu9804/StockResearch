@@ -174,18 +174,31 @@ export function Watchlists() {
     <div className="min-h-screen bg-background font-sans select-none">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
-        <nav className="flex items-center gap-1.5 text-xs text-textMuted mb-1 font-semibold">
+        <div className="text-xs text-textSecondary/70 mb-1.5">
           <Link to="/" className="hover:text-accent transition-colors">Home</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Text as="span" variant="bodyMuted" className="text-xs">Watchlists</Text>
-        </nav>
-        <Heading level={1} variant="pageTitle">Watchlists</Heading>
+          <span className="mx-1.5">›</span>
+          <span className="text-accent font-medium">Watchlists</span>
+        </div>
+        <Heading level={1} variant="pageTitle" className="text-textPrimary">
+          Watchlists
+        </Heading>
+        <p className="text-body text-textSecondary mt-1">
+          Monitor your favorite assets and manage real-time alerts ·{' '}
+          <span className="font-medium text-accent">
+            {allSymbols.length} {allSymbols.length === 1 ? 'Asset' : 'Assets'} Tracked
+          </span>
+        </p>
       </div>
 
       <div className="flex flex-col md:flex-row min-h-[calc(100vh-73px)]">
         {/* Left Sidebar */}
-        <div className="w-full md:w-64 bg-surface border-b md:border-b-0 md:border-r border-border flex-shrink-0 p-4 flex flex-col gap-1">
-          <Text variant="label" className="mb-2 font-bold text-textMuted uppercase tracking-wider text-[10px]">My Watchlists</Text>
+        <div className="w-full md:w-64 bg-surface border-b md:border-b-0 md:border-r border-border/40 flex-shrink-0 p-4 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 mb-2.5">
+            <Target className="size-3.5 text-textMuted" />
+            <span className="font-medium text-textMuted uppercase tracking-wider text-xs">
+              My Watchlists
+            </span>
+          </div>
           {watchlists.map((wl) => (
             <div key={wl.id} className="flex items-center justify-between group rounded-lg hover:bg-surfaceMuted transition-colors pr-2">
               <button
@@ -193,17 +206,17 @@ export function Watchlists() {
                   dispatch(setActiveWatchlist(wl.id))
                   setIsEditing(false)
                 }}
-                className={`flex-1 text-left px-3 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                className={`flex-1 text-left px-3 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between ${
                   selected?.id === wl.id
-                    ? 'text-accent font-bold'
+                    ? 'text-accent font-medium'
                     : 'text-textSecondary'
                 }`}
               >
                 <span className="truncate">{wl.name}</span>
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] min-w-[20px] px-1 text-center shadow-none ${
-                    selected?.id === wl.id ? 'bg-accent/15 text-accent font-bold' : 'bg-surfaceMuted text-textSecondary border border-border/30'
+                  className={`text-xs min-w-[20px] px-1 text-center shadow-none ${
+                    selected?.id === wl.id ? 'bg-accent/15 text-accent font-medium' : 'bg-surfaceMuted/50 text-textSecondary border border-border/30'
                   }`}
                 >
                   {wl.items.length}
@@ -225,7 +238,7 @@ export function Watchlists() {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 text-xs text-accent hover:bg-accentSoft rounded-lg transition-colors font-bold uppercase tracking-wider"
+            className="flex items-center gap-2 px-3 py-2 text-xs text-accent hover:bg-accentSoft rounded-lg transition-colors font-medium uppercase tracking-wider"
           >
             <Plus className="w-3.5 h-3.5" />
             Create New Watchlist
@@ -237,14 +250,14 @@ export function Watchlists() {
           {/* Watchlist Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <Heading level={2} variant="sectionTitle" className="text-base font-bold text-textPrimary">{selected?.name}</Heading>
-              <Text variant="bodyMuted" className="text-xs">{selected?.items.length} stocks tracked</Text>
+              <Heading level={2} className="text-lg font-semibold text-textPrimary">{selected?.name}</Heading>
+              <Text variant="bodyMuted" className="text-sm">{selected?.items.length} stocks tracked</Text>
             </div>
             <Button
               onClick={() => setIsEditing(!isEditing)}
               variant={isEditing ? 'destructive' : 'outline'}
               size="sm"
-              className="gap-1.5 h-8 text-xs border-border font-bold uppercase"
+              className="gap-1.5 h-8 text-xs border-border font-medium uppercase"
             >
               {isEditing ? (
                 <>
@@ -280,10 +293,10 @@ export function Watchlists() {
                         className="w-full text-left px-3 py-2.5 text-xs hover:bg-surfaceMuted transition-colors flex items-center justify-between border-b last:border-0 border-border/50"
                       >
                         <div className="flex flex-col">
-                          <span className="font-bold text-textPrimary font-mono">{comp.symbol}</span>
-                          <span className="text-[10px] text-textMuted truncate max-w-[240px]">{comp.name}</span>
+                          <span className="font-medium text-textPrimary font-mono">{comp.symbol}</span>
+                          <span className="text-xs text-textMuted truncate max-w-[240px]">{comp.name}</span>
                         </div>
-                        <span className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-xs font-medium text-accent uppercase tracking-wider flex items-center gap-1">
                           <Plus className="w-3 h-3" /> Add
                         </span>
                       </button>
@@ -300,17 +313,17 @@ export function Watchlists() {
           )}
 
           {/* Stocks Table */}
-          <div className="bg-surface border border-border rounded-xl overflow-x-auto mb-6">
+          <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-x-auto mb-6">
             <table className="w-full text-sm min-w-[700px]">
               <thead>
-                <tr className="bg-surfaceMuted border-b border-border">
-                  <th className="px-4 py-2.5 text-left text-xs text-textSecondary font-semibold">Company</th>
-                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-semibold">CMP (₹)</th>
-                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-semibold">Day Change</th>
-                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-semibold">Target Price (₹)</th>
-                  <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-semibold">Status</th>
-                  <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-semibold">Alerts</th>
-                  {isEditing && <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-semibold">Remove</th>}
+                <tr className="bg-surfaceMuted/50 border-b border-border/40">
+                  <th className="px-4 py-2.5 text-left text-xs text-textSecondary font-medium">Company</th>
+                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-medium">CMP (₹)</th>
+                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-medium">Day Change</th>
+                  <th className="px-4 py-2.5 text-right text-xs text-textSecondary font-medium">Target Price (₹)</th>
+                  <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-medium">Alerts</th>
+                  {isEditing && <th className="px-4 py-2.5 text-center text-xs text-textSecondary font-medium">Remove</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -337,18 +350,18 @@ export function Watchlists() {
                       >
                         <td className="px-4 py-3">
                           <Link to={`/company/${stock.symbol}`} className="block">
-                            <Text variant="body" className="font-semibold hover:text-accent transition-colors text-xs text-textPrimary">
+                            <Text variant="body" className="font-medium hover:text-accent transition-colors text-xs text-textPrimary">
                               {stock.name}
                             </Text>
-                            <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-[10px]">{stock.symbol}</Text>
+                            <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-xs">{stock.symbol}</Text>
                           </Link>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Text variant="numeric" className="text-xs text-textPrimary font-semibold font-mono tabular-nums">
+                          <Text variant="numeric" className="text-xs text-textPrimary font-medium font-mono tabular-nums">
                             {stock.cmp > 0 ? formatPrice(stock.cmp) : '0.00'}
                           </Text>
                         </td>
-                        <td className={`px-4 py-3 text-right font-mono tabular-nums text-xs font-semibold ${stock.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
+                        <td className={`px-4 py-3 text-right font-mono tabular-nums text-xs font-medium ${stock.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
                           <div className="flex items-center justify-end gap-1">
                             {stock.dayChange >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                             {stock.dayChange >= 0 ? '+' : ''}{stock.dayChange.toFixed(2)}%
@@ -368,7 +381,7 @@ export function Watchlists() {
                         <td className="px-4 py-3 text-center">
                           <Badge
                             variant="outline"
-                            className={`text-[10px] font-bold shadow-none ${
+                            className={`text-xs font-medium shadow-none ${
                               aboveTarget
                                 ? 'bg-positive-soft text-positive border border-green-200'
                                 : 'bg-negative-soft text-negative border border-red-200'
@@ -414,23 +427,23 @@ export function Watchlists() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Calendar className="w-4 h-4 text-textSecondary" />
-              <Heading level={3} variant="sectionTitle" className="text-sm font-semibold text-textPrimary">
+              <Heading level={3} className="text-lg font-semibold text-textPrimary">
                 Upcoming Events This Week
               </Heading>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {UPCOMING_EVENTS.map((event) => (
                 <div
                   key={event.id}
-                  className="bg-surface border border-border rounded-xl p-4 hover:shadow-sm transition-shadow"
+                  className="bg-surface border border-border/40 shadow-xs rounded-xl p-5 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="outline" className={`text-xs font-semibold capitalize shadow-none ${EVENT_COLORS[event.type]}`}>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <Badge variant="outline" className={`text-xs font-medium capitalize shadow-none border-none ${EVENT_COLORS[event.type]}`}>
                       {event.type}
                     </Badge>
                     <Text variant="caption" className="text-textSecondary font-medium">{event.date}</Text>
                   </div>
-                  <Text variant="body" className="font-semibold text-textPrimary">{event.title}</Text>
+                  <Text variant="body" className="font-medium text-textPrimary">{event.title}</Text>
                 </div>
               ))}
             </div>
@@ -441,18 +454,18 @@ export function Watchlists() {
       {/* Create Watchlist Modal Overlay */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border w-full max-w-sm rounded-xl p-5 shadow-xl animate-in zoom-in-95 duration-150">
-            <h3 className="text-xs font-bold text-textPrimary uppercase tracking-wider mb-3">Create New Watchlist</h3>
+          <div className="bg-surface border border-border/40 w-full max-w-sm rounded-2xl p-6 shadow-lg animate-in zoom-in-95 duration-150">
+            <h3 className="text-xs font-medium text-textPrimary uppercase tracking-wider mb-3">Create New Watchlist</h3>
             <form onSubmit={handleCreateWatchlist} className="space-y-4">
               <div>
-                <Label htmlFor="wl-name" className="text-xs font-bold text-textSecondary uppercase tracking-wider">Watchlist Name</Label>
+                <Label htmlFor="wl-name" className="text-xs font-medium text-textSecondary uppercase tracking-wider">Watchlist Name</Label>
                 <Input
                   id="wl-name"
                   type="text"
                   placeholder="e.g. Core Portfolio"
                   value={newWatchlistName}
                   onChange={(e) => setNewWatchlistName(e.target.value)}
-                  className="mt-1.5 h-9 text-xs border-border bg-surfaceMuted font-semibold"
+                  className="mt-1.5 h-9 text-xs border-border bg-surfaceMuted font-medium"
                   autoFocus
                 />
               </div>
@@ -462,14 +475,14 @@ export function Watchlists() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="h-8 text-xs border-border text-textSecondary font-bold"
+                  className="h-8 text-xs border-border text-textSecondary font-medium"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="h-8 text-xs font-bold bg-accent hover:bg-accent/90 text-white shadow-none"
+                  className="h-8 text-xs font-medium bg-accent hover:bg-accent/90 text-white shadow-none"
                 >
                   Create
                 </Button>

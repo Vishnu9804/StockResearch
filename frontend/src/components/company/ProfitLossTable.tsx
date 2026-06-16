@@ -274,7 +274,7 @@ export function ProfitLossTable() {
           onClick={() => handleRowClick(row.label)}
           className={cn(
             'hover:bg-surfaceMuted transition-colors cursor-pointer select-none',
-            row.highlight ? 'bg-surfaceMuted font-bold' : '',
+            row.highlight ? 'bg-surfaceMuted font-medium' : '',
             depth > 0 ? 'bg-surface' : ''
           )}
         >
@@ -303,7 +303,7 @@ export function ProfitLossTable() {
               key={idx}
               className={cn(
                 'text-right font-mono text-xs tabular-nums text-slate-700',
-                row.highlight ? 'font-bold text-slate-950' : ''
+                row.highlight ? 'font-medium text-slate-950' : ''
               )}
             >
               {renderValue(val, row.isPercent)}
@@ -315,10 +315,10 @@ export function ProfitLossTable() {
           <TableRow className="bg-surfaceMuted/20 hover:bg-surfaceMuted/20">
             <TableCell colSpan={visibleValues.length + 1} className="p-0 border-t border-border/30">
               <div className="bg-surfaceMuted/45 border-y border-border/40 p-4 text-xs leading-relaxed text-textSecondary font-medium max-h-48 overflow-y-auto scrollbar-thin">
-                <div className="font-bold text-[10px] text-textMuted uppercase tracking-wider mb-1">
+                <div className="font-medium text-xs text-textMuted uppercase tracking-wider mb-1">
                   Footnotes / Notes to Accounts
                 </div>
-                <div className="whitespace-pre-line text-[11px]">
+                <div className="whitespace-pre-line text-xs">
                   {selectedRowNotes[row.label]}
                 </div>
               </div>
@@ -338,10 +338,10 @@ export function ProfitLossTable() {
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-surfaceMuted/50">
           <div>
-            <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+            <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
               Profit & Loss Statement
             </h3>
-            <p className="text-[11px] text-textMuted mt-0.5">
+            <p className="text-xs text-textMuted mt-0.5">
               {period === 'annual' ? 'Annual' : 'Quarterly'} {statementType === 's' ? 'Standalone' : 'Consolidated'} figures in ₹ Crores (except EPS)
             </p>
           </div>
@@ -351,7 +351,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => handleToggleStatementType('s')}
                 className={cn(
-                  'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   statementType === 's'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -362,7 +362,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => handleToggleStatementType('c')}
                 className={cn(
-                  'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   statementType === 'c'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -377,7 +377,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => handleTogglePeriod('annual')}
                 className={cn(
-                  'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   period === 'annual'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -388,7 +388,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => handleTogglePeriod('quarterly')}
                 className={cn(
-                  'px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   period === 'quarterly'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -403,7 +403,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => setViewMode('table')}
                 className={cn(
-                  'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'flex items-center gap-1 px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   viewMode === 'table'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -414,7 +414,7 @@ export function ProfitLossTable() {
               <button
                 onClick={() => setViewMode('chart')}
                 className={cn(
-                  'flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors',
+                  'flex items-center gap-1 px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
                   viewMode === 'chart'
                     ? 'bg-accent text-white'
                     : 'text-textSecondary hover:text-textPrimary'
@@ -427,7 +427,7 @@ export function ProfitLossTable() {
             {/* Export CSV button */}
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
               title="Export statement to CSV"
             >
               <FileSpreadsheet className="size-3 text-positive" /> Export
@@ -438,7 +438,7 @@ export function ProfitLossTable() {
         {financialsStatus === 'loading' ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3 bg-surface">
             <Loader2 className="size-8 text-accent animate-spin" />
-            <span className="text-xs text-textSecondary font-semibold">Loading statement data...</span>
+            <span className="text-xs text-textSecondary font-medium">Loading statement data...</span>
           </div>
         ) : financialsStatus === 'error' ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-3 bg-surface">
@@ -446,14 +446,14 @@ export function ProfitLossTable() {
               <AlertTriangle className="size-5" />
             </div>
             <div className="max-w-md">
-              <h4 className="text-xs font-bold text-textPrimary uppercase tracking-wide">Failed to Load Financials</h4>
-              <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">
+              <h4 className="text-xs font-medium text-textPrimary uppercase tracking-wide">Failed to Load Financials</h4>
+              <p className="text-xs text-textSecondary mt-1 leading-relaxed">
                 The requested P&L figures could not be loaded from FinEdge. Consolidated statements may be missing for this stock symbol, or a network problem occurred.
               </p>
             </div>
             <button
               onClick={() => dispatch(fetchCompanyFinancialsStart(symbol))}
-              className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase rounded-md shadow-sm transition-colors"
+              className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase rounded-md shadow-sm transition-colors"
             >
               Retry Loading
             </button>
@@ -464,10 +464,10 @@ export function ProfitLossTable() {
               <FileSpreadsheet className="size-5" />
             </div>
             <div className="max-w-md">
-              <h4 className="text-xs font-bold text-textPrimary uppercase tracking-wide">
+              <h4 className="text-xs font-medium text-textPrimary uppercase tracking-wide">
                 {statementType === 'c' ? 'Consolidated Statements Not Available' : 'No Financial Data Available'}
               </h4>
-              <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">
+              <p className="text-xs text-textSecondary mt-1 leading-relaxed">
                 {statementType === 'c' 
                   ? `Standalone figures are available, but this company does not publish consolidated financial statements.`
                   : `We couldn't retrieve financial statement figures for this stock symbol.`}
@@ -476,7 +476,7 @@ export function ProfitLossTable() {
             {statementType === 'c' && (
               <button
                 onClick={() => handleToggleStatementType('s')}
-                className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase rounded-md shadow-sm transition-colors"
+                className="h-8 px-4 bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase rounded-md shadow-sm transition-colors"
               >
                 Switch to Standalone
               </button>
@@ -487,13 +487,13 @@ export function ProfitLossTable() {
             <Table className="min-w-[1000px]">
               <TableHeader className="bg-surfaceMuted">
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-surfaceMuted text-[10px] font-bold uppercase tracking-wider text-textMuted z-10">
+                  <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
                     Year Ending
                   </TableHead>
                   {visibleYears.map((y: string) => (
                     <TableHead
                       key={y}
-                      className="text-right text-[10px] font-bold uppercase tracking-wider text-textMuted font-mono"
+                      className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
                     >
                       {y}
                     </TableHead>
@@ -511,14 +511,14 @@ export function ProfitLossTable() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
                   <XAxis
                     dataKey="year"
-                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
                     yAxisId="left"
                     orientation="left"
-                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
@@ -526,7 +526,7 @@ export function ProfitLossTable() {
                   <YAxis
                     yAxisId="right"
                     orientation="right"
-                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(v) => `₹${formatNumber(v, 0)}`}
@@ -545,7 +545,7 @@ export function ProfitLossTable() {
                       name,
                     ]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
                   <Bar yAxisId="left" name="Sales / Revenue" dataKey="Sales" fill="#2563eb" radius={[4, 4, 0, 0]} />
                   <Bar yAxisId="right" name="Net Profit" dataKey="Net Profit" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -560,10 +560,10 @@ export function ProfitLossTable() {
         <Card className="border-border shadow-none bg-surface">
           <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-surfaceMuted/50">
             <div>
-              <h3 className="text-sm font-bold text-textPrimary uppercase tracking-wide">
+              <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
                 Segment Revenue Contribution
               </h3>
-              <p className="text-[11px] text-textMuted mt-0.5">
+              <p className="text-xs text-textMuted mt-0.5">
                 Business division breakdowns in ₹ Crores (divided by 1e7)
               </p>
             </div>
@@ -571,7 +571,7 @@ export function ProfitLossTable() {
               <select
                 value={selectedSegmentYear}
                 onChange={(e) => setSelectedSegmentYear(e.target.value)}
-                className="bg-surface border border-border text-xs rounded-lg px-3 py-1.5 font-bold uppercase tracking-wider text-textSecondary focus:outline-none"
+                className="bg-surface border border-border text-xs rounded-lg px-3 py-1.5 font-medium uppercase tracking-wider text-textSecondary focus:outline-none"
               >
                 {segmentRevenues.map((s: any) => (
                   <option key={s.header} value={s.header}>
@@ -595,11 +595,11 @@ export function ProfitLossTable() {
                       margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis
                         dataKey="name"
                         type="category"
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize: 11 }}
                         width={150}
                         axisLine={false}
                         tickLine={false}
@@ -624,7 +624,7 @@ export function ProfitLossTable() {
                 {/* Table representation for perfect responsiveness */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left text-textSecondary">
-                    <thead className="bg-surfaceMuted uppercase text-[10px] font-bold text-textMuted tracking-wider border-b border-border">
+                    <thead className="bg-surfaceMuted uppercase text-xs font-medium text-textMuted tracking-wider border-b border-border">
                       <tr>
                         <th className="px-4 py-2">Segment Division</th>
                         <th className="px-4 py-2 text-right">Revenue (₹ Cr)</th>
@@ -642,12 +642,12 @@ export function ProfitLossTable() {
                                 className="size-2 rounded-full shrink-0"
                                 style={{ backgroundColor: getSegmentColor(seg.name, idx) }}
                               />
-                              <span className="font-bold text-textPrimary">{seg.name}</span>
+                              <span className="font-medium text-textPrimary">{seg.name}</span>
                             </td>
                             <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-700">
                               ₹{formatNumber(seg.value, 2)} Cr
                             </td>
-                            <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-900">
+                            <td className="px-4 py-3 text-right font-mono tabular-nums font-medium text-slate-900">
                               {formatNumber(pct, 1)}%
                             </td>
                           </tr>
@@ -668,16 +668,16 @@ export function ProfitLossTable() {
             <TrendingUp className="size-5" />
           </div>
           <div className="max-w-md">
-            <h4 className="text-xs font-bold text-textPrimary uppercase tracking-wide">
+            <h4 className="text-xs font-medium text-textPrimary uppercase tracking-wide">
               Unlock Full 15-Year Financial Statements
             </h4>
-            <p className="text-[11px] text-textSecondary mt-1 leading-relaxed">
+            <p className="text-xs text-textSecondary mt-1 leading-relaxed">
               You are currently viewing a limited 5-year snapshot. Upgrade to FinScreen Pro to unlock complete 15-year histories, CAGR calculators, and custom ratio builders.
             </p>
           </div>
           <a
             href="/pricing"
-            className="inline-flex h-8 items-center justify-center rounded-md bg-accent px-4 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-accent/90 transition-colors"
+            className="inline-flex h-8 items-center justify-center rounded-md bg-accent px-4 text-xs font-medium uppercase tracking-wider text-white shadow-sm hover:bg-accent/90 transition-colors"
           >
             Upgrade to Pro
           </a>
@@ -690,7 +690,7 @@ export function ProfitLossTable() {
           <Card key={item.title} className="border-border shadow-none">
             <div className="px-4 py-3 border-b border-border/50 bg-surfaceMuted/50 flex items-center gap-1.5">
               <TrendingUp className="size-3.5 text-accent" />
-              <span className="text-[11px] font-bold text-textPrimary uppercase tracking-wider">
+              <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">
                 {item.title}
               </span>
             </div>
@@ -705,10 +705,10 @@ export function ProfitLossTable() {
                         i % 2 === 1 ? 'bg-surfaceMuted/20' : ''
                       )}
                     >
-                      <td className="px-4 py-2.5 text-textSecondary font-semibold">
+                      <td className="px-4 py-2.5 text-textSecondary font-medium">
                         {stat.period}:
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-textPrimary">
+                      <td className="px-4 py-2.5 text-right font-mono font-medium text-textPrimary">
                         {stat.value}
                       </td>
                     </tr>
@@ -724,56 +724,56 @@ export function ProfitLossTable() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Growth (3-Year CAGR) */}
         <div className="bg-surface border border-border rounded-lg p-5 flex flex-col gap-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-textMuted">
+          <span className="text-xs font-medium uppercase tracking-widest text-textMuted">
             Growth (3-Year CAGR)
           </span>
           <div className="flex items-end gap-2">
-            <span className="text-3xl font-mono font-bold tabular-nums text-textPrimary leading-none">
+            <span className="text-3xl font-mono font-medium tabular-nums text-textPrimary leading-none">
               18.4%
             </span>
-            <span className="flex items-center gap-0.5 text-xs font-mono font-bold tabular-nums text-positive mb-0.5">
+            <span className="flex items-center gap-0.5 text-xs font-mono font-medium tabular-nums text-positive mb-0.5">
               <TrendingUp className="size-3.5" />
               +2.1%
             </span>
           </div>
-          <p className="text-[11px] text-textSecondary leading-relaxed">
+          <p className="text-xs text-textSecondary leading-relaxed">
             Revenue growth has outpaced industrial average of 14.2% since FY21.
           </p>
         </div>
 
         {/* Card 2: Operating Efficiency */}
         <div className="bg-surface border border-border rounded-lg p-5 flex flex-col gap-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-textMuted">
+          <span className="text-xs font-medium uppercase tracking-widest text-textMuted">
             Operating Efficiency
           </span>
           <div className="flex items-end gap-2">
-            <span className="text-3xl font-mono font-bold tabular-nums text-textPrimary leading-none">
+            <span className="text-3xl font-mono font-medium tabular-nums text-textPrimary leading-none">
               17.2%
             </span>
-            <span className="text-xs font-mono font-semibold tabular-nums text-textSecondary mb-0.5">
+            <span className="text-xs font-mono font-medium tabular-nums text-textSecondary mb-0.5">
               Margin
             </span>
           </div>
-          <p className="text-[11px] text-textSecondary leading-relaxed">
+          <p className="text-xs text-textSecondary leading-relaxed">
             Stable OPM indicates strong cost pass-through capabilities in retail segment.
           </p>
         </div>
 
         {/* Card 3: Net Margin Trend */}
         <div className="bg-surface border border-border rounded-lg p-5 flex flex-col gap-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-textMuted">
+          <span className="text-xs font-medium uppercase tracking-widest text-textMuted">
             Net Margin Trend
           </span>
           <div className="flex items-end gap-2">
-            <span className="text-3xl font-mono font-bold tabular-nums text-textPrimary leading-none">
+            <span className="text-3xl font-mono font-medium tabular-nums text-textPrimary leading-none">
               8.9%
             </span>
-            <span className="flex items-center gap-0.5 text-xs font-mono font-bold tabular-nums text-negative mb-0.5">
+            <span className="flex items-center gap-0.5 text-xs font-mono font-medium tabular-nums text-negative mb-0.5">
               <TrendingDown className="size-3.5" />
               -0.4%
             </span>
           </div>
-          <p className="text-[11px] text-textSecondary leading-relaxed">
+          <p className="text-xs text-textSecondary leading-relaxed">
             Slight compression due to higher interest outgo on 5G infrastructure debt.
           </p>
         </div>

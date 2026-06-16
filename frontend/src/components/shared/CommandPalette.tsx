@@ -148,7 +148,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     <X className="size-4" />
                   </motion.button>
                 )}
-                <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-surfaceMuted font-mono text-[10px] text-textMuted">
+                <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-surfaceMuted font-mono text-xs text-textMuted">
                   ESC
                 </kbd>
               </div>
@@ -163,7 +163,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   initial={prefersReduced ? false : 'initial'}
                   animate="animate"
                 >
-                  <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-textMuted bg-surfaceMuted/50 flex items-center gap-1.5">
+                  <div className="px-4 py-2 text-xs font-medium uppercase tracking-wider text-textMuted bg-surfaceMuted/50 flex items-center gap-1.5">
                     <Clock className="size-3" /> Recent Searches
                   </div>
                   {recentCompanies.map((company, i) => {
@@ -175,13 +175,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                             <Hash className="size-3.5 text-textMuted" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-textPrimary font-mono">{company.symbol}</p>
-                            <p className="text-[10px] text-textMuted truncate max-w-[300px]">{company.name}</p>
+                            <p className="text-xs font-medium text-textPrimary font-mono">{company.symbol}</p>
+                            <p className="text-xs text-textMuted truncate max-w-[300px]">{company.name}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xs font-mono font-semibold text-textPrimary">₹{company.price.toFixed(2)}</p>
-                          <p className={cn('text-[10px] font-mono font-medium', pos ? 'text-positive' : 'text-negative')}>
+                          <p className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</p>
+                          <p className={cn('text-xs font-mono font-medium', pos ? 'text-positive' : 'text-negative')}>
                             {pos ? '+' : ''}{company.changePct.toFixed(2)}%
                           </p>
                         </div>
@@ -200,7 +200,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   transition={{ duration: 0.2 }}
                 >
                   <Search className="size-8 text-textMuted mx-auto mb-3 opacity-40" />
-                  <p className="text-sm font-semibold text-textMuted">Type to search stocks or indices</p>
+                  <p className="text-sm font-medium text-textMuted">Type to search stocks or indices</p>
                   <p className="text-xs text-textMuted/60 mt-1">e.g. RELIANCE, TCS, NIFTY</p>
                 </motion.div>
               )}
@@ -212,7 +212,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   initial={prefersReduced ? false : 'initial'}
                   animate="animate"
                 >
-                  <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-textMuted bg-surfaceMuted/50">Indices</div>
+                  <div className="px-4 py-2 text-xs font-medium uppercase tracking-wider text-textMuted bg-surfaceMuted/50">Indices</div>
                   {matchingIndices.map((idx, i) => {
                     const pos = idx.changePct >= 0
                     return (
@@ -222,14 +222,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                             <TrendingUp className="size-3.5 text-accent" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-textPrimary">{idx.name}</p>
-                            <p className="text-[10px] text-textMuted">{idx.exchange} Index</p>
+                            <p className="text-xs font-medium text-textPrimary">{idx.name}</p>
+                            <p className="text-xs text-textMuted">{idx.exchange} Index</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex items-center gap-2">
                           <div>
-                            <p className="text-xs font-mono font-semibold text-textPrimary">{idx.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                            <p className={cn('text-[10px] font-mono font-medium', pos ? 'text-positive' : 'text-negative')}>
+                            <p className="text-xs font-mono font-medium text-textPrimary">{idx.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            <p className={cn('text-xs font-mono font-medium', pos ? 'text-positive' : 'text-negative')}>
                               {pos ? '+' : ''}{idx.changePct.toFixed(2)}%
                             </p>
                           </div>
@@ -248,7 +248,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   initial={prefersReduced ? false : 'initial'}
                   animate="animate"
                 >
-                  <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-textMuted bg-surfaceMuted/50">Stocks</div>
+                  <div className="px-4 py-2 text-xs font-medium uppercase tracking-wider text-textMuted bg-surfaceMuted/50">Stocks</div>
                   {matchingCompanies.map((company, i) => {
                     const pos = company.change >= 0
                     const absIdx = matchingIndices.length + i
@@ -256,17 +256,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <ResultRow key={company.symbol} isActive={absIdx === activeIdx} onClick={() => navigateTo(`/company/${company.symbol}`, company.symbol)}>
                         <div className="flex items-center gap-3">
                           <div className="size-8 rounded-lg bg-surfaceMuted border border-border flex items-center justify-center">
-                            <span className="text-[9px] font-bold text-textSecondary font-mono">{company.symbol.slice(0, 3)}</span>
+                            <span className="text-xs font-medium text-textSecondary font-mono">{company.symbol.slice(0, 3)}</span>
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-textPrimary font-mono">{company.symbol}</p>
-                            <p className="text-[10px] text-textMuted truncate max-w-[300px]">{company.name} · {company.sector}</p>
+                            <p className="text-xs font-medium text-textPrimary font-mono">{company.symbol}</p>
+                            <p className="text-xs text-textMuted truncate max-w-[300px]">{company.name} · {company.sector}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex items-center gap-2">
                           <div>
-                            <p className="text-xs font-mono font-semibold text-textPrimary">₹{company.price.toFixed(2)}</p>
-                            <p className={cn('text-[10px] font-mono font-medium flex items-center justify-end gap-0.5', pos ? 'text-positive' : 'text-negative')}>
+                            <p className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</p>
+                            <p className={cn('text-xs font-mono font-medium flex items-center justify-end gap-0.5', pos ? 'text-positive' : 'text-negative')}>
                               {pos ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
                               {pos ? '+' : ''}{company.changePct.toFixed(2)}%
                             </p>
@@ -286,17 +286,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   initial={prefersReduced ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <p className="text-sm font-semibold text-textMuted">No results for <span className="text-textPrimary font-bold">&quot;{query}&quot;</span></p>
+                  <p className="text-sm font-medium text-textMuted">No results for <span className="text-textPrimary font-medium">&quot;{query}&quot;</span></p>
                   <p className="text-xs text-textMuted/60 mt-1">Try a different symbol or company name</p>
                 </motion.div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="border-t border-border px-4 py-2 flex items-center gap-4 text-[10px] text-textMuted bg-surfaceMuted/30">
-              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-[9px] bg-surface">⇕</kbd> Navigate</span>
-              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-[9px] bg-surface">↵</kbd> Open</span>
-              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-[9px] bg-surface">ESC</kbd> Close</span>
+            <div className="border-t border-border px-4 py-2 flex items-center gap-4 text-xs text-textMuted bg-surfaceMuted/30">
+              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-xs bg-surface">⇕</kbd> Navigate</span>
+              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-xs bg-surface">↵</kbd> Open</span>
+              <span className="flex items-center gap-1"><kbd className="px-1 border border-border rounded text-xs bg-surface">ESC</kbd> Close</span>
               <span className="ml-auto font-medium">{totalResults > 0 ? `${totalResults} results` : ''}</span>
             </div>
           </motion.div>
