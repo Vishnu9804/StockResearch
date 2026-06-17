@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Building2, Globe, Users, Calendar, Fingerprint, ShieldCheck, AlertTriangle, ArrowLeft, Activity } from 'lucide-react'
+import { Building2, Globe, Users, Calendar, Fingerprint, ShieldCheck, AlertTriangle, ArrowLeft, Activity, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { fetchCompanyStart, resetCompany } from '@/store/slices/companySlice'
 import { upcomingEvents, corporateActions } from '@/lib/data/corporate-actions'
 import { cn } from '@/lib/utils'
+import { AppFooter } from '@/components/shared/AppFooter'
+import type { Company } from '@/lib/data/companies'
 
 // Lazy Load heavy/below-the-fold child components to maximize network & initial rendering performance
 const PriceChart = React.lazy(() =>
@@ -72,6 +74,73 @@ function SectionSkeleton() {
         <div className="h-10 bg-skeletonBase shimmer-skeleton rounded w-full"></div>
       </div>
     </div>
+  )
+}
+
+// ── Auto-derived Insights from company fundamentals ─────────────────────────
+function CompanyInsights({ company }: { company: Company }) {
+  const insights: { text: string; positive: boolean }[] = []
+
+  if (company.roe > 20) {
+    insights.push({ text: `Return on Equity (ROE) of ${company.roe.toFixed(1)}% is well above the sector benchmark of 15%, indicating strong capital efficiency.`, positive: true })
+  } else if (company.roe < 10) {
+    insights.push({ text: `Return on Equity (ROE) of ${company.roe.toFixed(1)}% is below 10%, suggesting the business may be underutilizing shareholder capital.`, positive: false })
+  }
+
+  if (company.roce > 20) {
+    insights.push({ text: `Capital allocation quality is high — ROCE stands at ${company.roce.toFixed(1)}%, comfortably above the cost of capital.`, positive: true })
+  }
+
+  if (company.debtToEquity < 0.3) {
+    insights.push({ text: `Virtually debt-free balance sheet (D/E ratio: ${company.debtToEquity.toFixed(2)}x). Financial risk is minimal.`, positive: true })
+  } else if (company.debtToEquity > 1.5) {
+    insights.push({ text: `Elevated leverage with D/E ratio of ${company.debtToEquity.toFixed(2)}x — monitor debt servicing ability closely.`, positive: false })
+  }
+
+  if (company.pe > 0 && company.pe < 20) {
+    insights.push({ text: `Stock appears attractively priced at ${company.pe.toFixed(1)}x earnings relative to its growth profile.`, positive: true })
+  } else if (company.pe > 50) {
+    insights.push({ text: `Premium valuation at ${company.pe.toFixed(1)}x P/E — price reflects high growth expectations; any earnings miss could be punished.`, positive: false })
+  }
+
+  if (company.promoterHolding > 60) {
+    insights.push({ text: `Strong promoter conviction — promoter holding at ${company.promoterHolding.toFixed(1)}% indicates high insider confidence in long-term prospects.`, positive: true })
+  } else if (company.promoterHolding < 25 && company.promoterHolding > 0) {
+    insights.push({ text: `Low promoter stake of ${company.promoterHolding.toFixed(1)}% — management skin-in-the-game is limited; monitor for further dilution.`, positive: false })
+  }
+
+  // Fallback
+  if (insights.length === 0) {
+    insights.push({ text: 'Company maintains a stable operating profile with consistent revenue contribution from its core business segments.', positive: true })
+    insights.push({ text: 'Long-term institutional investors (FII/DII) continue to hold positions, reflecting sustained confidence in management.', positive: true })
+  }
+
+  return (
+    <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
+      <CardHeader className="border-b border-border/40 flex flex-row items-center gap-2 py-3.5">
+        <Lightbulb className="size-4 text-accent" />
+        <CardTitle className="text-sm font-semibold text-textPrimary">Insights</CardTitle>
+        <Badge variant="outline" className="text-xs bg-accentSoft text-accent border-accent/20 ml-auto">Auto-generated</Badge>
+      </CardHeader>
+      <CardContent className="pt-4 pb-5">
+        <ul className="space-y-3">
+          {insights.slice(0, 5).map((ins, i) => (
+            <li key={i} className="flex items-start gap-3 text-xs text-textSecondary leading-relaxed font-medium">
+              <span className={cn(
+                'mt-1 shrink-0 size-4 rounded-full flex items-center justify-center',
+                ins.positive ? 'bg-positive-soft/60 text-positive' : 'bg-negative-soft/60 text-negative'
+              )}>
+                {ins.positive
+                  ? <TrendingUp className="size-2.5" />
+                  : <TrendingDown className="size-2.5" />
+                }
+              </span>
+              <span>{ins.text}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -204,11 +273,6 @@ export function CompanyDetail() {
                 </CardHeader>
                 <CardContent className="pt-4 leading-relaxed text-textSecondary text-xs font-medium">
                   <p>{company.description}</p>
-                  
-                  {/* Dynamic pros & cons nested under overview */}
-                  <div className="mt-6">
-                    <StrengthsLimitations company={company} />
-                  </div>
                 </CardContent>
               </Card>
 
@@ -360,6 +424,16 @@ export function CompanyDetail() {
           </ScrollReveal>
         </section>
 
+        {/* SECTION: Pros & Cons — promoted to own full-width band */}
+        <section id="pros-cons" className="scroll-mt-16">
+          <ScrollReveal>
+            <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 className="text-sm font-semibold text-textPrimary uppercase tracking-wider">Pros &amp; Cons</h2>
+            </div>
+            <StrengthsLimitations company={company} />
+          </ScrollReveal>
+        </section>
+
         {/* SECTION: Peer Comparison */}
         <section id="peers" className="scroll-mt-16">
           <ScrollReveal>
@@ -441,6 +515,13 @@ export function CompanyDetail() {
           </ScrollReveal>
         </section>
 
+        {/* SECTION: Insights — auto-derived from company metrics */}
+        <section id="insights" className="scroll-mt-16">
+          <ScrollReveal>
+            <CompanyInsights company={company} />
+          </ScrollReveal>
+        </section>
+
         {/* SECTION: Shareholding Pattern */}
         <section id="shareholding" className="scroll-mt-16">
           <ScrollReveal className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -471,6 +552,9 @@ export function CompanyDetail() {
           </ScrollReveal>
         </section>
       </div>
+
+      {/* Footer */}
+      <AppFooter />
     </div>
   )
 }

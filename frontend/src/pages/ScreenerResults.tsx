@@ -1,351 +1,325 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
-import { Bell, Columns3, Download, ChevronDown, SlidersHorizontal, Edit3 } from 'lucide-react'
+import { Bell, Columns3, Download, Edit3, Play, ChevronRight, Mail } from 'lucide-react'
 import { ScreenerResultsTable } from '@/components/screener/results-table'
 import { useAppSelector } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
-
-const SLIDER_CONFIG = {
-  pe: { min: 5, max: 55, init: 35.8, step: 0.1, label: 'P/E Ratio', display: (v: number) => `< ${v.toFixed(1)}x`, color: 'brand' },
-  pb: { min: 1, max: 12, init: 6.0, step: 0.1, label: 'P/B Ratio', display: (v: number) => `< ${v.toFixed(1)}x`, color: 'brand' },
-  roe: { min: 0, max: 50, init: 20.0, step: 0.1, label: 'Return on Equity (ROE)', display: (v: number) => `> ${v.toFixed(1)}%`, color: 'positive' },
-  roce: { min: 0, max: 50, init: 15.0, step: 0.1, label: 'Return on Capital (ROCE)', display: (v: number) => `> ${v.toFixed(1)}%`, color: 'positive' },
-  divYield: { min: 0, max: 6, init: 1.5, step: 0.1, label: 'Dividend Yield', display: (v: number) => `> ${v.toFixed(1)}%`, color: 'brand' },
-}
+import { AppFooter } from '@/components/shared/AppFooter'
 
 export function ScreenerResults() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const [peLimit, setPeLimit] = useState(SLIDER_CONFIG.pe.init)
-  const [pbLimit, setPbLimit] = useState(SLIDER_CONFIG.pb.init)
-  const [roeLimit, setRoeLimit] = useState(SLIDER_CONFIG.roe.init)
-  const [roceLimit, setRoceLimit] = useState(SLIDER_CONFIG.roce.init)
-  const [divYieldLimit, setDivYieldLimit] = useState(SLIDER_CONFIG.divYield.init)
+
+  const [query, setQuery] = useState(
+    `Market Cap > 500 AND
+ROE > 15 AND
+Debt to equity < 1 AND
+Profit Growth 3Y > 10`
+  )
+  const [onlyLatest, setOnlyLatest] = useState(false)
 
   return (
     <div className="min-h-screen bg-background font-sans select-none">
-      {/* ── Page Header Section ── */}
-      <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-border px-6 py-4">
-        <div className="max-w-[1400px] mx-auto w-full">
-          {/* Breadcrumb row */}
-          <div className="text-xs text-textMuted mb-1 flex items-center gap-1 select-none">
-            <Link to="/" className="hover:underline">Home</Link>
-            <span className="text-textMuted/60 font-normal">›</span>
-            <Link to="/screener" className="hover:underline">Screeners</Link>
-            <span className="text-textMuted/60 font-normal">›</span>
-            <span className="text-accent font-medium">High Growth Multi-Cap</span>
-          </div>
 
-          {/* Header Row */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }} className="w-full flex-wrap gap-4">
-            <div>
-              <h1 className="text-3xl font-semibold text-textPrimary tracking-tight">
-                Screener Results: <span className="text-accent">High Growth Multi-Cap</span>
-              </h1>
-              <p className="text-body font-normal text-textSecondary mt-1">
-                Showing <span className="text-accent font-medium">243 results</span> matching: P/E &lt; 15, ROE &gt; 20%
-              </p>
-            </div>
+      {/* ── Main content area ── */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px 0' }}>
 
-            {/* Header Buttons */}
-            <div style={{ display: 'flex', gap: '7px' }} className="flex-wrap items-center">
-              <button
-                style={{
-                  padding: 'var(--fs-space-xs) var(--fs-space-md)',
-                  border: 'var(--fs-border)',
-                  borderRadius: 'var(--fs-radius-sm)',
-                  background: 'var(--fs-surface)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                onClick={() => toast.success('Columns editing dialog opened')}
-                className="text-textSecondary hover:bg-surfaceMuted transition-colors text-sm font-medium"
-              >
-                <Columns3 className="size-4 text-textSecondary" />
-                Edit Columns
-              </button>
-              <button
-                style={{
-                  padding: 'var(--fs-space-xs) var(--fs-space-md)',
-                  border: 'var(--fs-border)',
-                  borderRadius: 'var(--fs-radius-sm)',
-                  background: 'var(--fs-surface)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                onClick={() => toast.success('✓ Exported to Excel')}
-                className="text-textSecondary hover:bg-surfaceMuted transition-colors text-sm font-medium"
-              >
-                <Download className="size-4 text-textSecondary" />
-                Export to Excel
-              </button>
-              <button
-                style={{
-                  padding: 'var(--fs-space-xs) var(--fs-space-md)',
-                  border: 'var(--fs-border)',
-                  borderRadius: 'var(--fs-radius-sm)',
-                  background: 'var(--fs-surface)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    toast.error('Please sign in to create alerts.')
-                    const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-                    navigate(`/login?redirect=${redirectPath}`)
-                  } else {
-                    toast.success('✓ Alert dialog opened (mock)')
-                  }
-                }}
-                className="text-textSecondary hover:bg-surfaceMuted transition-colors text-sm font-medium"
-              >
-                <Bell className="size-4 text-textSecondary" />
-                Create Alert
-              </button>
-              <Link
-                to="/screener"
-                style={{
-                  background: 'var(--fs-brand)',
-                  color: 'var(--fs-surface)',
-                  border: 'none',
-                  borderRadius: 'var(--fs-radius-sm)',
-                  padding: '7px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--fs-space-xs)',
-                }}
-                className="hover:bg-[var(--fs-brand)]/90 transition-colors shadow-sm select-none text-sm font-medium"
-              >
-                <Edit3 className="size-3.5" />
-                Edit Screen
-              </Link>
-            </div>
-          </div>
+        {/* Breadcrumb */}
+        <div style={{ fontSize: 'var(--fs-size-xs)', color: 'var(--fs-text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Link to="/" className="hover:underline hover:text-accent transition-colors">Home</Link>
+          <ChevronRight style={{ width: '13px', height: '13px', opacity: 0.5 }} />
+          <Link to="/screener" className="hover:underline hover:text-accent transition-colors">Screeners</Link>
+          <ChevronRight style={{ width: '13px', height: '13px', opacity: 0.5 }} />
+          <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>High Growth Multi-Cap</span>
         </div>
-      </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-[1400px] mx-auto px-6 py-6">
-        {/* ── TWO COLUMN MAIN LAYOUT ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '14px', alignItems: 'start' }} className="w-full">
-          {/* Left Column: Filter Panel */}
+        {/* ── Main Content Card (title + table) ── */}
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: '1px solid var(--fs-border-color)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            marginBottom: '20px',
+          }}
+        >
+          {/* Card Header — Title band */}
           <div
             style={{
-              background: 'var(--fs-surface)',
-              border: 'var(--fs-border)',
-              borderRadius: 'var(--fs-radius-md)',
-              padding: '16px',
-              position: 'sticky',
-              top: '90px',
+              padding: '20px 24px 16px',
+              borderBottom: '1px solid var(--fs-border-color)',
             }}
-            className="flex flex-col select-none shadow-sm"
           >
-            {/* Panel Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <span style={{ fontSize: 'var(--fs-size-sm)', letterSpacing: '0.06em', fontWeight: 'var(--fs-weight-medium)' }} className="text-textSecondary uppercase flex items-center gap-1.5">
-                <SlidersHorizontal className="size-3.5 text-[var(--fs-brand)]" /> FILTER CRITERIA
-              </span>
-              <span
-                style={{
-                  background: 'var(--fs-positive-soft)',
-                  color: '#27500A',
-                  fontSize: 'var(--fs-size-xs)',
-                  fontWeight: 'var(--fs-weight-medium)',
-                  padding: '2px 8px',
-                  borderRadius: 'var(--fs-radius-xl)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                }}
-              >
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--fs-positive)' }} />
-                Live
-              </span>
-            </div>
-
-            {/* Section 1: Valuation */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-textMuted uppercase tracking-wider">Valuation</span>
-                <ChevronDown className="size-3 text-textMuted" />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              {/* Left: Title + description + meta */}
+              <div style={{ flex: 1, minWidth: '280px' }}>
+                <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
+                  High Growth Multi-Cap
+                </h1>
+                <p style={{ fontSize: '13px', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.6 }}>
+                  Companies with high revenue growth, strong return ratios and low debt across market caps.
+                  Screens for consistent compounders with improving fundamentals.
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '8px 0 0' }}>
+                  by{' '}
+                  <span style={{ color: 'var(--fs-brand)', fontWeight: 500, cursor: 'default' }}>FinScreen Team</span>
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '4px 0 0' }}>
+                  <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>15 results found</span>
+                  {' · '}Showing page 1 of 2
+                </p>
               </div>
-              <div className="space-y-3.5 pl-1">
-                {/* PE Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-textPrimary font-medium">P/E Ratio</span>
-                    <span className="font-mono font-medium text-[var(--fs-brand)]">&lt; {peLimit.toFixed(1)}x</span>
-                  </div>
-                  <div style={{ position: 'relative', height: '14px', display: 'flex', alignItems: 'center' }} className="w-full">
-                    <div style={{ height: '4px', background: 'var(--fs-info-soft)', borderRadius: '2px', position: 'relative', width: '100%' }}>
-                      <div style={{ background: 'var(--fs-brand)', height: '4px', borderRadius: '2px', position: 'absolute', left: 0, width: `${(peLimit / 55) * 100}%` }} />
-                      <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--fs-brand)', border: '2px solid white', boxShadow: '0 0 0 1px var(--fs-brand)', position: 'absolute', top: '-5px', left: `calc(${(peLimit / 55) * 100}% - 7px)`, cursor: 'pointer', pointerEvents: 'none' }} />
-                    </div>
-                    <input
-                      type="range"
-                      min="5"
-                      max="55"
-                      step="0.1"
-                      value={peLimit}
-                      onChange={(e) => setPeLimit(parseFloat(e.target.value))}
-                      style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
 
-                {/* PB Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-textPrimary font-medium">P/B Ratio</span>
-                    <span className="font-mono font-medium text-[var(--fs-brand)]">&lt; {pbLimit.toFixed(1)}x</span>
-                  </div>
-                  <div style={{ position: 'relative', height: '14px', display: 'flex', alignItems: 'center' }} className="w-full">
-                    <div style={{ height: '4px', background: 'var(--fs-info-soft)', borderRadius: '2px', position: 'relative', width: '100%' }}>
-                      <div style={{ background: 'var(--fs-brand)', height: '4px', borderRadius: '2px', position: 'absolute', left: 0, width: `${(pbLimit / 12) * 100}%` }} />
-                      <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--fs-brand)', border: '2px solid white', boxShadow: '0 0 0 1px var(--fs-brand)', position: 'absolute', top: '-5px', left: `calc(${(pbLimit / 12) * 100}% - 7px)`, cursor: 'pointer', pointerEvents: 'none' }} />
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="12"
-                      step="0.1"
-                      value={pbLimit}
-                      onChange={(e) => setPbLimit(parseFloat(e.target.value))}
-                      style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+              {/* Right: Action buttons */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Edit Columns */}
+                <button
+                  onClick={() => toast.success('Columns editing dialog opened')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '7px 12px',
+                    border: '1px solid var(--fs-border-color)',
+                    borderRadius: '6px',
+                    background: 'var(--fs-surface)',
+                    fontSize: '12px', fontWeight: 500,
+                    color: 'var(--fs-text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                  className="hover:bg-surfaceMuted transition-colors"
+                >
+                  <Columns3 style={{ width: '13px', height: '13px' }} />
+                  Edit Columns
+                </button>
 
-            {/* Divider */}
-            <div style={{ borderTop: 'var(--fs-border)', margin: '12px 0' }} />
+                {/* Export */}
+                <button
+                  onClick={() => toast.success('✓ Exported to Excel')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '7px 12px',
+                    border: '1px solid var(--fs-border-color)',
+                    borderRadius: '6px',
+                    background: 'var(--fs-surface)',
+                    fontSize: '12px', fontWeight: 500,
+                    color: 'var(--fs-text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                  className="hover:bg-surfaceMuted transition-colors"
+                >
+                  <Download style={{ width: '13px', height: '13px' }} />
+                  Export
+                </button>
 
-            {/* Section 2: Profitability */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-textMuted uppercase tracking-wider">Profitability</span>
-                <ChevronDown className="size-3 text-textMuted" />
-              </div>
-              <div className="space-y-3.5 pl-1">
-                {/* ROE Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-textPrimary font-medium">Return on Equity (ROE)</span>
-                    <span className="font-mono font-medium text-[var(--fs-positive)]">&gt; {roeLimit.toFixed(1)}%</span>
-                  </div>
-                  <div style={{ position: 'relative', height: '14px', display: 'flex', alignItems: 'center' }} className="w-full">
-                    <div style={{ height: '4px', background: 'var(--fs-info-soft)', borderRadius: '2px', position: 'relative', width: '100%' }}>
-                      <div style={{ background: 'var(--fs-brand)', height: '4px', borderRadius: '2px', position: 'absolute', left: 0, width: `${(roeLimit / 50) * 100}%` }} />
-                      <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--fs-brand)', border: '2px solid white', boxShadow: '0 0 0 1px var(--fs-brand)', position: 'absolute', top: '-5px', left: `calc(${(roeLimit / 50) * 100}% - 7px)`, cursor: 'pointer', pointerEvents: 'none' }} />
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      step="0.1"
-                      value={roeLimit}
-                      onChange={(e) => setRoeLimit(parseFloat(e.target.value))}
-                      style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
+                {/* Edit Screen */}
+                <Link
+                  to="/screener"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '7px 12px',
+                    border: '1px solid var(--fs-border-color)',
+                    borderRadius: '6px',
+                    background: 'var(--fs-surface)',
+                    fontSize: '12px', fontWeight: 500,
+                    color: 'var(--fs-text-secondary)',
+                    textDecoration: 'none',
+                  }}
+                  className="hover:bg-surfaceMuted transition-colors"
+                >
+                  <Edit3 style={{ width: '13px', height: '13px' }} />
+                  Edit Screen
+                </Link>
 
-                {/* ROCE Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-textPrimary font-medium">Return on Capital (ROCE)</span>
-                    <span className="font-mono font-medium text-[var(--fs-positive)]">&gt; {roceLimit.toFixed(1)}%</span>
-                  </div>
-                  <div style={{ position: 'relative', height: '14px', display: 'flex', alignItems: 'center' }} className="w-full">
-                    <div style={{ height: '4px', background: 'var(--fs-info-soft)', borderRadius: '2px', position: 'relative', width: '100%' }}>
-                      <div style={{ background: 'var(--fs-brand)', height: '4px', borderRadius: '2px', position: 'absolute', left: 0, width: `${(roceLimit / 50) * 100}%` }} />
-                      <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--fs-brand)', border: '2px solid white', boxShadow: '0 0 0 1px var(--fs-brand)', position: 'absolute', top: '-5px', left: `calc(${(roceLimit / 50) * 100}% - 7px)`, cursor: 'pointer', pointerEvents: 'none' }} />
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      step="0.1"
-                      value={roceLimit}
-                      onChange={(e) => setRoceLimit(parseFloat(e.target.value))}
-                      style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
+                {/* Get Email Updates — primary CTA */}
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast.error('Please sign in to get email updates.')
+                      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
+                    } else {
+                      toast.success('✓ Email updates enabled for this screen')
+                    }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '7px 14px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    background: 'var(--fs-brand)',
+                    color: '#fff',
+                    fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer',
+                    letterSpacing: '0.01em',
+                  }}
+                  className="hover:opacity-90 transition-opacity shadow-sm"
+                >
+                  <Mail style={{ width: '13px', height: '13px' }} />
+                  Get Email Updates
+                </button>
               </div>
             </div>
-
-            {/* Divider */}
-            <div style={{ borderTop: 'var(--fs-border)', margin: '12px 0' }} />
-
-            {/* Section 3: Dividend & Yield */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-textMuted uppercase tracking-wider">Dividend & Yield</span>
-                <ChevronDown className="size-3 text-textMuted" />
-              </div>
-              <div className="space-y-3.5 pl-1">
-                {/* Dividend Yield Slider */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-textPrimary font-medium">Dividend Yield</span>
-                    <span className="font-mono font-medium text-[var(--fs-brand)]">&gt; {divYieldLimit.toFixed(1)}%</span>
-                  </div>
-                  <div style={{ position: 'relative', height: '14px', display: 'flex', alignItems: 'center' }} className="w-full">
-                    <div style={{ height: '4px', background: 'var(--fs-info-soft)', borderRadius: '2px', position: 'relative', width: '100%' }}>
-                      <div style={{ background: 'var(--fs-brand)', height: '4px', borderRadius: '2px', position: 'absolute', left: 0, width: `${(divYieldLimit / 6) * 100}%` }} />
-                      <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'var(--fs-brand)', border: '2px solid white', boxShadow: '0 0 0 1px var(--fs-brand)', position: 'absolute', top: '-5px', left: `calc(${(divYieldLimit / 6) * 100}% - 7px)`, cursor: 'pointer', pointerEvents: 'none' }} />
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="6"
-                      step="0.1"
-                      value={divYieldLimit}
-                      onChange={(e) => setDivYieldLimit(parseFloat(e.target.value))}
-                      style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Apply Button */}
-            <button
-              onClick={() => toast.success('Filters applied successfully!')}
-              style={{
-                width: '100%',
-                padding: '9px',
-                background: 'var(--fs-brand)',
-                color: 'var(--fs-surface)',
-                border: 'none',
-                borderRadius: 'var(--fs-radius-sm)',
-                fontSize: 'var(--fs-size-body)',
-                fontWeight: 'var(--fs-weight-medium)',
-                cursor: 'pointer',
-                letterSpacing: '0.03em',
-                marginTop: '16px',
-              }}
-              className="hover:bg-[var(--fs-brand)]/90 transition-colors"
-            >
-              Apply Filters
-            </button>
           </div>
 
-          {/* Right Column: Stat Cards + Filter Chips + Results Table */}
-          <div>
+          {/* Table area — ScreenerResultsTable handles: stat row, filter chips, data table, pagination */}
+          <div style={{ padding: '0' }}>
             <ScreenerResultsTable />
           </div>
         </div>
+
+        {/* ── Query & Helper Panel ── */}
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: '1px solid var(--fs-border-color)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{ padding: '20px 24px' }}>
+            {/* Section title */}
+            <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 4px' }}>
+              Search Query
+            </h2>
+            <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '0 0 16px' }}>
+              You can customize the query below:
+            </p>
+
+            {/* Two-column query layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '16px', alignItems: 'start' }}>
+              {/* Left: query editor */}
+              <div>
+                <label
+                  htmlFor="screener-query"
+                  style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--fs-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}
+                >
+                  Query
+                </label>
+                <textarea
+                  id="screener-query"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  rows={5}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    color: 'var(--fs-text-primary)',
+                    background: 'var(--fs-background)',
+                    border: '1px solid var(--fs-border-color)',
+                    borderRadius: '8px',
+                    resize: 'vertical',
+                    lineHeight: 1.7,
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--fs-brand)' }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--fs-border-color)' }}
+                  spellCheck={false}
+                />
+
+                {/* Checkbox */}
+                <label
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    marginTop: '10px',
+                    fontSize: '12px',
+                    color: 'var(--fs-text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={onlyLatest}
+                    onChange={(e) => setOnlyLatest(e.target.checked)}
+                    style={{ width: '13px', height: '13px', cursor: 'pointer', accentColor: 'var(--fs-brand)' }}
+                  />
+                  Only companies with Mar 2026 results
+                </label>
+
+                {/* Run Query button */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px' }}>
+                  <button
+                    onClick={() => toast.success('Query executed — results updated')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '7px',
+                      padding: '9px 20px',
+                      background: 'var(--fs-brand)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px', fontWeight: 600,
+                      cursor: 'pointer',
+                      letterSpacing: '0.02em',
+                    }}
+                    className="hover:opacity-90 transition-opacity"
+                  >
+                    <Play style={{ width: '13px', height: '13px', fill: '#fff' }} />
+                    RUN THIS QUERY
+                  </button>
+                  <button
+                    onClick={() => toast.success('Showing all available ratios')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--fs-text-secondary)',
+                      fontSize: '12px', fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                    className="hover:text-accent transition-colors"
+                  >
+                    ↗ SHOW ALL RATIOS
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Custom query example */}
+              <div
+                style={{
+                  background: 'var(--fs-background)',
+                  border: '1px solid var(--fs-border-color)',
+                  borderRadius: '8px',
+                  padding: '14px 16px',
+                }}
+              >
+                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 10px' }}>
+                  Custom query example
+                </p>
+                <pre
+                  style={{
+                    fontSize: '12px',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    color: 'var(--fs-text-secondary)',
+                    lineHeight: 1.8,
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+{`Market capitalization > 500 AND
+Price to earning < 15 AND
+Return on capital employed > 22%`}
+                </pre>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--fs-border-color)', margin: '12px 0' }} />
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); toast.success('Opening documentation') }}
+                  style={{ fontSize: '12px', color: 'var(--fs-brand)', fontWeight: 500, textDecoration: 'none' }}
+                  className="hover:underline"
+                >
+                  Detailed guide on creating screens →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* ── Footer ── */}
+      <AppFooter />
     </div>
   )
 }
