@@ -119,8 +119,8 @@ export const FinedgeService = {
       return activePromise
     }
 
-    // Determine if we have actual API keys configured
-    const keysSet = CONFIG.FINEDGE_API_KEYS.some((k) => k && k !== 'demo-key-1')
+    // Determine if we have actual API keys configured (reject any placeholder starting with 'demo-key')
+    const keysSet = CONFIG.FINEDGE_API_KEYS.some((k) => k && !k.startsWith('demo-key'))
 
     if (!keysSet) {
       // If no valid API key is set, immediately throw so proxy can fall back to seed database
@@ -174,11 +174,11 @@ export const FinedgeService = {
       }
 
       const response = await axios(axiosConfig)
-      
+
       // ─── Smart TTL Cache Strategy (Production-Grade) ──────────────────────────
       // Data is categorized by how frequently it changes in real markets
       const ep = endpoint.toLowerCase()
-      
+
       let ttl: number
 
       // Tier 1: Live market feeds — very short TTL (data changes every few seconds)
