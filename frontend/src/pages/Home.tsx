@@ -326,14 +326,14 @@ export function Home() {
 
       return {
         id: ann.id || Math.random().toString(),
-        symbol: ann.symbol,
-        name: ann.company_name || ann.company || ann.symbol,
+        symbol: ann.symbol || "",
+        name: ann.company_name || ann.company || ann.symbol || "Unknown Company",
         type,
         icon,
-        time: ann.date ? `${ann.date}` : "Today",
-        headline: ann.title || ann.summary || "",
+        time: ann.date ? `${ann.date}` : (ann.announcement_date ? `${ann.announcement_date.split(' ')[0]}` : "Today"),
+        headline: ann.title || ann.description || ann.summary || "Announcement",
         category,
-        summary: ann.summary || ""
+        summary: ann.summary || ann.description || ""
       }
     })
   }, [announcements])
@@ -819,20 +819,24 @@ export function Home() {
                       No results scheduled
                     </span>
                   ) : (
-                    day.items.map((item: string) => (
-                      <span 
-                        key={item}
-                        style={{ 
-                          padding: '2px 9px', 
-                          border: 'var(--fs-border)', 
-                          borderRadius: 'var(--fs-radius-xl)', 
-                          color: 'var(--fs-text-primary)' 
-                        }}
-                        className="text-sm font-medium bg-white"
-                      >
-                        {item}
-                      </span>
-                    ))
+                    day.items.map((item: any) => {
+                      const label = typeof item === 'string' ? item : (item.name || item.symbol || '')
+                      const itemKey = typeof item === 'string' ? item : (item.symbol || item.name || Math.random().toString())
+                      return (
+                        <span 
+                          key={itemKey}
+                          style={{ 
+                            padding: '2px 9px', 
+                            border: 'var(--fs-border)', 
+                            borderRadius: 'var(--fs-radius-xl)', 
+                            color: 'var(--fs-text-primary)' 
+                          }}
+                          className="text-sm font-medium bg-white"
+                        >
+                          {label}
+                        </span>
+                      )
+                    })
                   )}
                 </div>
               </div>

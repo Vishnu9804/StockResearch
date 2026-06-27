@@ -122,12 +122,12 @@ export function Feed() {
     if (liveAnnouncements.length > 0) {
       return liveAnnouncements.map((ann: any) => ({
         id: ann.id || Math.random().toString(),
-        company: ann.company_name || ann.company || ann.symbol,
-        symbol: ann.symbol,
-        date: ann.date || new Date().toISOString().split('T')[0],
+        company: ann.company_name || ann.company || ann.symbol || 'Unknown Company',
+        symbol: ann.symbol || '',
+        date: ann.date || (ann.announcement_date ? ann.announcement_date.split(' ')[0] : new Date().toISOString().split('T')[0]),
         category: ann.category || 'Other',
-        title: ann.title || ann.summary || '',
-        summary: ann.summary || ''
+        title: ann.title || ann.description || ann.summary || 'Announcement',
+        summary: ann.summary || ann.description || ''
       }))
     }
     return announcements
@@ -138,9 +138,9 @@ export function Feed() {
     return displayAnnouncements.filter((ann) => {
       const matchesCategory = activeCategory === 'All' || ann.category === activeCategory
       const matchesSearch =
-        ann.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ann.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ann.summary.toLowerCase().includes(searchQuery.toLowerCase())
+        (ann.company || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (ann.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (ann.summary || '').toLowerCase().includes(searchQuery.toLowerCase())
       return matchesCategory && matchesSearch
     })
   }, [displayAnnouncements, activeCategory, searchQuery])
@@ -421,11 +421,15 @@ export function Feed() {
                     </div>
                     <div className="flex flex-wrap gap-1.5 justify-end max-w-[180px]">
                       {day.items.length > 0 ? (
-                        day.items.map((item: string) => (
-                          <span key={item} className="bg-surfaceMuted text-textSecondary text-[11px] font-medium px-2 py-0.5 rounded border border-border/40">
-                            {item}
-                          </span>
-                        ))
+                        day.items.map((item: any) => {
+                          const label = typeof item === 'string' ? item : (item.name || item.symbol || '')
+                          const itemKey = typeof item === 'string' ? item : (item.symbol || item.name || Math.random().toString())
+                          return (
+                            <span key={itemKey} className="bg-surfaceMuted text-textSecondary text-[11px] font-medium px-2 py-0.5 rounded border border-border/40">
+                              {label}
+                            </span>
+                          )
+                        })
                       ) : (
                         <span className="text-xs text-textMuted italic">No major results</span>
                       )}

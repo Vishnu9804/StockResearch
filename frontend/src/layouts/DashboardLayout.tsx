@@ -6,7 +6,6 @@ import { Topbar } from '@/components/layout/Topbar'
 import { IndicesTicker } from '@/components/layout/IndicesTicker'
 import { NotificationCenter } from '@/components/layout/NotificationCenter'
 import { CommandPalette } from '@/components/shared/CommandPalette'
-import { CustomCursor } from '@/components/shared/CustomCursor'
 import { pageVariants } from '@/lib/motion'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 
@@ -37,9 +36,6 @@ export function DashboardLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background font-sans antialiased text-textPrimary">
-      {/* Custom cursor — desktop only, hidden on touch via CSS */}
-      <CustomCursor />
-
       {/* Sidebar */}
       <Sidebar />
 
