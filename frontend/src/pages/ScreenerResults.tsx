@@ -55,18 +55,18 @@ Profit Growth 3Y > 10`
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
               {/* Left: Title + description + meta */}
               <div style={{ flex: 1, minWidth: '280px' }}>
-                <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
+                <h1 style={{ fontSize: 'var(--fs-size-3xl)', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
                   High Growth Multi-Cap
                 </h1>
-                <p style={{ fontSize: '13px', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.6 }}>
+                <p style={{ fontSize: 'var(--fs-size-body)', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.6 }}>
                   Companies with high revenue growth, strong return ratios and low debt across market caps.
                   Screens for consistent compounders with improving fundamentals.
                 </p>
-                <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '8px 0 0' }}>
+                <p style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-text-muted)', margin: '8px 0 0' }}>
                   by{' '}
                   <span style={{ color: 'var(--fs-brand)', fontWeight: 500, cursor: 'default' }}>FinScreen Team</span>
                 </p>
-                <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '4px 0 0' }}>
+                <p style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-text-muted)', margin: '4px 0 0' }}>
                   <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>15 results found</span>
                   {' · '}Showing page 1 of 2
                 </p>
@@ -83,7 +83,7 @@ Profit Growth 3Y > 10`
                     border: '1px solid var(--fs-border-color)',
                     borderRadius: '6px',
                     background: 'var(--fs-surface)',
-                    fontSize: '12px', fontWeight: 500,
+                    fontSize: 'var(--fs-size-sm)', fontWeight: 500,
                     color: 'var(--fs-text-secondary)',
                     cursor: 'pointer',
                   }}
@@ -102,7 +102,7 @@ Profit Growth 3Y > 10`
                     border: '1px solid var(--fs-border-color)',
                     borderRadius: '6px',
                     background: 'var(--fs-surface)',
-                    fontSize: '12px', fontWeight: 500,
+                    fontSize: 'var(--fs-size-sm)', fontWeight: 500,
                     color: 'var(--fs-text-secondary)',
                     cursor: 'pointer',
                   }}
@@ -121,7 +121,7 @@ Profit Growth 3Y > 10`
                     border: '1px solid var(--fs-border-color)',
                     borderRadius: '6px',
                     background: 'var(--fs-surface)',
-                    fontSize: '12px', fontWeight: 500,
+                    fontSize: 'var(--fs-size-sm)', fontWeight: 500,
                     color: 'var(--fs-text-secondary)',
                     textDecoration: 'none',
                   }}
@@ -148,7 +148,7 @@ Profit Growth 3Y > 10`
                     borderRadius: '6px',
                     background: 'var(--fs-brand)',
                     color: '#fff',
-                    fontSize: '12px', fontWeight: 600,
+                    fontSize: 'var(--fs-size-sm)', fontWeight: 600,
                     cursor: 'pointer',
                     letterSpacing: '0.01em',
                   }}
@@ -180,10 +180,10 @@ Profit Growth 3Y > 10`
         >
           <div style={{ padding: '20px 24px' }}>
             {/* Section title */}
-            <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 4px' }}>
+            <h2 style={{ fontSize: 'var(--fs-size-lg)', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 4px' }}>
               Search Query
             </h2>
-            <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '0 0 16px' }}>
+            <p style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-text-secondary)', margin: '0 0 16px' }}>
               You can customize the query below:
             </p>
 
@@ -193,7 +193,7 @@ Profit Growth 3Y > 10`
               <div>
                 <label
                   htmlFor="screener-query"
-                  style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--fs-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}
+                  style={{ display: 'block', fontSize: 'var(--fs-size-xs)', fontWeight: 600, color: 'var(--fs-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}
                 >
                   Query
                 </label>
@@ -206,7 +206,7 @@ Profit Growth 3Y > 10`
                     width: '100%',
                     boxSizing: 'border-box',
                     padding: '12px 14px',
-                    fontSize: '13px',
+                    fontSize: 'var(--fs-size-body)',
                     fontFamily: 'var(--font-mono, monospace)',
                     color: 'var(--fs-text-primary)',
                     background: 'var(--fs-background)',
@@ -226,7 +226,7 @@ Profit Growth 3Y > 10`
                   style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     marginTop: '10px',
-                    fontSize: '12px',
+                    fontSize: 'var(--fs-size-sm)',
                     color: 'var(--fs-text-secondary)',
                     cursor: 'pointer',
                   }}
@@ -251,7 +251,7 @@ Profit Growth 3Y > 10`
                       color: '#fff',
                       border: 'none',
                       borderRadius: '6px',
-                      fontSize: '13px', fontWeight: 600,
+                      fontSize: 'var(--fs-size-body)', fontWeight: 600,
                       cursor: 'pointer',
                       letterSpacing: '0.02em',
                     }}
@@ -267,7 +267,7 @@ Profit Growth 3Y > 10`
                       background: 'none',
                       border: 'none',
                       color: 'var(--fs-text-secondary)',
-                      fontSize: '12px', fontWeight: 500,
+                      fontSize: 'var(--fs-size-sm)', fontWeight: 500,
                       cursor: 'pointer',
                     }}
                     className="hover:text-accent transition-colors"
@@ -286,12 +286,12 @@ Profit Growth 3Y > 10`
                   padding: '14px 16px',
                 }}
               >
-                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 10px' }}>
+                <p style={{ fontSize: 'var(--fs-size-body)', fontWeight: 600, color: 'var(--fs-text-primary)', margin: '0 0 10px' }}>
                   Custom query example
                 </p>
                 <pre
                   style={{
-                    fontSize: '12px',
+                    fontSize: 'var(--fs-size-sm)',
                     fontFamily: 'var(--font-mono, monospace)',
                     color: 'var(--fs-text-secondary)',
                     lineHeight: 1.8,
@@ -307,7 +307,7 @@ Return on capital employed > 22%`}
                 <a
                   href="#"
                   onClick={(e) => { e.preventDefault(); toast.success('Opening documentation') }}
-                  style={{ fontSize: '12px', color: 'var(--fs-brand)', fontWeight: 500, textDecoration: 'none' }}
+                  style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-brand)', fontWeight: 500, textDecoration: 'none' }}
                   className="hover:underline"
                 >
                   Detailed guide on creating screens →

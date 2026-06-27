@@ -1,434 +1,283 @@
-import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Clock,
-  ArrowRight,
-  Search,
-  Plus,
-  Flame,
-  SlidersHorizontal,
-  BarChart2,
-  TrendingUp,
-  Rocket,
-  Activity,
-  Star,
-  Scale,
-  Users,
-  LayoutGrid
-} from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { SCREENER_TEMPLATES, type ScreenerTemplate } from '@/lib/data/screener'
-import { cn } from '@/lib/utils'
+import { AppFooter } from '@/components/shared/AppFooter'
 
-const CATEGORIES = ['All', 'Valuation', 'Profitability', 'Growth', 'Technical', 'Dividends', 'Debt & Liquidity', 'Shareholding'] as const
-type Category = typeof CATEGORIES[number]
+// ─── Sector list (inspired by screener.in's Browse Sectors panel) ──────────────
+const BROWSE_SECTORS = [
+  'Aerospace & Defense', 'Agricultural Food & other Products',
+  'Auto Components', 'Automobiles', 'Banks', 'Beverages', 'Capital Markets',
+  'Cement & Cement Products', 'Chemicals & Petrochemicals',
+  'Cigarettes & Tobacco Products', 'Commercial Services & Supplies',
+  'Construction', 'Consumable Fuels', 'Consumer Durables', 'Diversified',
+  'Diversified FMCG', 'Diversified Metals', 'Electrical Equipment',
+  'Engineering Services', 'Entertainment', 'Ferrous Metals',
+  'Fertilizers & Agrochemicals', 'Finance', 'Financial Technology (Fintech)',
+  'Food Products', 'Gas', 'Healthcare Equipment & Supplies',
+  'Healthcare Services', 'Household Products', 'Industrial Manufacturing',
+  'Industrial Products', 'Insurance', 'IT - Hardware', 'IT - Services',
+  'IT - Software', 'Leisure Services', 'Media',
+  'Metals & Minerals Trading', 'Minerals & Mining', 'Non - Ferrous Metals',
+  'Oil', 'Other Construction Materials', 'Other Consumer Services',
+  'Other Utilities', 'Paper, Forest & Jute Products', 'Personal Products',
+  'Petroleum Products', 'Pharmaceuticals & Biotechnology',
+  'Printing & Publication', 'Realty', 'Retailing',
+  'Telecom - Equipment & Accessories', 'Telecom - Services',
+  'Textiles & Apparels', 'Transport Infrastructure', 'Transport Services',
+]
 
-const CATEGORY_ICONS: Record<Category, React.ElementType> = {
-  All: SlidersHorizontal,
-  Valuation: BarChart2,
-  Profitability: TrendingUp,
-  Growth: Rocket,
-  Technical: Activity,
-  Dividends: Star,
-  'Debt & Liquidity': Scale,
-  Shareholding: Users,
+// ─── Category panel definitions ───────────────────────────────────────────────
+interface PanelDef {
+  title: string
+  subtitle: string
+  categoryFilter: string[]
+  ids?: string[]
 }
 
-const CATEGORY_COLOR_TINTS: Record<string, { bg: string; text: string }> = {
-  'Debt & Liquidity': { bg: 'var(--fs-info-soft)', text: 'var(--fs-info)' },
-  'Dividends': { bg: 'var(--fs-positive-soft)', text: '#27500A' },
-  'Technical': { bg: '#EEEDFE', text: '#3C3489' },
-  'Valuation': { bg: '#E1F5EE', text: '#085041' },
-  'Management Quality': { bg: 'var(--fs-warning-soft)', text: 'var(--fs-warning)' },
-  'Shareholding': { bg: '#FBEAF0', text: '#72243E' },
-  'Growth': { bg: 'var(--fs-negative-soft)', text: '#791F1F' },
-  'Profitability': { bg: '#F1EFE8', text: '#444441' },
-}
+const PANELS: PanelDef[] = [
+  {
+    title: 'Popular themes',
+    subtitle: 'Popular investing themes',
+    categoryFilter: [],
+    ids: ['debt-free', 'low-pe-growth', 'magic-formula', 'high-dividend', 'small-cap-growth', 'turnaround'],
+  },
+  {
+    title: 'Popular formulas',
+    subtitle: 'Screening formulas based on books',
+    categoryFilter: [],
+    ids: ['magic-formula', 'consistent-compounders', 'high-roe-low-debt'],
+  },
+  {
+    title: 'Price or Volume',
+    subtitle: 'Screens based on price or volume action',
+    categoryFilter: ['Technical'],
+  },
+  {
+    title: 'Quarterly results',
+    subtitle: 'Screens around latest quarterly results',
+    categoryFilter: [],
+    ids: ['turnaround', 'small-cap-growth'],
+  },
+  {
+    title: 'Valuation Screens',
+    subtitle: 'Screens based on stock valuations',
+    categoryFilter: ['Valuation'],
+  },
+  {
+    title: 'Shareholding patterns',
+    subtitle: 'Screens based on institutional and promoter activity',
+    categoryFilter: ['Shareholding'],
+  },
+  {
+    title: 'Popular stock screens',
+    subtitle: 'Popular screens commonly used by investors',
+    categoryFilter: [],
+    ids: ['high-dividend', 'golden-crossover', 'magic-formula', 'low-pe-growth', 'debt-free', '52w-highs'],
+  },
+]
 
-function FeaturedScreenCard({ screen }: { screen: ScreenerTemplate }) {
-  const isHighlighted = screen.id === 'high-dividend'
-  const colors = CATEGORY_COLOR_TINTS[screen.category] || { bg: '#e5e7eb', text: 'var(--fs-text-primary)' }
-
+// ─── Screen tile ──────────────────────────────────────────────────────────────
+function ScreenTile({ screen }: { screen: ScreenerTemplate }) {
   return (
     <Link
       to="/screener/results"
-      className="group flex flex-col justify-between transition-all duration-200"
       style={{
-        borderRadius: 'var(--fs-radius-md)',
-        border: isHighlighted ? '1.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
-        padding: '20px',
-        background: isHighlighted ? '#f0f6ff' : 'var(--fs-surface)',
-        cursor: 'pointer',
-        height: '100%',
-        minHeight: '190px',
-        boxShadow: isHighlighted ? '0 2px 8px rgba(26, 86, 219, 0.08)' : 'none',
+        display: 'block',
+        padding: '12px 14px',
+        border: '1px solid var(--fs-border-color)',
+        borderRadius: '8px',
+        background: 'var(--fs-surface)',
+        textDecoration: 'none',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
       onMouseEnter={(e) => {
-        if (!isHighlighted) {
-          e.currentTarget.style.borderColor = 'rgba(0,0,0,0.22)'
-        }
+        ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--fs-brand)'
+        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 1px 6px rgba(0,0,0,0.08)'
       }}
       onMouseLeave={(e) => {
-        if (!isHighlighted) {
-          e.currentTarget.style.borderColor = 'var(--fs-border-color)'
-        }
+        ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--fs-border-color)'
+        ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
       }}
     >
-      <div>
-        {/* Row 1 (category + popular badge row) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)', marginBottom: '12px' }} className="w-full">
-          <span
-            style={{
-              borderRadius: 'var(--fs-radius-xl)',
-              background: colors.bg,
-              color: colors.text,
-            }}
-            className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 leading-none"
-          >
-            {screen.category}
-          </span>
-          <span
-            style={{
-              borderRadius: 'var(--fs-radius-xl)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '3px',
-            }}
-            className="bg-warning-soft text-warning text-xs font-medium px-2 py-0.5 leading-none"
-          >
-            <Star className="size-2.5 text-[var(--fs-warning)] fill-[var(--fs-warning)]" />
-            Popular
-          </span>
-          {isHighlighted && (
-            <ArrowRight className="size-4 text-[var(--fs-brand)] ml-auto shrink-0 transition-transform group-hover:translate-x-1" />
-          )}
-        </div>
-
-        {/* Row 2 (title) */}
-        <h3
-          style={{
-            marginBottom: '5px'
-          }}
-          className={cn(
-            "text-lg font-semibold leading-snug",
-            isHighlighted ? "text-accent" : "text-textPrimary"
-          )}
-        >
-          {screen.name}
-        </h3>
-
-        {/* Row 3 (description) */}
-        <p
-          style={{
-            marginBottom: '16px',
-          }}
-          className="text-body font-normal text-textSecondary leading-normal"
-        >
-          {screen.description}
-        </p>
-      </div>
-
-      {/* Row 4 (footer) */}
-      <div className="mt-auto w-full flex items-center justify-between">
-        <span className="text-accent text-sm font-normal">
-          {screen.matchCount} stocks matched
-        </span>
-        <div className="text-textMuted text-sm font-normal flex items-center gap-1">
-          <Clock className="size-3" /> Recently run
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-brand)', margin: 0, lineHeight: 1.3 }}>
+            {screen.name}
+            <ArrowRight style={{ display: 'inline', width: '12px', height: '12px', marginLeft: '3px', verticalAlign: 'middle', opacity: 0.6 }} />
+          </p>
+          <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '3px 0 0', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            {screen.description}
+          </p>
         </div>
       </div>
     </Link>
   )
 }
 
-function BrowseScreenCard({ screen }: { screen: ScreenerTemplate }) {
-  const isHighlighted = screen.id === 'high-dividend' || screen.id === 'promoter-buying'
-  const colors = CATEGORY_COLOR_TINTS[screen.category] || { bg: '#e5e7eb', text: 'var(--fs-text-primary)' }
+// ─── Category panel ───────────────────────────────────────────────────────────
+function CategoryPanel({ panel }: { panel: PanelDef }) {
+  let screens: ScreenerTemplate[] = []
+
+  if (panel.ids && panel.ids.length > 0) {
+    screens = panel.ids
+      .map((id) => SCREENER_TEMPLATES.find((t) => t.id === id))
+      .filter(Boolean) as ScreenerTemplate[]
+  } else if (panel.categoryFilter.length > 0) {
+    screens = SCREENER_TEMPLATES.filter((t) => panel.categoryFilter.includes(t.category))
+  }
+
+  if (screens.length === 0) return null
 
   return (
-    <Link
-      to="/screener/results"
-      className="group flex flex-col justify-between transition-all duration-200"
+    <div
       style={{
-        borderRadius: 'var(--fs-radius-md)',
-        border: isHighlighted ? '1.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
-        padding: 'var(--fs-space-lg) var(--fs-space-lg) var(--fs-space-md)',
-        background: isHighlighted ? '#f0f6ff' : 'var(--fs-surface)',
-        cursor: 'pointer',
-        height: '100%',
-        minHeight: '180px',
-        boxShadow: isHighlighted ? '0 2px 8px rgba(26, 86, 219, 0.08)' : 'none',
-      }}
-      onMouseEnter={(e) => {
-        if (!isHighlighted) {
-          e.currentTarget.style.borderColor = 'rgba(0,0,0,0.22)'
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isHighlighted) {
-          e.currentTarget.style.borderColor = 'var(--fs-border-color)'
-        }
+        background: 'var(--fs-surface)',
+        border: '1px solid var(--fs-border-color)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        marginBottom: '16px',
       }}
     >
-      <div>
-        {/* Row 1 (category pills row) */}
-        <div style={{ display: 'flex', gap: '5px', marginBottom: '10px', flexWrap: 'wrap' }} className="w-full">
-          <span
-            style={{
-              borderRadius: 'var(--fs-radius-xl)',
-              background: colors.bg,
-              color: colors.text,
-            }}
-            className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 leading-none"
-          >
-            {screen.category}
-          </span>
-          {screen.popular && (
-            <span
-              style={{
-                borderRadius: 'var(--fs-radius-xl)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-              }}
-              className="bg-warning-soft text-warning text-xs font-medium px-2 py-0.5 leading-none"
-            >
-              <Star className="size-2.5 text-[var(--fs-warning)] fill-[var(--fs-warning)]" />
-              Popular
-            </span>
-          )}
-        </div>
-
-        {/* Row 2 (title) */}
-        <h3
-          style={{
-            marginBottom: '5px'
-          }}
-          className={cn(
-            "text-lg font-semibold leading-snug",
-            isHighlighted ? "text-accent" : "text-textPrimary"
-          )}
-        >
-          {screen.name}
-        </h3>
-
-        {/* Row 3 (description) */}
-        <p
-          style={{
-            marginBottom: '14px',
-          }}
-          className="text-body font-normal text-textSecondary leading-normal line-clamp-2"
-        >
-          {screen.description}
+      {/* Panel header */}
+      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--fs-border-color)' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>
+          {panel.title}
+        </h2>
+        <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '2px 0 0' }}>
+          {panel.subtitle}
         </p>
       </div>
 
-      {/* Row 4 (footer) */}
+      {/* Tile grid */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderTop: 'var(--fs-border)',
-          paddingTop: '10px',
-          marginTop: 'auto'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '10px',
+          padding: '14px 16px',
         }}
-        className="w-full"
       >
-        <span className="text-accent text-sm font-normal">
-          {screen.matchCount} stocks matched
-        </span>
-        <div className="text-textMuted text-sm font-normal flex items-center gap-1">
-          <Clock className="size-3" /> Recently run
-        </div>
+        {screens.slice(0, 6).map((screen) => (
+          <ScreenTile key={screen.id} screen={screen} />
+        ))}
       </div>
-    </Link>
+    </div>
   )
 }
 
-export function ScreenGallery() {
-  const [activeCategory, setActiveCategory] = useState<Category>('All')
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const filtered = useMemo(() => {
-    let list = SCREENER_TEMPLATES
-    if (activeCategory !== 'All') {
-      list = list.filter((s) => s.category === activeCategory || s.category.includes(activeCategory.replace(' & ', ' ')))
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q) ||
-          s.query.toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [activeCategory, searchQuery])
-
-  const popular = useMemo(() => SCREENER_TEMPLATES.filter((s) => s.popular), [])
-
+// ─── Browse Sectors panel ─────────────────────────────────────────────────────
+function BrowseSectors() {
   return (
-    <div className="min-h-screen bg-background font-sans">
-      {/* ── Page Header ── */}
-      <div className="sticky top-0 z-20 bg-surface/95 backdrop-blur-sm border-b border-border px-6 py-5">
-        <div
-          className="max-w-[1400px] mx-auto w-full"
-          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}
-        >
-          <div>
-            <div className="text-sm text-textMuted mb-1 flex items-center gap-1 select-none">
-              <Link to="/" className="hover:underline">Home</Link>
-              <span className="text-textMuted/60 font-normal">›</span>
-              <span className="text-textSecondary">Screen Gallery</span>
-            </div>
-            <h1 className="text-3xl font-semibold text-textPrimary tracking-tight">
-              Screen Gallery
-            </h1>
-            <p className="text-body font-normal text-textSecondary mt-1">
-              {SCREENER_TEMPLATES.length} pre-built screeners crafted by expert analysts · click any to view results
-            </p>
-          </div>
+    <div
+      style={{
+        background: 'var(--fs-surface)',
+        border: '1px solid var(--fs-border-color)',
+        borderRadius: '10px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        overflow: 'hidden',
+        position: 'sticky',
+        top: '20px',
+      }}
+    >
+      <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--fs-border-color)' }}>
+        <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Browse sectors
+        </h3>
+      </div>
+      <div style={{ padding: '10px 12px 14px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+        {BROWSE_SECTORS.map((sector) => (
+          <Link
+            key={sector}
+            to="/screener/results"
+            style={{
+              fontSize: '11px',
+              color: 'var(--fs-brand)',
+              textDecoration: 'none',
+              padding: '2px 0',
+              lineHeight: 1.7,
+            }}
+            className="hover:underline"
+          >
+            {sector}
+            {sector !== BROWSE_SECTORS[BROWSE_SECTORS.length - 1] && (
+              <span style={{ color: 'var(--fs-border-color)', marginLeft: '4px' }}>·</span>
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+export function ScreenGallery() {
+  return (
+    <div className="min-h-screen bg-background font-sans select-none">
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px 0' }}>
+
+        {/* Page header row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>
+            Stock screens
+          </h1>
           <Link
             to="/screener"
             style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px',
               background: 'var(--fs-brand)',
-              color: 'var(--fs-surface)',
+              color: '#fff',
               border: 'none',
-              borderRadius: 'var(--fs-radius-sm)',
-              padding: 'var(--fs-space-sm) var(--fs-space-lg)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--fs-space-xs)'
+              borderRadius: '7px',
+              fontSize: '12px', fontWeight: 600,
+              textDecoration: 'none',
+              letterSpacing: '0.02em',
             }}
-            className="hover:bg-[var(--fs-brand)]/90 transition-colors shadow-sm select-none shrink-0 text-sm font-medium"
+            className="hover:opacity-90 transition-opacity shadow-sm"
           >
-            <Plus className="size-3.5" /> Build Custom Screen
+            <Plus style={{ width: '13px', height: '13px' }} />
+            CREATE NEW SCREEN
           </Link>
+        </div>
+
+        {/* Main 2-column layout: panels left, sectors right */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px', alignItems: 'start' }}>
+
+          {/* Left: Stacked category panels */}
+          <div>
+            {PANELS.map((panel) => (
+              <CategoryPanel key={panel.title} panel={panel} />
+            ))}
+
+            {/* Show all screens CTA */}
+            <div style={{ textAlign: 'center', margin: '8px 0 32px' }}>
+              <Link
+                to="/screener"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '9px 22px',
+                  border: '1px solid var(--fs-border-color)',
+                  borderRadius: '8px',
+                  background: 'var(--fs-surface)',
+                  color: 'var(--fs-text-primary)',
+                  fontSize: '13px', fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+                className="hover:border-accent hover:text-accent transition-colors"
+              >
+                SHOW ALL SCREENS
+                <ArrowRight style={{ width: '14px', height: '14px' }} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Right: Browse sectors */}
+          <BrowseSectors />
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 py-10 space-y-12">
-        {/* ── SECTION 1 — POPULAR SCREENS (Featured Row) ── */}
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)', marginBottom: '14px' }}>
-            <Flame className="size-4 text-[#BA7517] fill-[#BA7517]/20" />
-            <h2 className="text-xl font-semibold text-textPrimary tracking-tight">
-              Popular Screens
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-[14px] mb-[32px]">
-            {popular.slice(0, 3).map((screen) => (
-              <FeaturedScreenCard key={screen.id} screen={screen} />
-            ))}
-          </div>
-        </section>
-
-        {/* Separator / Differentiator */}
-        <hr className="border-border/40" />
-
-        {/* ── SECTION 2 — BROWSE ALL SCREENS ── */}
-        <section>
-          {/* Browse Header Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }} className="w-full flex-wrap gap-4">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fs-space-xs)' }}>
-              <LayoutGrid className="size-4 text-textSecondary" />
-              <h2 className="text-xl font-semibold text-textPrimary tracking-tight">
-                Browse All Screens
-              </h2>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '7px',
-                background: 'var(--fs-surface-muted)',
-                borderRadius: 'var(--fs-radius-sm)',
-                padding: 'var(--fs-space-xs) var(--fs-space-md)',
-                border: 'var(--fs-border)',
-                width: '100%',
-                maxWidth: '280px'
-              }}
-              className="text-sm"
-            >
-              <Search className="size-3.5 text-textMuted shrink-0" />
-              <input
-                type="text"
-                placeholder="Search screens…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'var(--fs-text-primary)',
-                  width: '100%',
-                  padding: 0,
-                }}
-                className="placeholder:text-textMuted text-body font-normal"
-              />
-            </div>
-          </div>
-
-          {/* Filter tab bar */}
-          <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', flexWrap: 'wrap', marginBottom: '18px' }} className="w-full select-none">
-            {CATEGORIES.map((cat) => {
-              const Icon = CATEGORY_ICONS[cat]
-              const isActive = activeCategory === cat
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  style={{
-                    padding: '6px 13px',
-                    borderRadius: 'var(--fs-radius-xl)',
-                    border: isActive ? '0.5px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
-                    background: isActive ? 'var(--fs-brand)' : 'var(--fs-surface)',
-                    color: isActive ? 'var(--fs-surface)' : 'var(--fs-text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                  }}
-                  className="transition-colors hover:bg-surfaceMuted text-sm font-medium"
-                >
-                  <Icon className="size-3.5" />
-                  {cat}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Results grid */}
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <LayoutGrid className="size-10 text-textMuted mb-3" />
-              <h3 className="text-sm font-medium text-textPrimary">No screens found</h3>
-              <p className="text-xs text-textMuted mt-1">Try a different category or search term</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-[14px]">
-              {filtered.map((screen) => (
-                <BrowseScreenCard key={screen.id} screen={screen} />
-              ))}
-            </div>
-          )}
-
-          {/* Footer */}
-          <div
-            style={{
-              textAlign: 'center',
-              marginTop: '20px',
-              paddingTop: '16px',
-              borderTop: 'var(--fs-border)'
-            }}
-            className="text-textMuted text-sm font-normal select-none"
-          >
-            Showing {filtered.length} of {SCREENER_TEMPLATES.length} screens
-          </div>
-        </section>
-      </div>
+      <AppFooter />
     </div>
   )
 }

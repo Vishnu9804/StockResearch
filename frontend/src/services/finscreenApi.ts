@@ -1,6 +1,7 @@
 /**
  * services/finscreenApi.ts
- * Typed service layer consuming our backend /api/finscreen REST endpoints
+ * Typed service layer consuming our backend /api/finscreen REST endpoints.
+ * This is a convenience wrapper — it picks up any auth cookies automatically.
  */
 
 import axios, { type AxiosInstance } from 'axios'
@@ -78,6 +79,8 @@ export interface ShareholdingItem {
 }
 
 export const finscreenApi = {
+  // ─── Company Endpoints ────────────────────────────────────────────────────
+
   fetchCompanyProfile: async (symbol: string): Promise<CompanyProfile> => {
     const response = await finscreenClient.get<CompanyProfile>(`/company/${symbol}/profile`)
     return response.data
@@ -128,25 +131,80 @@ export const finscreenApi = {
     return response.data
   },
 
+  fetchPeersList: async (symbol: string): Promise<{ peers: string[] }> => {
+    const response = await finscreenClient.get<{ peers: string[] }>(`/company/${symbol}/peers`)
+    return response.data
+  },
+
+  // ─── Market / Discovery Endpoints ─────────────────────────────────────────
+
   searchStockSymbols: async (query?: string): Promise<any[]> => {
     const response = await finscreenClient.get<any[]>('/stock-symbols', { params: { query } })
     return response.data
   },
 
+  /**
+   * Fetch end-of-day index feed for all NSE/BSE indices
+   * Maps to: GET /api/finscreen/market/indices → FinEdge index/market-price/daily-feed
+   */
   fetchMarketIndices: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/index/market-price/daily-feed')
+    const response = await finscreenClient.get<any[]>('/market/indices')
     return response.data
   },
 
+  /**
+   * Fetch EOD quotes for ALL listed stocks (premium account — no symbol filter needed)
+   * Maps to: GET /api/finscreen/market/movers → FinEdge /api/v1/quote
+   * Returns: Record<symbol, { current_price, change, volume, ... }>
+   */
+  fetchMarketMovers: async (): Promise<Record<string, any>> => {
+    const response = await finscreenClient.get<Record<string, any>>('/market/movers')
+    return response.data
+  },
+
+  /**
+   * Fetch quotes for a specific set of symbols (filtered via query param)
+   */
   fetchMultipleQuotes: async (symbols: string[]): Promise<Record<string, any>> => {
-    const response = await finscreenClient.get<Record<string, any>>('/quote', {
-      params: { symbol: symbols }
+    const response = await finscreenClient.get<Record<string, any>>('/market/movers', {
+      params: { symbol: symbols.join(',') }
     })
     return response.data
   },
 
-  fetchPeersList: async (symbol: string): Promise<{ peers: string[] }> => {
-    const response = await finscreenClient.get<{ peers: string[] }>(`/company/${symbol}/peers`)
+  /**
+   * Fetch upcoming earnings results calendar (next 30 days)
+   * Maps to: GET /api/finscreen/market/results-calendar
+   */
+  fetchResultsCalendar: async (params?: { from_date?: string; to_date?: string }): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/results-calendar', { params })
+    return response.data
+  },
+
+  /**
+   * Fetch daily corporate announcements feed
+   * Maps to: GET /api/finscreen/market/announcements
+   */
+  fetchMarketAnnouncements: async (params?: { from_date?: string; to_date?: string; symbol?: string }): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/announcements', { params })
+    return response.data
+  },
+
+  /**
+   * Fetch upcoming and recent IPO calendar
+   * Maps to: GET /api/finscreen/market/ipo
+   */
+  fetchIpoCalendar: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/ipo')
+    return response.data
+  },
+
+  /**
+   * Fetch 1M/3M/6M/1Y/3Y/5Y/10Y returns for all indices
+   * Maps to: GET /api/finscreen/market/index-returns
+   */
+  fetchIndexReturns: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/index-returns')
     return response.data
   },
 

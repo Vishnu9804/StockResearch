@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { MarketOverview, BreadthCards } from "@/components/dashboard/market-overview"
 import { useMarketStatus } from "@/hooks/useMarketStatus"
 import { cn } from "@/lib/utils"
@@ -113,35 +113,52 @@ export function Home() {
   const [indices, setIndices] = useState<any[]>([])
   const [quotes, setQuotes] = useState<Record<string, any>>({})
   const [refreshedStocks, setRefreshedStocks] = useState<string[]>([])
+  const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
+  const [announcements, setAnnouncements] = useState<any[]>([])
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
         setLoading(true)
-        // 1. Fetch indices
-        const indicesData = await finscreenApi.fetchMarketIndices()
-        setIndices(indicesData)
+        
+        const [indicesData, benchmarkQuotes, refreshedData, resultsData, announcementsData] = await Promise.allSettled([
+          finscreenApi.fetchMarketIndices(),
+          finscreenApi.fetchMultipleQuotes([
+            'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
+            'HINDUNILVR', 'BAJFINANCE', 'SBIN', 'BHARTIARTL', 'KOTAKBANK',
+            'LT', 'WIPRO', 'ASIANPAINT', 'AXISBANK', 'MARUTI',
+            'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 'NESTLEIND'
+          ]),
+          finscreenApi.fetchRefreshedStocks(),
+          finscreenApi.fetchResultsCalendar(),
+          finscreenApi.fetchMarketAnnouncements()
+        ])
 
-        // 2. Fetch batch quotes for 19 benchmark symbols
-        const benchmarkSymbols = [
-          'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
-          'HINDUNILVR', 'BAJFINANCE', 'SBIN', 'BHARTIARTL', 'KOTAKBANK',
-          'LT', 'WIPRO', 'ASIANPAINT', 'AXISBANK', 'MARUTI',
-          'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 'NESTLEIND'
-        ]
-        const quotesData = await finscreenApi.fetchMultipleQuotes(benchmarkSymbols)
-        setQuotes(quotesData)
-
-        // 3. Fetch refreshed stocks (safely handles 401 fallback)
-        const refreshedData = await finscreenApi.fetchRefreshedStocks()
-        if (refreshedData && refreshedData.fallback && Array.isArray(refreshedData.data)) {
-          setRefreshedStocks(refreshedData.data)
-        } else if (refreshedData && Array.isArray(refreshedData.data)) {
-          setRefreshedStocks(refreshedData.data)
-        } else if (refreshedData && Array.isArray(refreshedData)) {
-          setRefreshedStocks(refreshedData)
+        if (indicesData.status === 'fulfilled') {
+          setIndices(indicesData.value)
+        }
+        if (benchmarkQuotes.status === 'fulfilled') {
+          setQuotes(benchmarkQuotes.value)
+        }
+        if (refreshedData.status === 'fulfilled') {
+          const rData = refreshedData.value
+          if (rData && rData.fallback && Array.isArray(rData.data)) {
+            setRefreshedStocks(rData.data)
+          } else if (rData && Array.isArray(rData.data)) {
+            setRefreshedStocks(rData.data)
+          } else if (rData && Array.isArray(rData)) {
+            setRefreshedStocks(rData)
+          } else {
+            setRefreshedStocks(['RELIANCE', 'TCS', 'HDFCBANK'])
+          }
         } else {
           setRefreshedStocks(['RELIANCE', 'TCS', 'HDFCBANK'])
+        }
+        if (resultsData.status === 'fulfilled') {
+          setResultsCalendar(resultsData.value || [])
+        }
+        if (announcementsData.status === 'fulfilled') {
+          setAnnouncements(announcementsData.value || [])
         }
       } catch (err) {
         console.error('Error loading dashboard data:', err)
@@ -247,9 +264,84 @@ export function Home() {
   const bullishPct = totalBreadth > 0 ? Math.round((advances / totalBreadth) * 100) : 70
   const bearishPct = totalBreadth > 0 ? 100 - bullishPct : 30
 
+  // Group results calendar by day for the next 5 days
+  const upcomingResultsList = useMemo(() => {
+    if (!resultsCalendar || !Array.isArray(resultsCalendar)) return []
+    
+    const days: any[] = []
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
+    const today = new Date()
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(today)
+      d.setDate(today.getDate() + i)
+      const dateStr = d.toISOString().split('T')[0]
+      
+      const dayItems = resultsCalendar
+        .filter((item: any) => item.date === dateStr)
+        .map((item: any) => item.company_name || item.name || item.symbol)
+        
+      days.push({
+        day: dayNames[d.getDay()],
+        date: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+        items: dayItems
+      })
+    }
+    return days
+  }, [resultsCalendar])
+
+  const fallbackResults = [
+    { day: "MON", date: "Oct 14", items: [] },
+    { day: "TUE", date: "Oct 15", items: [{ name: "ICICI Bank", symbol: "ICICIBANK" }, { name: "Axis Bank", symbol: "AXISBANK" }] },
+    { day: "WED", date: "Oct 16", items: [{ name: "Wipro", symbol: "WIPRO" }] },
+    { day: "THU", date: "Oct 17", items: [{ name: "SBI", symbol: "SBIN" }, { name: "Tata Motors", symbol: "TATAMOTORS" }] },
+    { day: "FRI", date: "Oct 18", items: [{ name: "Adani Ent.", symbol: "ADANIENT" }] },
+  ]
+  const displayResults = (upcomingResultsList.some(d => d.items.length > 0))
+    ? upcomingResultsList
+    : fallbackResults
+
+  // Announcements processing
+  const liveAnnouncements = useMemo(() => {
+    if (!announcements || !Array.isArray(announcements)) return []
+    return announcements.slice(0, 4).map((ann: any) => {
+      let icon = "file"
+      let type = "document"
+      const category = ann.category || "Other"
+      
+      if (category.includes("Meeting") || category.includes("Board")) {
+        icon = "file"
+        type = "document"
+      } else if (category.includes("Result") || category.includes("Dividend") || category.includes("High")) {
+        icon = "trending-up"
+        type = "alert"
+      } else if (category.includes("Call") || category.includes("Calendar") || category.includes("Event")) {
+        icon = "calendar"
+        type = "event"
+      } else {
+        icon = "alert"
+        type = "price-alert"
+      }
+
+      return {
+        id: ann.id || Math.random().toString(),
+        symbol: ann.symbol,
+        name: ann.company_name || ann.company || ann.symbol,
+        type,
+        icon,
+        time: ann.date ? `${ann.date}` : "Today",
+        headline: ann.title || ann.summary || "",
+        category,
+        summary: ann.summary || ""
+      }
+    })
+  }, [announcements])
+
+  const displayFeed = liveAnnouncements.length > 0 ? liveAnnouncements : FEED_ITEMS
   const filteredFeed = feedFilter === "alerts"
-    ? FEED_ITEMS.filter(i => i.type === "price-alert" || i.type === "alert")
-    : FEED_ITEMS
+    ? displayFeed.filter(i => i.type === "price-alert" || i.type === "alert")
+    : displayFeed
 
   return (
     <div className="min-h-screen bg-background">
@@ -441,12 +533,7 @@ export function Home() {
                 TOP GAINERS
               </div>
               <div className="flex flex-col w-full">
-                {[
-                  { symbol: "MARUTI", price: 13886.00, changePct: 3.29 },
-                  { symbol: "ULTRACEMCO", price: 11468.00, changePct: 3.16 },
-                  { symbol: "LT", price: 4171.00, changePct: 3.01 },
-                  { symbol: "BAJFINANCE", price: 940.95, changePct: 2.47 },
-                ].map((g, idx, arr) => (
+                {displayGainers.map((g, idx, arr) => (
                   <div 
                     key={g.symbol}
                     style={{ 
@@ -460,8 +547,12 @@ export function Home() {
                     <Link to={`/company/${g.symbol}`} className="font-medium text-accent hover:underline">
                       {g.symbol}
                     </Link>
-                    <span style={{ color: 'var(--fs-text-secondary)' }}>{g.price.toFixed(2)}</span>
-                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-positive)' }}>+{g.changePct.toFixed(2)}%</span>
+                    <span style={{ color: 'var(--fs-text-secondary)' }}>
+                      {typeof g.price === 'number' ? g.price.toFixed(2) : g.price}
+                    </span>
+                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-positive)' }}>
+                      +{g.changePct.toFixed(2)}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -475,12 +566,7 @@ export function Home() {
                 TOP LOSERS
               </div>
               <div className="flex flex-col w-full">
-                {[
-                  { symbol: "ICICIBANK", price: 1328.00, changePct: -0.95 },
-                  { symbol: "ASIANPAINT", price: 2730.00, changePct: -0.63 },
-                  { symbol: "HINDUNILVR", price: 2155.90, changePct: -0.59 },
-                  { symbol: "SUNPHARMA", price: 1804.10, changePct: -0.28 },
-                ].map((l, idx, arr) => (
+                {displayLosers.map((l, idx, arr) => (
                   <div 
                     key={l.symbol}
                     style={{ 
@@ -494,8 +580,12 @@ export function Home() {
                     <Link to={`/company/${l.symbol}`} className="font-medium text-accent hover:underline">
                       {l.symbol}
                     </Link>
-                    <span style={{ color: 'var(--fs-text-secondary)' }}>{l.price.toFixed(2)}</span>
-                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-negative)' }}>{l.changePct.toFixed(2)}%</span>
+                    <span style={{ color: 'var(--fs-text-secondary)' }}>
+                      {typeof l.price === 'number' ? l.price.toFixed(2) : l.price}
+                    </span>
+                    <span style={{ fontWeight: 'var(--fs-weight-medium)', color: 'var(--fs-negative)' }}>
+                      {l.changePct.toFixed(2)}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -549,121 +639,87 @@ export function Home() {
           </div>
 
           <div className="flex flex-col w-full">
-            {feedFilter === 'all' && (
-              <>
-                {/* Item 1 — TCS report */}
-                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
-                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
-                    <FileText className="size-4" />
+            {filteredFeed.map((item, idx, arr) => {
+              const isPriceAlert = item.type === "price-alert";
+              return (
+                <div 
+                  key={item.id}
+                  style={isPriceAlert ? { 
+                    borderLeft: '3px solid #E24B4A', 
+                    background: 'var(--fs-negative-soft)', 
+                    borderRadius: '0 8px 8px 0', 
+                    padding: '10px 12px', 
+                    marginTop: idx > 0 ? '10px' : '0',
+                    display: 'flex',
+                    gap: 'var(--fs-space-md)',
+                    alignItems: 'flex-start'
+                  } : { 
+                    display: 'flex', 
+                    gap: 'var(--fs-space-md)', 
+                    alignItems: 'flex-start', 
+                    padding: '12px 0', 
+                    borderBottom: idx === arr.length - 1 ? 'none' : 'var(--fs-border)' 
+                  }} 
+                  className="w-full"
+                >
+                  <div style={{ 
+                    background: isPriceAlert ? 'var(--fs-surface)' : 'var(--fs-surface-muted)', 
+                    border: isPriceAlert ? '0.5px solid rgba(163,45,45,0.2)' : 'none', 
+                    borderRadius: 'var(--fs-radius-sm)', 
+                    width: '34px', 
+                    height: '34px' 
+                  }} className={cn("flex-shrink-0 flex items-center justify-center", isPriceAlert ? "text-[var(--fs-negative)]" : "text-[#666]")}>
+                    {item.icon === "file" && <FileText className="size-4" />}
+                    {item.icon === "trending-up" && <TrendingUp className="size-4 text-[var(--fs-positive)]" />}
+                    {item.icon === "calendar" && <Calendar className="size-4 text-purple-600" />}
+                    {item.icon === "alert" && <TriangleAlert className="size-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-body font-semibold text-textPrimary">TCS</span>
-                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">TCS</span>
-                      <span className="text-sm text-textSecondary ml-auto">2h ago</span>
+                      <span className={cn("text-body font-semibold", isPriceAlert ? "text-negative" : "text-textPrimary")}>{item.name}</span>
+                      <span className={cn("px-1.5 py-0.5 rounded text-xs font-mono font-medium", isPriceAlert ? "bg-negative-soft text-negative border border-negative/25" : "bg-accentSoft text-accent")}>{item.symbol}</span>
+                      <span className={cn("text-sm ml-auto", isPriceAlert ? "text-negative opacity-80" : "text-textSecondary")}>{item.time}</span>
                     </div>
-                    <p className="text-body text-textPrimary font-normal leading-normal">
-                      Annual report released: detailed FY24 performance and strategic outlook.
+                    <p className={cn("text-body font-normal leading-normal", isPriceAlert ? "text-negative" : "text-textPrimary")}>
+                      {item.headline}
                     </p>
                     <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
-                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
-                        <ExternalLink className="size-3" /> View report
-                      </a>
-                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
-                        <Bookmark className="size-3" /> Save for later
-                      </a>
+                      {item.type === "price-alert" ? (
+                        <>
+                          <Link to={`/company/${item.symbol}`} style={{ background: 'var(--fs-negative)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="hover:bg-[#852424] transition-colors text-xs font-medium decoration-none">
+                            Review position
+                          </Link>
+                          <a href="#" onClick={(e) => e.preventDefault()} style={{ border: '0.5px solid rgba(163,45,45,0.2)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-negative)' }} className="hover:bg-red-100/40 transition-colors text-xs font-medium decoration-none">
+                            Dismiss
+                          </a>
+                        </>
+                      ) : (
+                        <>
+                          {item.type === "document" && (
+                            <a href="#" onClick={(e) => e.preventDefault()} style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium decoration-none">
+                              <ExternalLink className="size-3" /> View report
+                            </a>
+                          )}
+                          {item.type === "event" && (
+                            <a href="#" onClick={(e) => e.preventDefault()} style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium decoration-none">
+                              <Bell className="size-3" /> Set reminder
+                            </a>
+                          )}
+                          {item.type === "alert" && (
+                            <Link to={`/company/${item.symbol}`} style={{ background: 'var(--fs-info)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="flex items-center gap-1 hover:bg-[#09325c] transition-colors text-xs font-medium decoration-none">
+                              <BarChart2 className="size-3" /> Analyze chart
+                            </Link>
+                          )}
+                          <a href="#" onClick={(e) => e.preventDefault()} style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium decoration-none">
+                            {item.type === "document" ? <><Bookmark className="size-3" /> Save for later</> : "Compare peers"}
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                {/* Item 2 — HDFC Bank 52w high */}
-                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
-                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
-                    <TrendingUp className="size-4 text-[var(--fs-positive)]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-body font-semibold text-textPrimary">HDFC Bank</span>
-                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">HDFCBANK</span>
-                      <span className="text-sm text-textSecondary ml-auto">5h ago</span>
-                    </div>
-                    <p className="text-body text-textPrimary font-normal leading-normal">
-                      Instrument hit a new 52-week high of ₹1,740.00 during the morning session.
-                    </p>
-                    <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
-                      <Link to="/company/HDFCBANK" style={{ background: 'var(--fs-info)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="flex items-center gap-1 hover:bg-[#09325c] transition-colors text-xs font-medium">
-                        <BarChart2 className="size-3" /> Analyze chart
-                      </Link>
-                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
-                        Compare peers
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Item 3 — Infosys earnings */}
-                <div style={{ display: 'flex', gap: 'var(--fs-space-md)', alignItems: 'flex-start', padding: '12px 0', borderBottom: 'var(--fs-border)' }} className="w-full">
-                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[#666]">
-                    <Calendar className="size-4 text-purple-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-body font-semibold text-textPrimary">Infosys</span>
-                      <span className="bg-accentSoft text-accent px-1.5 py-0.5 rounded text-xs font-mono font-medium">INFY</span>
-                      <span className="text-sm text-textSecondary ml-auto">Tomorrow</span>
-                    </div>
-                    <p className="text-body text-textPrimary font-normal leading-normal">
-                      Upcoming earnings call: Q1 financial results and management commentary.
-                    </p>
-                    <p className="text-body text-textSecondary font-mono mt-1 font-normal">
-                      Scheduled: 4:00 PM IST
-                    </p>
-                    <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
-                      <a href="#" style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors text-xs font-medium">
-                        <Bell className="size-3" /> Set reminder
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Item 4 — Reliance alert (Shows in both All and Alerts) */}
-            <div 
-              style={{ 
-                borderLeft: '3px solid #E24B4A', 
-                background: 'var(--fs-negative-soft)', 
-                borderRadius: '0 8px 8px 0', 
-                padding: '10px 12px', 
-                marginTop: '10px',
-                display: 'flex',
-                gap: 'var(--fs-space-md)',
-                alignItems: 'flex-start'
-              }} 
-              className="w-full"
-            >
-              <div style={{ background: 'var(--fs-surface)', border: '0.5px solid rgba(163,45,45,0.2)', borderRadius: 'var(--fs-radius-sm)', width: '34px', height: '34px' }} className="flex-shrink-0 flex items-center justify-center text-[var(--fs-negative)]">
-                <TriangleAlert className="size-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-body font-semibold text-negative">Reliance Industries</span>
-                  <span className="bg-negative-soft text-negative border border-negative/25 px-1.5 py-0.5 rounded text-xs font-mono font-medium">RELIANCE</span>
-                  <span className="text-sm text-negative ml-auto opacity-80">Yesterday</span>
-                </div>
-                <p className="text-body text-negative font-normal leading-normal">
-                  Price alert: stock dropped 2.1% below established support level (₹2,840).
-                </p>
-                <div style={{ display: 'flex', gap: 'var(--fs-space-xs)', marginTop: '8px' }}>
-                  <Link to="/company/RELIANCE" style={{ background: 'var(--fs-negative)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px' }} className="hover:bg-[#852424] transition-colors text-xs font-medium">
-                    Review position
-                  </Link>
-                  <a href="#" style={{ border: '0.5px solid rgba(163,45,45,0.2)', borderRadius: 'var(--fs-radius-sm)', padding: '4px 10px', color: 'var(--fs-negative)' }} className="hover:bg-red-100/40 transition-colors text-xs font-medium">
-                    Dismiss
-                  </a>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -739,13 +795,7 @@ export function Home() {
           </div>
 
           <div className="flex flex-col w-full">
-            {[
-              { day: "MON", date: "Oct 14", items: [] },
-              { day: "TUE", date: "Oct 15", items: ["ICICI Bank", "Axis Bank"] },
-              { day: "WED", date: "Oct 16", items: ["Wipro"] },
-              { day: "THU", date: "Oct 17", items: ["SBI", "Tata Motors"] },
-              { day: "FRI", date: "Oct 18", items: ["Adani Ent."] },
-            ].map((day, idx, arr) => (
+            {displayResults.map((day, idx, arr) => (
               <div 
                 key={day.date}
                 style={{ 
@@ -769,7 +819,7 @@ export function Home() {
                       No results scheduled
                     </span>
                   ) : (
-                    day.items.map((item) => (
+                    day.items.map((item: string) => (
                       <span 
                         key={item}
                         style={{ 

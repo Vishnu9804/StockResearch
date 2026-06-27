@@ -175,11 +175,76 @@ export const FinedgeService = {
 
       const response = await axios(axiosConfig)
       
-      // Determine dynamic TTL based on route types
-      let ttl = 10 * 60 * 1000 // default 10 minutes
-      if (endpoint.includes('market/indices')) ttl = 15 * 1000 // 15 seconds for live indexes
-      if (endpoint.includes('financials') || endpoint.includes('overview')) {
-        ttl = 4 * 60 * 60 * 1000 // 4 hours for stable fundamentals tables
+      // ─── Smart TTL Cache Strategy (Production-Grade) ──────────────────────────
+      // Data is categorized by how frequently it changes in real markets
+      const ep = endpoint.toLowerCase()
+      
+      let ttl: number
+
+      // Tier 1: Live market feeds — very short TTL (data changes every few seconds)
+      if (ep.includes('quote') && !ep.includes('daily-quote')) {
+        // End-of-day reset: cache until midnight IST
+        const now = new Date()
+        const midnight = new Date()
+        midnight.setHours(23, 59, 59, 999)
+        ttl = midnight.getTime() - now.getTime() // ~0–24 hours, resets each day
+      }
+      // Tier 2: Index/market data — short TTL (daily feed, updated once per day EOD)
+      else if (ep.includes('index/market-price/daily-feed') || ep.includes('market/movers')) {
+        ttl = 15 * 60 * 1000 // 15 minutes
+      }
+      // Tier 3: Announcements, ratings, results calendar — medium TTL
+      else if (
+        ep.includes('corp-announcements') ||
+        ep.includes('credit-ratings') ||
+        ep.includes('results-calendar') ||
+        ep.includes('investor-call') ||
+        ep.includes('investor-pres')
+      ) {
+        ttl = 30 * 60 * 1000 // 30 minutes
+      }
+      // Tier 4: Corporate actions, IPO, holidays — update a few times per day
+      else if (
+        ep.includes('corporate-actions') ||
+        ep.includes('ipo-calendar') ||
+        ep.includes('dividend') ||
+        ep.includes('index/price-returns')
+      ) {
+        ttl = 2 * 60 * 60 * 1000 // 2 hours
+      }
+      // Tier 5: Fundamentals — stable, update quarterly/annually
+      else if (
+        ep.includes('financials') ||
+        ep.includes('basic-financials') ||
+        ep.includes('financial-metrics') ||
+        ep.includes('ratios') ||
+        ep.includes('segment-revenue') ||
+        ep.includes('notes') ||
+        ep.includes('annual-price-ratios') ||
+        ep.includes('daily-quotes') ||
+        ep.includes('daily-price-ratios') ||
+        ep.includes('shareholding') ||
+        ep.includes('ownership') ||
+        ep.includes('peers')
+      ) {
+        ttl = 4 * 60 * 60 * 1000 // 4 hours
+      }
+      // Tier 6: Master/reference data — very stable, rarely changes
+      else if (
+        ep.includes('company-profile') ||
+        ep.includes('stock-symbols') ||
+        ep.includes('stock-search') ||
+        ep.includes('index/master') ||
+        ep.includes('commodity-list') ||
+        ep.includes('holidays-calendar') ||
+        ep.includes('name-changes') ||
+        ep.includes('symbol-changes')
+      ) {
+        ttl = 24 * 60 * 60 * 1000 // 24 hours
+      }
+      // Default: 10 minutes for anything not categorized above
+      else {
+        ttl = 10 * 60 * 1000
       }
 
       // Store in Cache

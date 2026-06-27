@@ -437,7 +437,7 @@ export function ScreenerResultsTable() {
                     <div style={{ fontSize: 'var(--fs-size-xs)', letterSpacing: '0.04em' }} className="text-textMuted font-mono uppercase mt-0.5">{row.symbol}</div>
                   </td>
                   {visibleColumns.has('cmp') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[13px] font-medium text-textPrimary tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-body font-medium text-textPrimary tabular-nums">
                       {formatPrice(row.cmp)}
                     </td>
                   )}
@@ -450,32 +450,32 @@ export function ScreenerResultsTable() {
                     </td>
                   )}
                   {visibleColumns.has('pe') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-sm text-textPrimary tabular-nums">
                       {row.pe !== null ? row.pe.toFixed(1) : <span className="text-textMuted">—</span>}
                     </td>
                   )}
                   {visibleColumns.has('marketCap') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-sm text-textPrimary tabular-nums">
                       {formatCap(row.marketCap)}
                     </td>
                   )}
                   {visibleColumns.has('divYield') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] text-textPrimary tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-sm text-textPrimary tabular-nums">
                       {row.divYield.toFixed(2)}%
                     </td>
                   )}
                   {visibleColumns.has('netProfit') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] font-medium text-[var(--fs-positive)] tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-sm font-medium text-[var(--fs-positive)] tabular-nums">
                       {row.netProfit >= 0 ? '' : '−'}₹{Math.abs(row.netProfit).toLocaleString('en-IN')}
                     </td>
                   )}
                   {visibleColumns.has('roce') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-[12px] font-medium text-[var(--fs-brand)] tabular-nums">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-right font-mono text-sm font-medium text-[var(--fs-brand)] tabular-nums">
                       {row.roce.toFixed(1)}%
                     </td>
                   )}
                   {visibleColumns.has('sector') && (
-                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-left font-mono text-[12px] text-textSecondary">
+                    <td style={{ padding: '11px 12px', verticalAlign: 'middle' }} className="text-left font-mono text-sm text-textSecondary">
                       {row.sector}
                     </td>
                   )}
@@ -624,7 +624,7 @@ function MiniSummaryCard({ label, value, sub, color }: { label: string; value: s
       </span>
       <span
         style={{
-          fontSize: label === 'Total Market Cap' ? '15px' : '18px',
+          fontSize: label === 'Total Market Cap' ? 'var(--fs-size-lg)' : 'var(--fs-size-xl)',
           fontWeight: 600,
           color: valueColor,
           lineHeight: 1.2,

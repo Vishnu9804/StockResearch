@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import {
   TrendingUp, Search, BookOpen, FolderHeart, Sliders,
-  Filter, User, ChevronLeft, ChevronRight, Zap, CreditCard,
+  Filter, User, ChevronLeft, ChevronRight, Zap, CreditCard, Activity, Newspaper,
 } from 'lucide-react'
 import { toggleSidebar, setSidebarCollapsed } from '@/store/slices/uiSlice'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,10 @@ interface SidebarItem {
 
 const MENU_ITEMS: SidebarItem[] = [
   { label: 'Markets Today', href: '/',             icon: TrendingUp },
+  { label: 'Feed',           href: '/feed',        icon: Newspaper },
   { label: 'Stock Screener', href: '/screener',    icon: Search },
   { label: 'Screen Gallery', href: '/screens',     icon: Filter },
+  { label: 'Market Pulse',   href: '/market-pulse', icon: Activity },
   { label: 'My Watchlists',  href: '/watchlists',  icon: FolderHeart },
   { label: 'My Portfolio',   href: '/portfolio',   icon: BookOpen },
   { label: 'Custom Ratios',  href: '/custom-ratios', icon: Sliders },

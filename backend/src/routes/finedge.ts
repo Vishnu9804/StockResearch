@@ -32,6 +32,16 @@ import {
   getOwnershipCurrent,
   getOwnershipHistory,
   getPeerComparison,
+  // Market-level endpoints
+  getMarketIndices,
+  getIndexMaster,
+  getIndexReturns,
+  getMarketMovers,
+  getIpoCalendar,
+  getResultsCalendar,
+  getHolidaysCalendar,
+  getMarketAnnouncements,
+  getCommodityList,
 } from '../controllers/finedge.js'
 
 export const finedgeRouter = Router()
@@ -71,7 +81,19 @@ finedgeRouter.get('/company/:symbol/shareholding/ownership-history', getOwnershi
 finedgeRouter.get('/company/:symbol/corporate-actions', getCorporateActions)
 finedgeRouter.get('/company/:symbol/documents', getCompanyDocuments)
 
+// ─── Market-Level: Indices, Movers & Exchange Data ────────────────────────────
+finedgeRouter.get('/market/indices', getMarketIndices)
+finedgeRouter.get('/market/index-master', getIndexMaster)
+finedgeRouter.get('/market/index-returns', getIndexReturns)
+finedgeRouter.get('/market/movers', getMarketMovers)
+finedgeRouter.get('/market/ipo', getIpoCalendar)
+finedgeRouter.get('/market/results-calendar', getResultsCalendar)
+finedgeRouter.get('/market/holidays', getHolidaysCalendar)
+finedgeRouter.get('/market/announcements', getMarketAnnouncements)
+finedgeRouter.get('/market/commodity-list', getCommodityList)
+
 // ─── General catch-all proxy endpoint (backward-compatible fallback) ──────────
 finedgeRouter.all('/*', proxyRequest)
 
 export default finedgeRouter
+

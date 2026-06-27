@@ -42,10 +42,20 @@ export const ENDPOINTS = {
   CORPORATE_ACTIONS: (symbol: string) => `/company/${symbol}/corporate-actions`,
   DOCUMENTS: (symbol: string) => `/company/${symbol}/documents`,
 
-  // ─── Market (catch-all proxy) ─────────────────────────────────────────────
+  // ─── Market-Level: Indices, Movers & Exchange Data ────────────────────────
+  INDICES: '/market/indices',
+  INDEX_MASTER: '/market/index-master',
+  INDEX_RETURNS: '/market/index-returns',
+  MARKET_MOVERS: '/market/movers',
+  IPO_CALENDAR: '/market/ipo',
+  RESULTS_CALENDAR: '/market/results-calendar',
+  HOLIDAYS_CALENDAR: '/market/holidays',
+  MARKET_ANNOUNCEMENTS: '/market/announcements',
+  COMMODITY_LIST: '/market/commodity-list',
+
+  // ─── Screener & Search ────────────────────────────────────────────────────
   SCREENER_RUN: '/screener/run',
   SEARCH_AUTOCOMPLETE: '/search',
-  INDICES: '/market/indices',
-  MARKET_MOVERS: '/market/movers',
   MARKET_SECTORS: '/market/sectors',
 } as const
+

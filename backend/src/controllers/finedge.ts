@@ -791,3 +791,177 @@ export async function getCompanyDocuments(req: Request, res: Response): Promise<
     return res.status(200).json({ documents: [] })
   }
 }
+
+// ─── Market-Level Controllers ─────────────────────────────────────────────────
+
+/**
+ * GET /market/indices
+ * → FinEdge /api/v1/index/market-price/daily-feed
+ * Returns end-of-day OHLCV + valuation metrics for all indices (Nifty, Sensex, etc.)
+ */
+export async function getMarketIndices(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'index/market-price/daily-feed', {}, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'index/market-price/daily-feed', requestId)
+  }
+}
+
+/**
+ * GET /market/index-master
+ * → FinEdge /api/v1/index/master
+ * Returns metadata for all NSE/BSE indices
+ */
+export async function getIndexMaster(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'index/master', {}, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'index/master', requestId)
+  }
+}
+
+/**
+ * GET /market/index-returns
+ * → FinEdge /api/v1/index/price-returns
+ * Returns 1M/3M/6M/1Y/3Y/5Y/7Y/10Y returns for all indices
+ */
+export async function getIndexReturns(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'index/price-returns', {}, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'index/price-returns', requestId)
+  }
+}
+
+/**
+ * GET /market/movers
+ * → FinEdge /api/v1/quote (all symbols via premium — no symbol param needed)
+ * Returns all stock quotes; frontend sorts for top gainers/losers
+ */
+export async function getMarketMovers(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  try {
+    // Premium accounts get all symbols by omitting the symbol param
+    const data = await FinedgeService.executeProxyRequest('GET', 'quote', req.query as Record<string, any>, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'quote', requestId)
+  }
+}
+
+/**
+ * GET /market/ipo
+ * → FinEdge /api/v1/ipo-calendar
+ * Returns upcoming and recent IPOs on NSE/BSE
+ */
+export async function getIpoCalendar(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  // Default: show IPOs from 3 months ago to 3 months ahead
+  const now = new Date()
+  const pastDate = new Date(now)
+  pastDate.setMonth(pastDate.getMonth() - 3)
+  const futureDate = new Date(now)
+  futureDate.setMonth(futureDate.getMonth() + 3)
+
+  const query = {
+    from_date: pastDate.toISOString().split('T')[0],
+    to_date: futureDate.toISOString().split('T')[0],
+    ...req.query
+  }
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'ipo-calendar', query, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'ipo-calendar', requestId)
+  }
+}
+
+/**
+ * GET /market/results-calendar
+ * → FinEdge /api/v1/results-calendar
+ * Returns upcoming and past earnings announcement dates
+ */
+export async function getResultsCalendar(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  const now = new Date()
+  const pastDate = new Date(now)
+  pastDate.setDate(pastDate.getDate() - 7)
+  const futureDate = new Date(now)
+  futureDate.setDate(futureDate.getDate() + 30)
+
+  const query = {
+    from_date: pastDate.toISOString().split('T')[0],
+    to_date: futureDate.toISOString().split('T')[0],
+    ...req.query
+  }
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'results-calendar', query, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'results-calendar', requestId)
+  }
+}
+
+/**
+ * GET /market/holidays
+ * → FinEdge /api/v1/holidays-calendar
+ * Returns NSE/BSE market holiday list
+ */
+export async function getHolidaysCalendar(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'holidays-calendar', {}, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'holidays-calendar', requestId)
+  }
+}
+
+/**
+ * GET /market/announcements
+ * → FinEdge /api/v1/corp-announcements
+ * Returns daily corporate announcements feed for all companies (or filtered by symbol)
+ */
+export async function getMarketAnnouncements(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const query = {
+    from_date: yesterday.toISOString().split('T')[0],
+    to_date: now.toISOString().split('T')[0],
+    ...req.query
+  }
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'corp-announcements', query, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'corp-announcements', requestId)
+  }
+}
+
+/**
+ * GET /market/commodity-list
+ * → FinEdge /api/v1/commodity-list
+ * Returns supported commodity indices
+ */
+export async function getCommodityList(req: Request, res: Response): Promise<any> {
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  const query = {
+    category: 'monthly_index',
+    ...req.query
+  }
+  try {
+    const data = await FinedgeService.executeProxyRequest('GET', 'commodity-list', query, req.body, requestId)
+    return res.status(200).json(data)
+  } catch (err: any) {
+    return apiError(res, err, 'commodity-list', requestId)
+  }
+}
