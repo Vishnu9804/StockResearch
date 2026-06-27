@@ -44,12 +44,18 @@ export function AnnouncementItem({ item, density, isActive = false, actionButton
         {/* Line 1: Company details, Badge, Timestamp */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              to={`/company/${item.symbol.toLowerCase()}`}
-              className="text-xs font-bold text-accent hover:underline decoration-none outline-none font-mono"
-            >
-              {item.company}
-            </Link>
+            {/^\d+$/.test(item.symbol) ? (
+              <span className="text-xs font-bold text-textPrimary font-mono">
+                {item.company}
+              </span>
+            ) : (
+              <Link
+                to={`/company/${item.symbol.toUpperCase()}`}
+                className="text-xs font-bold text-accent hover:underline decoration-none outline-none font-mono"
+              >
+                {item.company}
+              </Link>
+            )}
             <span
               className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
               style={{ backgroundColor: colors.bg, color: colors.text }}

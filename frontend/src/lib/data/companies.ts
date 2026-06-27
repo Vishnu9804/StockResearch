@@ -45,7 +45,10 @@ export interface Company {
   publicHolding: number
   // Ratings
   creditRating: string
+  // Optional extended metrics from ratios API
+  netProfitMargin?: number
 }
+
 
 export const companies: Company[] = [
   {

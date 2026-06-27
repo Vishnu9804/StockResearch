@@ -1,124 +1,164 @@
-import { useMemo } from 'react'
-import { useAppSelector } from '@/store/hooks'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import finscreenApi from '@/services/finscreenApi'
 
 interface RatioRow {
   label: string
-  value: string
-  sectorAvg: string
-  aboveAvg: boolean
-  description: string
+  isPercent: boolean
+  values: (number | null)[]
 }
 
-interface RatioGroup {
-  title: string
-  emoji: string
+interface RatioSection {
+  section: string
+  columns: string[]
   rows: RatioRow[]
 }
 
-function buildRatios(pe: number, price: number, high52: number, low52: number): RatioGroup[] {
-  const pb = +(pe * 0.18 + 1.2).toFixed(1)
-  const evEbitda = +(pe * 0.72).toFixed(1)
-  const roe = +(18 + (pe - 20) * 0.3).toFixed(1)
-  const roce = +(roe * 0.88).toFixed(1)
-  const netMargin = +(8 + (pe - 20) * 0.15).toFixed(1)
-  const ebitdaMargin = +(netMargin * 1.65).toFixed(1)
-  const de = +(0.4 + (pe > 30 ? 0.2 : 0)).toFixed(2)
-  const interestCoverage = +(8 - de * 2).toFixed(1)
-  const currentRatio = +(1.8 - de * 0.3).toFixed(2)
-  const revCagr = +(12 + (pe - 20) * 0.4).toFixed(1)
-  const profitCagr = +(revCagr * 0.85).toFixed(1)
-  const epsCagr = +(profitCagr * 1.05).toFixed(1)
-
-  // Suppress unused variable warnings for price/high52/low52 (reserved for future use)
-  void price
-  void high52
-  void low52
-
-  return [
-    {
-      title: 'Valuation', emoji: '💰',
-      rows: [
-        { label: 'P/E Ratio', value: `${pe.toFixed(1)}x`, sectorAvg: '26.0x', aboveAvg: pe < 26, description: 'Price to Earnings' },
-        { label: 'P/B Ratio', value: `${pb}x`, sectorAvg: '4.2x', aboveAvg: pb < 4.2, description: 'Price to Book Value' },
-        { label: 'EV/EBITDA', value: `${evEbitda}x`, sectorAvg: '18.0x', aboveAvg: evEbitda < 18, description: 'Enterprise Value / EBITDA' },
-        { label: 'Market Cap / Sales', value: `${(pe * 0.12).toFixed(1)}x`, sectorAvg: '3.5x', aboveAvg: pe * 0.12 < 3.5, description: 'Price / Revenue' },
-      ]
-    },
-    {
-      title: 'Profitability', emoji: '📈',
-      rows: [
-        { label: 'ROE', value: `${roe}%`, sectorAvg: '18.0%', aboveAvg: roe > 18, description: 'Return on Equity' },
-        { label: 'ROCE', value: `${roce}%`, sectorAvg: '16.0%', aboveAvg: roce > 16, description: 'Return on Capital Employed' },
-        { label: 'Net Profit Margin', value: `${netMargin}%`, sectorAvg: '10.0%', aboveAvg: netMargin > 10, description: 'Net Income / Revenue' },
-        { label: 'EBITDA Margin', value: `${ebitdaMargin}%`, sectorAvg: '18.0%', aboveAvg: ebitdaMargin > 18, description: 'Operating margin before D&A' },
-      ]
-    },
-    {
-      title: 'Leverage', emoji: '🏦',
-      rows: [
-        { label: 'Debt / Equity', value: `${de}x`, sectorAvg: '0.6x', aboveAvg: de < 0.6, description: 'Financial leverage ratio' },
-        { label: 'Interest Coverage', value: `${interestCoverage}x`, sectorAvg: '6.0x', aboveAvg: interestCoverage > 6, description: 'EBIT / Interest Expense' },
-        { label: 'Current Ratio', value: `${currentRatio}x`, sectorAvg: '1.5x', aboveAvg: currentRatio > 1.5, description: 'Current Assets / Current Liabilities' },
-      ]
-    },
-    {
-      title: 'Growth (3Y CAGR)', emoji: '🚀',
-      rows: [
-        { label: 'Revenue CAGR', value: `${revCagr}%`, sectorAvg: '12.0%', aboveAvg: revCagr > 12, description: '3-Year Revenue Growth' },
-        { label: 'Profit CAGR', value: `${profitCagr}%`, sectorAvg: '14.0%', aboveAvg: profitCagr > 14, description: '3-Year Net Profit Growth' },
-        { label: 'EPS CAGR', value: `${epsCagr}%`, sectorAvg: '13.0%', aboveAvg: epsCagr > 13, description: '3-Year EPS Growth' },
-      ]
-    },
-  ]
+const SECTION_EMOJI: Record<string, string> = {
+  Profitability: '📈',
+  Leverage: '🏦',
+  Liquidity: '💧',
+  Efficiency: '⚙️',
 }
 
-export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price: number; high52w: number; low52w: number }) {
-  const storeRatios = useAppSelector((state) => state.company?.ratios)
+// Show only the latest value for each row in a compact display
+function LatestRatioRow({ row }: { row: RatioRow }) {
+  const latestVal = row.values.findLast((v) => v !== null && v !== undefined)
+  if (latestVal === null || latestVal === undefined) return null
+  const display = row.isPercent ? `${latestVal.toFixed(1)}%` : latestVal.toFixed(2)
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
+      <span className="text-xs font-medium text-textSecondary">{row.label}</span>
+      <span className="text-xs font-mono font-semibold text-textPrimary tabular-nums">
+        {display}
+      </span>
+    </div>
+  )
+}
 
-  const groups = useMemo(() => {
-    if (storeRatios) {
-      const { valuation, profitability, leverage, growth } = storeRatios
-      return [
-        {
-          title: 'Valuation', emoji: '💰',
-          rows: [
-            { label: 'P/E Ratio', value: `${valuation.pe?.toFixed(1) || pe.toFixed(1)}x`, sectorAvg: '26.0x', aboveAvg: (valuation.pe || pe) < 26, description: 'Price to Earnings' },
-            { label: 'P/B Ratio', value: `${valuation.pb?.toFixed(1) || '4.8'}x`, sectorAvg: '4.2x', aboveAvg: (valuation.pb || 4.8) < 4.2, description: 'Price to Book Value' },
-            { label: 'EV/EBITDA', value: `${valuation.evEbitda?.toFixed(1) || '15.2'}x`, sectorAvg: '18.0x', aboveAvg: (valuation.evEbitda || 15.2) < 18, description: 'Enterprise Value / EBITDA' },
-            { label: 'Market Cap / Sales', value: `${valuation.marketCapSales?.toFixed(1) || '5.1'}x`, sectorAvg: '3.5x', aboveAvg: (valuation.marketCapSales || 5.1) < 3.5, description: 'Price / Revenue' },
-          ]
-        },
-        {
-          title: 'Profitability', emoji: '📈',
-          rows: [
-            { label: 'ROE', value: `${profitability.roe}%`, sectorAvg: '18.0%', aboveAvg: profitability.roe > 18, description: 'Return on Equity' },
-            { label: 'ROCE', value: `${profitability.roce}%`, sectorAvg: '16.0%', aboveAvg: profitability.roce > 16, description: 'Return on Capital Employed' },
-            { label: 'Net Profit Margin', value: `${profitability.netMargin}%`, sectorAvg: '10.0%', aboveAvg: profitability.netMargin > 10, description: 'Net Income / Revenue' },
-            { label: 'EBITDA Margin', value: `${profitability.ebitdaMargin}%`, sectorAvg: '18.0%', aboveAvg: profitability.ebitdaMargin > 18, description: 'Operating margin before D&A' },
-          ]
-        },
-        {
-          title: 'Leverage', emoji: '🏦',
-          rows: [
-            { label: 'Debt / Equity', value: `${leverage.debtToEquity}x`, sectorAvg: '0.6x', aboveAvg: leverage.debtToEquity < 0.6, description: 'Financial leverage ratio' },
-            { label: 'Interest Coverage', value: `${leverage.interestCoverage}x`, sectorAvg: '6.0x', aboveAvg: leverage.interestCoverage > 6, description: 'EBIT / Interest Expense' },
-            { label: 'Current Ratio', value: `${leverage.currentRatio}x`, sectorAvg: '1.5x', aboveAvg: leverage.currentRatio > 1.5, description: 'Current Assets / Current Liabilities' },
-          ]
-        },
-        {
-          title: 'Growth (3Y CAGR)', emoji: '🚀',
-          rows: [
-            { label: 'Revenue CAGR', value: `${growth.revenueCagr3Y}%`, sectorAvg: '12.0%', aboveAvg: growth.revenueCagr3Y > 12, description: '3-Year Revenue Growth' },
-            { label: 'Profit CAGR', value: `${growth.profitCagr3Y}%`, sectorAvg: '14.0%', aboveAvg: growth.profitCagr3Y > 14, description: '3-Year Net Profit Growth' },
-            { label: 'EPS CAGR', value: `${growth.epsCagr}%`, sectorAvg: '13.0%', aboveAvg: growth.epsCagr > 13, description: '3-Year EPS Growth' },
-          ]
-        },
-      ]
-    }
-    return buildRatios(pe, price, high52w, low52w)
-  }, [storeRatios, pe, price, high52w, low52w])
+// Historical trend table for a ratio section
+function RatioSectionTable({ section }: { section: RatioSection }) {
+  // Show last 7 columns max
+  const cols = section.columns.slice(-7)
+  const colCount = cols.length
+  const rowsWithData = section.rows.filter(r =>
+    r.values.slice(-colCount).some(v => v !== null && v !== undefined)
+  )
+  if (rowsWithData.length === 0) return null
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm">{SECTION_EMOJI[section.section] ?? '📊'}</span>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-textMuted">{section.section}</h4>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border/40">
+              <th className="text-left font-medium text-textMuted pb-2 pr-4 min-w-[160px]">Metric</th>
+              {cols.map((col) => (
+                <th key={col} className="text-right font-medium text-textMuted pb-2 px-2 whitespace-nowrap">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rowsWithData.map((row) => {
+              const vals = row.values.slice(-colCount)
+              const latest = vals.findLast(v => v !== null && v !== undefined)
+              return (
+                <tr key={row.label} className="border-b border-border/20 hover:bg-surfaceMuted/30 transition-colors">
+                  <td className="py-2 pr-4 font-medium text-textSecondary">{row.label}</td>
+                  {vals.map((val, i) => {
+                    const isLatest = i === vals.length - 1
+                    const display = val !== null && val !== undefined
+                      ? (row.isPercent ? `${val.toFixed(1)}%` : val.toFixed(2))
+                      : '—'
+                    return (
+                      <td
+                        key={i}
+                        className={cn(
+                          'py-2 px-2 text-right font-mono tabular-nums whitespace-nowrap',
+                          val !== null && val !== undefined ? 'text-textPrimary' : 'text-textMuted',
+                          isLatest && val !== null ? 'font-semibold text-accent' : ''
+                        )}
+                      >
+                        {display}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: number; high52w?: number; low52w?: number }) {
+  const [loading, setLoading] = useState(true)
+  const [sections, setSections] = useState<RatioSection[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!symbol) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    finscreenApi.fetchCompanyRatios(symbol)
+      .then((data: any) => {
+        if (cancelled) return
+        if (data && Array.isArray(data.sections)) {
+          setSections(data.sections)
+        } else {
+          setSections([])
+        }
+      })
+      .catch((err: any) => {
+        if (cancelled) return
+        console.error('[RatiosTable] Failed to load ratios:', err)
+        setError('Could not load ratio data.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [symbol])
+
+  if (loading) {
+    return (
+      <Card className="border-border shadow-none bg-surface">
+        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+          <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Key Financial Ratios</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="space-y-3">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="h-4 bg-border/30 rounded animate-pulse" style={{ width: `${60 + i * 8}%` }} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error || sections.length === 0 || sections.every(s => s.rows.length === 0)) {
+    return (
+      <Card className="border-border shadow-none bg-surface">
+        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+          <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Key Financial Ratios</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 text-center text-xs text-textMuted">
+          {error ?? 'No ratio data available for this company.'}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="border-border shadow-none bg-surface">
@@ -126,42 +166,12 @@ export function RatiosTable({ pe, price, high52w, low52w }: { pe: number; price:
         <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
           Key Financial Ratios
         </CardTitle>
-        <p className="text-xs text-textMuted mt-0.5">Compared against NSE sector median · LTM data</p>
+        <p className="text-xs text-textMuted mt-0.5">Historical trend · Annual data</p>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-border/50">
-          {groups.map((group) => (
-            <div key={group.title} className="p-5">
-              <h4 className="text-xs font-medium uppercase tracking-wider text-textMuted mb-3 flex items-center gap-1.5">
-                <span>{group.emoji}</span> {group.title}
-              </h4>
-              <div className="space-y-3">
-                {group.rows.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-textPrimary truncate">{row.label}</p>
-                      <p className="text-xs text-textMuted">{row.description}</p>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-3">
-                      <div className="w-16 bg-surfaceMuted rounded-full h-1.5 relative overflow-hidden">
-                        <div
-                          className={cn('h-full rounded-full transition-all', row.aboveAvg ? 'bg-positive' : 'bg-negative')}
-                          style={{ width: row.aboveAvg ? '70%' : '35%' }}
-                        />
-                      </div>
-                      <div className="text-right w-16">
-                        <p className={cn('text-xs font-medium font-mono tabular-nums', row.aboveAvg ? 'text-positive' : 'text-textPrimary')}>
-                          {row.value}
-                        </p>
-                        <p className="text-xs text-textMuted font-mono">avg {row.sectorAvg}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+      <CardContent className="p-5">
+        {sections.map((section) => (
+          <RatioSectionTable key={section.section} section={section} />
+        ))}
       </CardContent>
     </Card>
   )

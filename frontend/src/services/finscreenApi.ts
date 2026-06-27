@@ -166,9 +166,9 @@ export const finscreenApi = {
    * Fetch quotes for a specific set of symbols (filtered via query param)
    */
   fetchMultipleQuotes: async (symbols: string[]): Promise<Record<string, any>> => {
-    const response = await finscreenClient.get<Record<string, any>>('/market/movers', {
-      params: { symbol: symbols.join(',') }
-    })
+    const params = new URLSearchParams()
+    symbols.forEach(s => params.append('symbol', s))
+    const response = await finscreenClient.get<Record<string, any>>(`/market/movers?${params.toString()}`)
     return response.data
   },
 

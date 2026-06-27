@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Search, Inbox } from 'lucide-react'
-import { announcements, type Announcement } from '@/lib/data/market-pulse'
+import { type Announcement, announcements as staticAnnouncements } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
@@ -9,8 +9,21 @@ import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { AnnouncementItem } from '@/components/shared/AnnouncementItem'
+import finscreenApi from '@/services/finscreenApi'
+import { companies } from '@/lib/data/companies'
 
 const CATEGORIES = ['All', 'Board Meeting', 'Concall', 'Annual Report', 'Dividend', 'Merger', 'Capacity', 'Resignation', 'Award', 'Results', 'Other']
+
+function extractCompanyName(ann: any): string {
+  const symbol = ann.stock_symbol || ann.nse_code || ann.symbol || ''
+  // Try description extraction FIRST — FinEdge always has company name in description
+  if (ann.description && typeof ann.description === 'string') {
+    const match = ann.description.match(/^([A-Za-z0-9][A-Za-z0-9\s&()',.\-]{2,60}?(?:Limited|Ltd\.|Ltd|Corporation|Industries|Enterprises|Finance|Bank|Technologies|Services|Solutions|Holdings|Investments))\s+has\b/i)
+    if (match && match[1]) return match[1].trim()
+  }
+  const localComp = companies.find(c => c.symbol === symbol.toUpperCase())
+  return ann.company_name || ann.company || localComp?.name || (/^\d+$/.test(symbol) ? '' : symbol) || 'Unknown Company'
+}
 
 export default function Announcements() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,34 +32,45 @@ export default function Announcements() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [liveAnnouncements, setLiveAnnouncements] = useState<any[]>([])
   
   // Local storage persisted density state
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
 
-  const handleFetch = (showError = false) => {
-    setLoading(true)
-    setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to load announcements. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+  async function loadAnnouncements() {
+    try {
+      setLoading(true)
+      setError(null)
+      const now = new Date()
+      const pastDate = new Date(now)
+      pastDate.setDate(pastDate.getDate() - 14)
+      const data = await finscreenApi.fetchMarketAnnouncements({
+        from_date: pastDate.toISOString().split('T')[0],
+        to_date: now.toISOString().split('T')[0]
+      })
+      setLiveAnnouncements(data || [])
+    } catch (err: any) {
+      setError('Failed to load announcements. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    if (mockError) {
+      setError('Failed to load announcements. Please retry.')
+      setLoading(false)
+    } else {
+      loadAnnouncements()
+    }
+  }, [])
 
   const handleRetry = () => {
     const newParams = new URLSearchParams(searchParams)
     newParams.delete('error')
     setSearchParams(newParams)
-    handleFetch(false)
+    loadAnnouncements()
   }
 
   const handleSearchChange = (val: string) => {
@@ -65,8 +89,24 @@ export default function Announcements() {
     setSearchParams(newParams)
   }
 
+  // Map live announcements to Announcement type
+  const displayAnnouncements = useMemo((): Announcement[] => {
+    if (liveAnnouncements.length > 0) {
+      return liveAnnouncements.map((ann: any) => ({
+        id: String(ann.id || Math.random()),
+        company: extractCompanyName(ann),
+        symbol: ann.stock_symbol || ann.nse_code || ann.symbol || '',
+        date: ann.date || (ann.announcement_date ? ann.announcement_date.split(' ')[0] : new Date().toISOString().split('T')[0]),
+        category: ann.category || 'Other',
+        title: ann.title || ann.description || ann.summary || 'Announcement',
+        summary: ann.summary || ann.description || ''
+      }))
+    }
+    return staticAnnouncements
+  }, [liveAnnouncements])
+
   const filtered = useMemo(() => {
-    return announcements.filter((ann: Announcement) => {
+    return displayAnnouncements.filter((ann: Announcement) => {
       const matchesSearch =
         ann.company.toLowerCase().includes(search.toLowerCase()) ||
         ann.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -74,7 +114,8 @@ export default function Announcements() {
       const matchesCategory = category === 'All' || ann.category === category
       return matchesSearch && matchesCategory
     })
-  }, [search, category])
+  }, [displayAnnouncements, search, category])
+
 
   return (
     <div className="min-h-screen bg-background font-sans select-none">

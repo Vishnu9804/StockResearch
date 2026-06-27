@@ -85,69 +85,167 @@ export async function getSymbolChanges(req: Request, res: Response): Promise<any
 
 export async function getCompanyProfile(req: Request, res: Response): Promise<any> {
   const { symbol } = req.params
+  const sym = symbol.toUpperCase()
   const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
   try {
     // 1. Fetch live company profile
-    const profile = await FinedgeService.executeProxyRequest('GET', `company-profile/${symbol}`, req.query as Record<string, any>, req.body, requestId)
+    const profile = await FinedgeService.executeProxyRequest('GET', `company-profile/${sym}`, req.query as Record<string, any>, req.body, requestId)
     
     // 2. Find local company metadata for fallback
-    const local = companies.find((c) => c.symbol === symbol.toUpperCase())
+    const local = companies.find((c) => c.symbol === sym)
     
-    // 3. Fetch live quote
+    // 3. Fetch live quote, profitability ratios, leverage ratios, liquidity ratios, and shareholding pattern — all in parallel
+    const [quoteResult, prRatiosResult, leRatiosResult, liRatiosResult, shareholdingResult, metricsResult] = await Promise.allSettled([
+      FinedgeService.executeProxyRequest('GET', 'quote', { symbol: sym }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type: 's', ratio_type: 'pr' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type: 's', ratio_type: 'le' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type: 's', ratio_type: 'li' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `shareholdings/pattern/${sym}`, { period: 'quarterly' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `financial-metrics/${sym}`, { statement_type: 's', ratio_type: 'cu' }, req.body, requestId),
+    ])
+
+    // 4. Parse quote — FinEdge returns { SYMBOL: { current_price, change, market_cap, high52, low52, ... } }
     let quote: any = null
-    try {
-      const quoteData = await FinedgeService.executeProxyRequest('GET', 'quote', { symbol }, req.body, requestId)
-      quote = quoteData && quoteData[symbol.toUpperCase()] ? quoteData[symbol.toUpperCase()] : null
-    } catch (err: any) {
-      logger.warn(`[FinEdge Controller] Failed to fetch live quote for ${symbol}: ${err.message}`)
+    if (quoteResult.status === 'fulfilled') {
+      const quoteData = quoteResult.value
+      quote = quoteData && quoteData[sym] ? quoteData[sym] : null
     }
 
-    // 4. Merge live profile and quote with local fundamental fallbacks
-    const changeVal = quote ? parseFloat(quote.change?.replace('%', '') || '0') : (local?.change || 0)
+    // 5. Parse ratios (latest annual values)
+    let latestPr: any = null
+    if (prRatiosResult.status === 'fulfilled' && prRatiosResult.value && Array.isArray(prRatiosResult.value.ratios)) {
+      latestPr = [...prRatiosResult.value.ratios].sort((a: any, b: any) => (b.year || b.period_end || 0) - (a.year || a.period_end || 0))[0]
+    }
+    let latestLe: any = null
+    if (leRatiosResult.status === 'fulfilled' && leRatiosResult.value && Array.isArray(leRatiosResult.value.ratios)) {
+      latestLe = [...leRatiosResult.value.ratios].sort((a: any, b: any) => (b.year || b.period_end || 0) - (a.year || a.period_end || 0))[0]
+    }
+    let latestLi: any = null
+    if (liRatiosResult.status === 'fulfilled' && liRatiosResult.value && Array.isArray(liRatiosResult.value.ratios)) {
+      latestLi = [...liRatiosResult.value.ratios].sort((a: any, b: any) => (b.year || b.period_end || 0) - (a.year || a.period_end || 0))[0]
+    }
+
+    // 6. Parse shareholding pattern for promoter holding — catagory (API typo) === 'Indian'
+    let promoterHolding = local?.promoterHolding || 0
+    let fiiHolding = local?.fiiHolding || 0
+    let diiHolding = local?.diiHolding || 0
+    let publicHolding = local?.publicHolding || 0
+    if (shareholdingResult.status === 'fulfilled') {
+      const shData = shareholdingResult.value
+      if (shData && Array.isArray(shData.columns) && Array.isArray(shData.rows) && shData.columns.length > 0) {
+        const latestCol = shData.columns[shData.columns.length - 1]
+        shData.rows.forEach((row: any) => {
+          const val = row.data && row.data[latestCol] ? parseFloat(row.data[latestCol]) : 0
+          if (row.catagory === 'Indian' || row.catagory === 'Promoter') promoterHolding = val
+          else if (row.catagory === 'InstitutionsForeign') fiiHolding = val
+          else if (row.catagory === 'InstitutionsDomestic') diiHolding = val
+          else if (row.catagory === 'NonInstitutions' || row.catagory === 'Goverments') publicHolding += val
+        })
+      }
+    }
+
+    // 7. Parse financial metrics for dividend yield and EPS
+    let dividendYield = local?.dividendYield || 0
+    let eps = local?.eps || 0
+    if (metricsResult.status === 'fulfilled') {
+      const mData = metricsResult.value
+      if (mData && mData.metrics) {
+        dividendYield = mData.metrics.dividendYield ?? mData.metrics.dividend_yield ?? dividendYield
+        eps = mData.metrics.eps ?? mData.metrics.basicEps ?? eps
+      }
+    }
+
+    // 8. Extract live values from quote (correct FinEdge field names)
+    const currentPrice = quote ? (quote.current_price ?? quote.close_price ?? quote.ltp ?? 0) : (local?.price || 0)
     
+    // Parse percentage change (which can be a string like "-0.62%")
+    let changePct = local?.changePct || 0
+    if (quote) {
+      if (typeof quote.pct_change === 'number') changePct = quote.pct_change
+      else if (typeof quote.change_pct === 'number') changePct = quote.change_pct
+      else if (quote.change) changePct = parseFloat(String(quote.change).replace('%', ''))
+    }
+    
+    const changeAbs = quote ? parseFloat((currentPrice * (changePct / 100)).toFixed(2)) : (local?.change || 0)
+    const marketCap = quote ? (quote.market_cap ?? 0) : (local?.marketCap || 0)
+    const high52 = quote ? (quote.high52 ?? quote.week52_high ?? quote.yearly_high ?? 0) : (local?.high52w || 0)
+    const low52 = quote ? (quote.low52 ?? quote.week52_low ?? quote.yearly_low ?? 0) : (local?.low52w || 0)
+    const openPrice = quote ? (quote.open_price ?? quote.open ?? 0) : (local?.open || 0)
+    const highPrice = quote ? (quote.high_price ?? quote.high ?? 0) : (local?.high || 0)
+    const lowPrice = quote ? (quote.low_price ?? quote.low ?? 0) : (local?.low || 0)
+    const volume = quote ? (quote.volume ?? quote.traded_volume ?? 0) : (local?.volume || 0)
+
+    // 9. Extract fundamentals from ratios API (live > local > default 0)
+    let roe = latestPr?.returnOnEquity ?? latestPr?.roe ?? local?.roe ?? 0
+    if (roe > 0 && roe <= 1) roe = roe * 100
+    roe = parseFloat(roe.toFixed(2))
+    
+    let roce = latestPr?.returnOnCapital ?? latestPr?.returnOnCapitalEmployed ?? latestPr?.roce ?? local?.roce ?? 0
+    if (roce > 0 && roce <= 1) roce = roce * 100
+    roce = parseFloat(roce.toFixed(2))
+    
+    let netProfitMargin = latestPr?.netMargin ?? latestPr?.netProfitMargin ?? latestPr?.net_profit_margin ?? 0
+    if (netProfitMargin > 0 && netProfitMargin <= 1) netProfitMargin = netProfitMargin * 100
+    netProfitMargin = parseFloat(netProfitMargin.toFixed(2))
+    
+    const bookValuePerShare = parseFloat((latestLe?.bookValuePerShare ?? latestLe?.book_value_per_share ?? local?.bookValue ?? 0).toFixed(2))
+
+    // P/E ratio: prefer daily-price-ratios if available, else compute from price/EPS
+    let pe = local?.pe ?? 0
+    if (latestPr?.pe !== undefined) pe = latestPr.pe
+    else if (latestPr?.priceToEarnings !== undefined) pe = latestPr.priceToEarnings
+    else if (currentPrice > 0 && eps > 0) pe = parseFloat((currentPrice / eps).toFixed(2))
+    pe = parseFloat(pe.toFixed(2))
+
+    // Debt/Equity: from leverage ratios totalDebtToEquity if available
+    const debtToEquity = parseFloat((latestLe?.totalDebtToEquity ?? latestLe?.debtToEquity ?? latestLe?.debt_equity_ratio ?? local?.debtToEquity ?? 0).toFixed(2))
+
     const merged = {
-      symbol: symbol.toUpperCase(),
-      name: profile.name || local?.name || symbol.toUpperCase(),
-      exchange: profile.bse_code ? 'BSE' : 'NSE',
+      symbol: sym,
+      name: profile.name || profile.company_name || local?.name || sym,
+      exchange: profile.nse_code ? 'NSE' : (profile.bse_code ? 'BSE' : 'NSE'),
       sector: profile.sector || local?.sector || 'Other',
       industry: profile.industry || local?.industry || 'Other',
       index: local?.index || ['Nifty 500'],
       website: profile.website || local?.website || '',
       description: profile.description || local?.description || '',
-      isin: local?.isin || 'INE000001010',
+      isin: profile.isin || local?.isin || '',
       founded: local?.founded || 1990,
-      employees: local?.employees || 1000,
-      creditRating: local?.creditRating || 'AAA',
-      
+      employees: local?.employees || 0,
+      creditRating: local?.creditRating || '',
+      faceValue: profile.face_value ?? local?.faceValue ?? 10,
+
       // Live quote data
-      price: quote ? quote.current_price : (local?.price || 0),
-      change: changeVal,
-      changePct: changeVal,
-      open: quote ? quote.open_price : (local?.open || 0),
-      high: quote ? quote.high_price : (local?.high || 0),
-      low: quote ? quote.low_price : (local?.low || 0),
-      close: quote ? quote.current_price : (local?.close || 0),
-      volume: quote ? quote.volume : (local?.volume || 0),
-      avgVolume: local?.avgVolume || (quote ? quote.volume : 0),
-      high52w: quote ? quote.high52 : (local?.high52w || 0),
-      low52w: quote ? quote.low52 : (local?.low52w || 0),
-      upperCircuit: local?.upperCircuit || (quote ? quote.current_price * 1.1 : 0),
-      lowerCircuit: local?.lowerCircuit || (quote ? quote.current_price * 0.9 : 0),
-      
-      // Fundamentals fallback
-      marketCap: quote ? quote.market_cap : (local?.marketCap || 0),
-      pe: local?.pe || 20,
-      eps: local?.eps || 10,
-      bookValue: local?.bookValue || 150,
-      dividendYield: local?.dividendYield || 0,
-      faceValue: local?.faceValue || 10,
-      roe: local?.roe || 12,
-      roce: local?.roce || 12,
-      debtToEquity: local?.debtToEquity || 0.5,
-      promoterHolding: local?.promoterHolding || 50,
-      fiiHolding: local?.fiiHolding || 20,
-      diiHolding: local?.diiHolding || 15,
-      publicHolding: local?.publicHolding || 15,
+      price: currentPrice,
+      change: changeAbs,
+      changePct: changePct,
+      open: openPrice,
+      high: highPrice,
+      low: lowPrice,
+      close: currentPrice,
+      volume: volume,
+      avgVolume: local?.avgVolume || volume,
+      high52w: high52,
+      low52w: low52,
+      upperCircuit: quote?.upper_circuit_limit ?? local?.upperCircuit ?? 0,
+      lowerCircuit: quote?.lower_circuit_limit ?? local?.lowerCircuit ?? 0,
+
+      // Live fundamentals
+      marketCap: marketCap,
+      pe: pe,
+      eps: eps,
+      bookValue: bookValuePerShare || local?.bookValue || 0,
+      dividendYield: dividendYield,
+      roe: roe,
+      roce: roce,
+      netProfitMargin: netProfitMargin,
+      debtToEquity: debtToEquity,
+
+      // Live shareholding
+      promoterHolding: promoterHolding,
+      fiiHolding: fiiHolding,
+      diiHolding: diiHolding,
+      publicHolding: publicHolding,
     }
 
     return res.status(200).json(merged)
@@ -155,6 +253,7 @@ export async function getCompanyProfile(req: Request, res: Response): Promise<an
     return apiError(res, err, `company-profile/${symbol}`, requestId)
   }
 }
+
 
 export async function getBasicFinancials(req: Request, res: Response): Promise<any> {
   const { symbol } = req.params
@@ -452,8 +551,117 @@ export async function getCompanySegments(req: Request, res: Response): Promise<a
 }
 
 export async function getCompanyRatios(req: Request, res: Response): Promise<any> {
-  return res.status(200).json(null);
+  const { symbol } = req.params
+  const sym = symbol.toUpperCase()
+  const requestId = (req.headers['x-request-id'] as string) || `req_${Date.now()}`
+  const statement_type = (req.query.statement_type as string) || 's'
+
+  try {
+    // Fetch all 4 ratio types in parallel
+    const [prResult, leResult, liResult, efResult] = await Promise.allSettled([
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type, ratio_type: 'pr' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type, ratio_type: 'le' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type, ratio_type: 'li' }, req.body, requestId),
+      FinedgeService.executeProxyRequest('GET', `ratios/${sym}`, { statement_type, ratio_type: 'ef' }, req.body, requestId),
+    ])
+
+    // Merge all ratios by year/header for robust year-aligned mapping
+    const mergedMap = new Map<string, any>()
+    
+    function mergeRatios(result: PromiseSettledResult<any>) {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value.ratios)) {
+        result.value.ratios.forEach((r: any) => {
+          const key = r.header || String(r.year || r.period_end || '')
+          if (!key) return
+          const existing = mergedMap.get(key) || { header: key, year: r.year || r.period_end }
+          mergedMap.set(key, { ...existing, ...r })
+        })
+      }
+    }
+    
+    mergeRatios(prResult)
+    mergeRatios(leResult)
+    mergeRatios(liResult)
+    mergeRatios(efResult)
+    
+    // Sort ascending by year
+    const mergedList = Array.from(mergedMap.values()).sort((a, b) => {
+      const aVal = a.year || 0
+      const bVal = b.year || 0
+      return aVal - bVal
+    }).slice(-10)
+    
+    const columns = mergedList.map(item => {
+      if (item.header && (item.header.startsWith('Mar ') || item.header === 'TTM')) return item.header
+      if (item.year) return `Mar ${item.year}`
+      return item.header
+    })
+    
+    function getRow(label: string, key: string, isPercent = false) {
+      return {
+        label,
+        isPercent,
+        values: mergedList.map(item => {
+          let val = item[key]
+          if (val === undefined || val === null) return null
+          val = parseFloat(val)
+          if (isNaN(val)) return null
+          if (isPercent) val = val * 100
+          return parseFloat(val.toFixed(2))
+        })
+      }
+    }
+
+    const sections = [
+      {
+        section: 'Profitability',
+        columns,
+        rows: [
+          getRow('ROE (%)', 'returnOnEquity', true),
+          getRow('ROCE (%)', 'returnOnCapital', true),
+          getRow('Net Profit Margin (%)', 'netMargin', true),
+          getRow('Gross Profit Margin (%)', 'grossMargin', true),
+          getRow('EBITDA Margin (%)', 'ebitdaMargin', true),
+          getRow('Operating Profit Margin (%)', 'operatingMargin', true),
+        ]
+      },
+      {
+        section: 'Leverage',
+        columns,
+        rows: [
+          getRow('Debt to Equity', 'totalDebtToEquity'),
+          getRow('Debt to Assets', 'totalDebttoAssets'),
+          getRow('Interest Coverage', 'interestCoverage'),
+          getRow('Book Value Per Share (₹)', 'bookValuePerShare'),
+        ]
+      },
+      {
+        section: 'Liquidity',
+        columns,
+        rows: [
+          getRow('Current Ratio', 'currentRatio'),
+          getRow('Quick Ratio', 'quickRatio'),
+          getRow('Cash Ratio', 'cashRatio'),
+        ]
+      },
+      {
+        section: 'Efficiency',
+        columns,
+        rows: [
+          getRow('Asset Turnover', 'assetTurnover'),
+          getRow('Inventory Turnover', 'inventoryTurnover'),
+          getRow('Receivables Turnover', 'receivableTurnover'),
+          getRow('Payables Turnover', 'payableTurnover'),
+        ]
+      }
+    ]
+
+    return res.status(200).json({ symbol: sym, sections })
+  } catch (err: any) {
+    return apiError(res, err, `ratios/${symbol}`, requestId)
+  }
 }
+
 
 export async function getPeerComparison(req: Request, res: Response): Promise<any> {
   const { symbol } = req.params

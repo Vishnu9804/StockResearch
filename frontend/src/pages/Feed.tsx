@@ -12,6 +12,7 @@ import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { AnnouncementItem } from '@/components/shared/AnnouncementItem'
+import { companies } from '@/lib/data/companies'
 
 const CATEGORY_STYLES: Record<string, { bg: string; text: string }> = {
   'Board Meeting': { bg: 'var(--fs-info-soft)', text: 'var(--fs-brand)' },
@@ -44,19 +45,25 @@ const UPCOMING_RESULTS = [
 ]
 
 function formatDateHeading(dateStr: string): string {
-  if (dateStr === '2026-06-18') return 'Today'
-  if (dateStr === '2026-06-17') return 'Yesterday'
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+  if (dateStr === todayStr) return 'Today'
+  if (dateStr === yesterdayStr) return 'Yesterday'
   
   const parts = dateStr.split('-')
   if (parts.length === 3) {
-    const year = parts[0]
     const monthIndex = parseInt(parts[1], 10) - 1
     const day = parseInt(parts[2], 10)
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    return `${months[monthIndex]} ${day}, ${year}`
+    return `${months[monthIndex]} ${day}, ${parts[0]}`
   }
   return dateStr
 }
+
 
 export function Feed() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -120,15 +127,32 @@ export function Feed() {
 
   const displayAnnouncements = useMemo(() => {
     if (liveAnnouncements.length > 0) {
-      return liveAnnouncements.map((ann: any) => ({
-        id: ann.id || Math.random().toString(),
-        company: ann.company_name || ann.company || ann.symbol || 'Unknown Company',
-        symbol: ann.symbol || '',
-        date: ann.date || (ann.announcement_date ? ann.announcement_date.split(' ')[0] : new Date().toISOString().split('T')[0]),
-        category: ann.category || 'Other',
-        title: ann.title || ann.description || ann.summary || 'Announcement',
-        summary: ann.summary || ann.description || ''
-      }))
+      return liveAnnouncements.map((ann: any) => {
+        const symbol = ann.stock_symbol || ann.nse_code || ann.symbol || ''
+        // Try description extraction FIRST — FinEdge always has company name in description
+        let company = ''
+        if (ann.description && typeof ann.description === 'string') {
+          // Match patterns: "XYZ Limited has...", "XYZ Ltd. has...", "XYZ (India) Limited has...", "XYZ Industries Limited has..."
+          const match = ann.description.match(/^([A-Za-z0-9][A-Za-z0-9\s&()',.-]{2,60}?(?:Limited|Ltd\.|Ltd|Corporation|Industries|Enterprises|Finance|Bank|Technologies|Services|Solutions|Holdings|Investments))\s+has\b/i)
+          if (match && match[1]) {
+            company = match[1].trim()
+          }
+        }
+        // Fall back: local company name → non-numeric symbol → empty string
+        if (!company) {
+          const localComp = companies.find(c => c.symbol === symbol.toUpperCase())
+          company = ann.company_name || ann.company || localComp?.name || (/^\d+$/.test(symbol) ? '' : symbol) || 'Unknown Company'
+        }
+        return {
+          id: ann.id || Math.random().toString(),
+          company,
+          symbol,
+          date: ann.date || (ann.announcement_date ? ann.announcement_date.split(' ')[0] : new Date().toISOString().split('T')[0]),
+          category: ann.category || 'Other',
+          title: ann.title || ann.description || ann.summary || 'Announcement',
+          summary: ann.summary || ann.description || ''
+        }
+      })
     }
     return announcements
   }, [liveAnnouncements])
@@ -160,7 +184,7 @@ export function Feed() {
       const dateStr = d.toISOString().split('T')[0]
       
       const dayItems = resultsCalendar
-        .filter((item: any) => item.date === dateStr)
+        .filter((item: any) => (item.expected_result_date || item.date) === dateStr)
         .map((item: any) => item.company_name || item.name || item.symbol)
         .slice(0, 2)
         

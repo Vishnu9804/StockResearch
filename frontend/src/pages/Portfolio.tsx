@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, TrendingUp, TrendingDown, AlertCircle, Plus, Trash2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -94,6 +94,24 @@ export function Portfolio() {
   const [addCost, setAddCost] = useState('')
   const [addSelected, setAddSelected] = useState<typeof companies[0] | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+
+  // Fetch live prices for all portfolio holdings
+  useEffect(() => {
+    const symbols = INITIAL_HOLDINGS.map(h => h.symbol)
+    import('@/services/finscreenApi').then(({ default: finscreenApi }) => {
+      finscreenApi.fetchMultipleQuotes(symbols).then((quotes: Record<string, any>) => {
+        setHoldings(prev => prev.map(h => {
+          const q = quotes[h.symbol]
+          if (!q) return h
+          const livePrice = q.current_price || q.close_price || q.ltp || h.cmp
+          const livePct = typeof q.pct_change === 'number' ? q.pct_change
+            : typeof q.change === 'number' ? q.change
+            : h.dayChange
+          return { ...h, cmp: livePrice, dayChange: livePct }
+        }))
+      }).catch(() => { /* Keep hardcoded values on error */ })
+    })
+  }, [])
 
   const computed = computeHoldings(holdings)
   const totalValue = computed.reduce((s, h) => s + h.currentValue, 0)

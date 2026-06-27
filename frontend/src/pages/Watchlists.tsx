@@ -99,7 +99,9 @@ export function Watchlists() {
     if (!selected) return []
     return selected.items.map((item) => {
       const q = quotes[item.symbol] || {}
-      const changeVal = q.change ? parseFloat(q.change.replace('%', '')) : 0
+      const changeVal = typeof q.pct_change === 'number' ? q.pct_change
+        : typeof q.change === 'number' ? q.change
+        : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
       const price = q.current_price || q.close_price || 0
       return {
         id: item.symbol, // use symbol as target stock ID

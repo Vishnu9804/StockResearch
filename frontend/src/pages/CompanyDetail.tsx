@@ -484,6 +484,7 @@ export function CompanyDetail() {
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <RatiosTable
+                symbol={company.symbol}
                 pe={company.pe}
                 price={company.price}
                 high52w={company.high52w}

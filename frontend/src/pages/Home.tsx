@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Link } from "react-router-dom"
 import { useAppSelector } from "@/store/hooks"
 import finscreenApi from "@/services/finscreenApi"
+import { companies } from "@/lib/data/companies"
 import {
   BarChart2, Bell, Bookmark, Calendar, ChevronRight, ExternalLink,
   FileText, Plus, RefreshCw, Star, TrendingUp, TrendingDown,
@@ -188,10 +189,11 @@ export function Home() {
     let count = 0
     wl.items.forEach((item) => {
       const q = quotes[item.symbol]
-      if (q && q.change) {
-        const changeVal = parseFloat(q.change.replace("%", ""))
-        totalChange += changeVal
-        count++
+      if (q) {
+        const changeVal = typeof q.pct_change === 'number' ? q.pct_change
+          : typeof q.change === 'number' ? q.change
+          : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
+        if (changeVal !== 0) { totalChange += changeVal; count++ }
       }
     })
     const avgChange = count > 0 ? totalChange / count : 0
@@ -207,8 +209,9 @@ export function Home() {
 
   // Compute live Top Gainers & Losers from batch quotes
   const quoteList = Object.entries(quotes).map(([symbol, q]: [string, any]) => {
-    const changePctStr = q.change ? q.change.replace("%", "") : "0"
-    const changePct = parseFloat(changePctStr)
+    const changePct = typeof q.pct_change === 'number' ? q.pct_change
+      : typeof q.change === 'number' ? q.change
+      : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
     return {
       symbol,
       price: q.current_price || q.close_price || 0,
@@ -248,8 +251,10 @@ export function Home() {
   let advances = 0
   let declines = 0
   Object.values(quotes).forEach((q: any) => {
-    if (q && q.change) {
-      const changeVal = parseFloat(q.change.replace("%", ""))
+    if (q) {
+      const changeVal = typeof q.pct_change === 'number' ? q.pct_change
+        : typeof q.change === 'number' ? q.change
+        : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
       if (changeVal > 0) advances++
       else if (changeVal < 0) declines++
     }
@@ -279,7 +284,7 @@ export function Home() {
       const dateStr = d.toISOString().split('T')[0]
       
       const dayItems = resultsCalendar
-        .filter((item: any) => item.date === dateStr)
+        .filter((item: any) => (item.expected_result_date || item.date) === dateStr)
         .map((item: any) => item.company_name || item.name || item.symbol)
         
       days.push({
@@ -324,10 +329,24 @@ export function Home() {
         type = "price-alert"
       }
 
+      const symbol = ann.stock_symbol || ann.nse_code || ann.symbol || ''
+      // Try description extraction FIRST — FinEdge always has company name in description
+      let name = ''
+      if (ann.description && typeof ann.description === 'string') {
+        const match = ann.description.match(/^([A-Za-z0-9][A-Za-z0-9\s&()',.-]{2,60}?(?:Limited|Ltd\.|Ltd|Corporation|Industries|Enterprises|Finance|Bank|Technologies|Services|Solutions|Holdings|Investments))\s+has\b/i)
+        if (match && match[1]) {
+          name = match[1].trim()
+        }
+      }
+      if (!name) {
+        const localComp = companies.find(c => c.symbol === symbol.toUpperCase())
+        name = ann.company_name || ann.company || localComp?.name || (/^\d+$/.test(symbol) ? '' : symbol) || 'Unknown Company'
+      }
+
       return {
         id: ann.id || Math.random().toString(),
-        symbol: ann.symbol || "",
-        name: ann.company_name || ann.company || ann.symbol || "Unknown Company",
+        symbol,
+        name,
         type,
         icon,
         time: ann.date ? `${ann.date}` : (ann.announcement_date ? `${ann.announcement_date.split(' ')[0]}` : "Today"),
@@ -337,6 +356,7 @@ export function Home() {
       }
     })
   }, [announcements])
+
 
   const displayFeed = liveAnnouncements.length > 0 ? liveAnnouncements : FEED_ITEMS
   const filteredFeed = feedFilter === "alerts"
@@ -465,7 +485,10 @@ export function Home() {
             ].map((s, idx, arr) => {
               const q = quotes[s.symbol] || {}
               const price = q.current_price || q.close_price || s.defaultPrice
-              const changeVal = q.change ? parseFloat(q.change.replace('%', '')) : null
+              const changeVal = typeof q.pct_change === 'number' ? q.pct_change
+                : typeof q.change === 'number' ? q.change
+                : q.change ? parseFloat(String(q.change).replace('%', ''))
+                : null
               const changeText = changeVal !== null ? (changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`) : s.defaultChange
               const isPos = changeVal !== null ? changeVal >= 0 : s.defaultChange.startsWith('+')
               
