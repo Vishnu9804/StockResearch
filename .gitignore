@@ -7,6 +7,10 @@ node_modules/
 /frontend/.next/
 /frontend/out/
 
+.venv/
+
+backend/.venv/
+
 # Express build output
 /backend/dist/
 /backend/build/
@@ -44,3 +48,5 @@ Thumbs.db
 # Frontend build outputs
 /frontend/dist/
 /frontend/build/
+
+/fastapi_backend/venv/
