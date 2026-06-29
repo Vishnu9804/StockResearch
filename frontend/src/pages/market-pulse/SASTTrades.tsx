@@ -1,17 +1,28 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { sastTrades } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const YEARS = ['2026', '2025', '2024']
 
 type SortField = 'company' | 'acquirer' | 'preHolding' | 'postHolding' | 'changePercent' | 'date'
+
+interface SASTrade {
+  date: string
+  company: string
+  symbol: string
+  acquirer: string
+  preHolding: number
+  postHolding: number
+  changePercent: number
+  mode: 'Open Market' | 'Off-Market' | 'Preferential Allotment' | string
+}
 
 export default function SASTTrades() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,33 +30,30 @@ export default function SASTTrades() {
   const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
+  const [trades, setTrades] = useState<SASTrade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchTrades = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch SAST trades data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/sast-trades')
+      setTrades(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch SAST trades data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchTrades()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchTrades()
   }
 
   const handleSort = (field: SortField) => {
@@ -66,9 +74,10 @@ export default function SASTTrades() {
   }
 
   const sortedData = useMemo(() => {
-    const filtered = sastTrades.filter((d) => d.date?.startsWith(year))
+    const filtered = trades.filter((d) => !d.date || d.date.startsWith(year))
+    const displayData = filtered.length > 0 ? filtered : trades
 
-    return [...filtered].sort((a, b) => {
+    return [...displayData].sort((a, b) => {
       let valA: any = a[sortBy]
       let valB: any = b[sortBy]
 
@@ -81,7 +90,7 @@ export default function SASTTrades() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [year, sortBy, sortOrder])
+  }, [trades, year, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -133,16 +142,18 @@ export default function SASTTrades() {
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <TableRowsSkeleton rows={6} cols={8} />
+                <div className="p-5">
+                  <TableRowsSkeleton rows={6} cols={8} />
+                </div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <Inbox className="size-6 text-textMuted" />
                     </EmptyMedia>
-                    <EmptyTitle className="text-textPrimary font-semibold">No SAST trades found for {year}</EmptyTitle>
+                    <EmptyTitle className="text-textPrimary font-semibold">No SAST trades found</EmptyTitle>
                     <EmptyDescription className="text-textSecondary">
-                      Try selecting a different year chip.
+                      Try selecting a different year chip or filter.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -199,31 +210,38 @@ export default function SASTTrades() {
                           Change % {renderSortIcon('changePercent')}
                         </div>
                       </TableHead>
-                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Mode</TableHead>
+                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Acquisition Mode</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedData.map((d, i) => {
-                      const change = Number(d.changePercent)
-                      const isPositive = change >= 0
+                      const isAcquisition = d.changePercent >= 0
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date}</TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                               {d.company}
                             </Link>
                           </TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3">{d.acquirer}</TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.preHolding}%</TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.postHolding}%</TableCell>
-                          <TableCell className={`text-right text-sm font-semibold px-4 py-3 tabular ${
-                            isPositive ? 'text-positive' : 'text-negative'
-                          }`}>
-                            {isPositive ? '+' : ''}{d.changePercent}%
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 max-w-[240px] truncate" title={d.acquirer}>
+                            {d.acquirer}
                           </TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3">{d.mode}</TableCell>
+                          <TableCell className="text-right text-sm text-textSecondary px-4 py-3 font-mono">
+                            {d.preHolding ? `${d.preHolding.toFixed(2)}%` : '—'}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 font-mono">
+                            {d.postHolding ? `${d.postHolding.toFixed(2)}%` : '—'}
+                          </TableCell>
+                          <TableCell className={`text-right text-sm px-4 py-3 font-mono font-semibold ${
+                            isAcquisition ? 'text-positive' : 'text-negative'
+                          }`}>
+                            {isAcquisition ? '+' : ''}{d.changePercent?.toFixed(2)}%
+                          </TableCell>
+                          <TableCell className="text-sm px-4 py-3 text-textSecondary">
+                            {d.mode}
+                          </TableCell>
                         </TableRow>
                       )
                     })}

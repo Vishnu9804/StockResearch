@@ -6,6 +6,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { ChevronRight, Search, Inbox } from 'lucide-react'
 import { announcements } from '@/lib/data/market-pulse'
+import { finscreenApi } from '@/services/finscreenApi'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,7 @@ export function QueryResults() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refinement, setRefinement] = useState<'all' | 'results' | 'concalls' | 'watchlist'>('all')
+  const [liveAnnouncements, setLiveAnnouncements] = useState<any[]>([])
 
   // Local storage persisted density state
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
@@ -51,43 +53,72 @@ export function QueryResults() {
     return activeWatchlist?.items.map(item => item.symbol.toUpperCase()) || []
   }, [activeWatchlist])
 
-  const handleFetch = (showError = false) => {
+  const loadAnnouncements = async (showError = false) => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to execute query search. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 500)
-    return () => clearTimeout(delay)
+    if (showError) {
+      setError('Failed to execute query search. Please retry.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const now = new Date()
+      const pastDate = new Date(now)
+      pastDate.setDate(pastDate.getDate() - 30) // last 30 days
+      const res = await finscreenApi.fetchMarketAnnouncements({
+        from_date: pastDate.toISOString().split('T')[0],
+        to_date: now.toISOString().split('T')[0]
+      })
+      setLiveAnnouncements(Array.isArray(res) ? res : [])
+    } catch (err) {
+      console.error('Failed to load announcements for query results:', err)
+      // will fall back to static announcements data
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
+    loadAnnouncements(mockError)
   }, [searchParams])
 
   const handleRetry = () => {
     const newParams = new URLSearchParams(searchParams)
     newParams.delete('error')
     setSearchParams(newParams)
-    handleFetch(false)
   }
 
   const handleToggleRefinement = (ref: 'results' | 'concalls' | 'watchlist') => {
     setRefinement(prev => prev === ref ? 'all' : ref)
   }
 
+  const displayAnnouncements = useMemo(() => {
+    if (liveAnnouncements.length > 0) {
+      return liveAnnouncements.map((ann: any) => {
+        const symbol = ann.stock_symbol || ann.nse_code || ann.symbol || ''
+        return {
+          id: ann.id || Math.random().toString(),
+          company: ann.company_name || ann.company || symbol || 'Unknown Company',
+          symbol,
+          date: ann.date || (ann.announcement_date ? ann.announcement_date.split(' ')[0] : new Date().toISOString().split('T')[0]),
+          category: ann.category || 'Other',
+          title: ann.title || ann.description || ann.summary || 'Announcement',
+          summary: ann.summary || ann.description || ''
+        }
+      })
+    }
+    return announcements
+  }, [liveAnnouncements])
+
   const filtered = useMemo(() => {
-    let list = announcements
+    let list = displayAnnouncements
     
     // 1. Query keyword filter
     if (query.trim()) {
       const terms = query.toLowerCase().split(/\s+OR\s+|\s+/).filter(Boolean)
-      list = announcements.filter((ann) => {
+      list = displayAnnouncements.filter((ann) => {
         const text = `${ann.company} ${ann.title} ${ann.summary} ${ann.category}`.toLowerCase()
         return terms.some(term => {
           const clean = term.startsWith('-') ? null : term.replace(/^"(.*)"$/, '$1')

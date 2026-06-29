@@ -1,7 +1,9 @@
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Plus } from 'lucide-react'
-import { SCREENER_TEMPLATES, type ScreenerTemplate } from '@/lib/data/screener'
+import { ArrowRight, Plus, Trash2, Inbox } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
+import { finscreenClient } from '@/services/finscreenApi'
+import { toast } from 'react-hot-toast'
 
 // ─── Sector list (inspired by screener.in's Browse Sectors panel) ──────────────
 const BROWSE_SECTORS = [
@@ -26,142 +28,82 @@ const BROWSE_SECTORS = [
   'Textiles & Apparels', 'Transport Infrastructure', 'Transport Services',
 ]
 
-// ─── Category panel definitions ───────────────────────────────────────────────
-interface PanelDef {
-  title: string
-  subtitle: string
-  categoryFilter: string[]
-  ids?: string[]
-}
-
-const PANELS: PanelDef[] = [
-  {
-    title: 'Popular themes',
-    subtitle: 'Popular investing themes',
-    categoryFilter: [],
-    ids: ['debt-free', 'low-pe-growth', 'magic-formula', 'high-dividend', 'small-cap-growth', 'turnaround'],
-  },
-  {
-    title: 'Popular formulas',
-    subtitle: 'Screening formulas based on books',
-    categoryFilter: [],
-    ids: ['magic-formula', 'consistent-compounders', 'high-roe-low-debt'],
-  },
-  {
-    title: 'Price or Volume',
-    subtitle: 'Screens based on price or volume action',
-    categoryFilter: ['Technical'],
-  },
-  {
-    title: 'Quarterly results',
-    subtitle: 'Screens around latest quarterly results',
-    categoryFilter: [],
-    ids: ['turnaround', 'small-cap-growth'],
-  },
-  {
-    title: 'Valuation Screens',
-    subtitle: 'Screens based on stock valuations',
-    categoryFilter: ['Valuation'],
-  },
-  {
-    title: 'Shareholding patterns',
-    subtitle: 'Screens based on institutional and promoter activity',
-    categoryFilter: ['Shareholding'],
-  },
-  {
-    title: 'Popular stock screens',
-    subtitle: 'Popular screens commonly used by investors',
-    categoryFilter: [],
-    ids: ['high-dividend', 'golden-crossover', 'magic-formula', 'low-pe-growth', 'debt-free', '52w-highs'],
-  },
-]
-
-// ─── Screen tile ──────────────────────────────────────────────────────────────
-function ScreenTile({ screen }: { screen: ScreenerTemplate }) {
-  return (
-    <Link
-      to="/screener/results"
-      style={{
-        display: 'block',
-        padding: '12px 14px',
-        border: '1px solid var(--fs-border-color)',
-        borderRadius: '8px',
-        background: 'var(--fs-surface)',
-        textDecoration: 'none',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--fs-brand)'
-        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 1px 6px rgba(0,0,0,0.08)'
-      }}
-      onMouseLeave={(e) => {
-        ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--fs-border-color)'
-        ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-brand)', margin: 0, lineHeight: 1.3 }}>
-            {screen.name}
-            <ArrowRight style={{ display: 'inline', width: '12px', height: '12px', marginLeft: '3px', verticalAlign: 'middle', opacity: 0.6 }} />
-          </p>
-          <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '3px 0 0', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-            {screen.description}
-          </p>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
-// ─── Category panel ───────────────────────────────────────────────────────────
-function CategoryPanel({ panel }: { panel: PanelDef }) {
-  let screens: ScreenerTemplate[] = []
-
-  if (panel.ids && panel.ids.length > 0) {
-    screens = panel.ids
-      .map((id) => SCREENER_TEMPLATES.find((t) => t.id === id))
-      .filter(Boolean) as ScreenerTemplate[]
-  } else if (panel.categoryFilter.length > 0) {
-    screens = SCREENER_TEMPLATES.filter((t) => panel.categoryFilter.includes(t.category))
-  }
-
-  if (screens.length === 0) return null
-
+// ─── Saved Screen Card component ──────────────────────────────────────────────
+function SavedScreenTile({ screen, onDelete }: { screen: any; onDelete: (id: string) => void }) {
   return (
     <div
       style={{
-        background: 'var(--fs-surface)',
+        display: 'block',
+        padding: '16px 20px',
         border: '1px solid var(--fs-border-color)',
         borderRadius: '10px',
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        marginBottom: '16px',
+        background: 'var(--fs-surface)',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+        marginBottom: '12px',
+        position: 'relative'
       }}
     >
-      {/* Panel header */}
-      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--fs-border-color)' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>
-          {panel.title}
-        </h2>
-        <p style={{ fontSize: '12px', color: 'var(--fs-text-muted)', margin: '2px 0 0' }}>
-          {panel.subtitle}
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <Link
+            to={`/screener/results?query=${encodeURIComponent(screen.queryText)}`}
+            style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fs-brand)', textDecoration: 'none', lineHeight: 1.3 }}
+            className="hover:underline"
+          >
+            {screen.name}
+            <ArrowRight style={{ display: 'inline', width: '13px', height: '13px', marginLeft: '5px', verticalAlign: 'middle', opacity: 0.6 }} />
+          </Link>
+          <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.5 }}>
+            {screen.description || 'No description provided.'}
+          </p>
+          <code style={{ display: 'block', fontSize: '11px', color: 'var(--fs-text-muted)', background: 'var(--fs-background)', padding: '6px 10px', borderRadius: '6px', marginTop: '8px', fontFamily: 'monospace', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+            {screen.queryText}
+          </code>
+        </div>
+        <button
+          onClick={() => {
+            if (window.confirm(`Are you sure you want to delete "${screen.name}"?`)) {
+              onDelete(screen.id)
+            }
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#EF4444',
+            cursor: 'pointer',
+            padding: '6px',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background 0.15s'
+          }}
+          className="hover:bg-red-50 dark:hover:bg-red-950/20"
+          title="Delete Saved Screen"
+        >
+          <Trash2 style={{ width: '15px', height: '15px' }} />
+        </button>
       </div>
+    </div>
+  )
+}
 
-      {/* Tile grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '10px',
-          padding: '14px 16px',
-        }}
-      >
-        {screens.slice(0, 6).map((screen) => (
-          <ScreenTile key={screen.id} screen={screen} />
-        ))}
-      </div>
+// ─── Saved Screen Skeleton component ───────────────────────────────────────────
+function SavedScreenSkeleton() {
+  return (
+    <div
+      style={{
+        padding: '16px 20px',
+        border: '1px solid var(--fs-border-color)',
+        borderRadius: '10px',
+        background: 'var(--fs-surface)',
+        marginBottom: '12px'
+      }}
+      className="animate-pulse"
+    >
+      <div style={{ height: '15px', backgroundColor: 'var(--fs-border-color)', width: '35%', borderRadius: '4px', marginBottom: '8px' }} />
+      <div style={{ height: '12px', backgroundColor: 'var(--fs-border-color)', width: '55%', borderRadius: '4px', marginBottom: '12px' }} />
+      <div style={{ height: '24px', backgroundColor: 'var(--fs-border-color)', width: '100%', borderRadius: '6px' }} />
     </div>
   )
 }
@@ -212,15 +154,60 @@ function BrowseSectors() {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export function ScreenGallery() {
+  const [screens, setScreens] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchScreens = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await finscreenClient.get('/screener/saved')
+      if (res.data.success) {
+        setScreens(res.data.screens || [])
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch saved screens:', err)
+      setError('Unable to load saved screens. Please sign in or refresh the page.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const handleDeleteScreen = async (id: string) => {
+    try {
+      const deletePromise = finscreenClient.delete(`/screener/saved/${id}`)
+      toast.promise(deletePromise, {
+        loading: 'Deleting screen...',
+        success: '✓ Screen deleted successfully!',
+        error: (err) => err.response?.data?.detail?.message || err.message || 'Failed to delete screen',
+      })
+      
+      await deletePromise
+      setScreens((prev) => prev.filter((s) => s.id !== id))
+    } catch (err) {
+      console.error('Delete screen error:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchScreens()
+  }, [fetchScreens])
+
   return (
     <div className="min-h-screen bg-background font-sans select-none">
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px 0' }}>
 
         {/* Page header row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>
-            Stock screens
-          </h1>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>
+              Saved Stock Screens
+            </h1>
+            <p style={{ fontSize: '13px', color: 'var(--fs-text-secondary)', margin: '4px 0 0' }}>
+              Your custom database filters and saved watch queries
+            </p>
+          </div>
           <Link
             to="/screener"
             style={{
@@ -242,34 +229,45 @@ export function ScreenGallery() {
         </div>
 
         {/* Main 2-column layout: panels left, sectors right */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px', alignItems: 'start' }}>
 
           {/* Left: Stacked category panels */}
           <div>
-            {PANELS.map((panel) => (
-              <CategoryPanel key={panel.title} panel={panel} />
-            ))}
-
-            {/* Show all screens CTA */}
-            <div style={{ textAlign: 'center', margin: '8px 0 32px' }}>
-              <Link
-                to="/screener"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '9px 22px',
-                  border: '1px solid var(--fs-border-color)',
-                  borderRadius: '8px',
-                  background: 'var(--fs-surface)',
-                  color: 'var(--fs-text-primary)',
-                  fontSize: '13px', fontWeight: 500,
-                  textDecoration: 'none',
-                }}
-                className="hover:border-accent hover:text-accent transition-colors"
-              >
-                SHOW ALL SCREENS
-                <ArrowRight style={{ width: '14px', height: '14px' }} />
-              </Link>
-            </div>
+            {loading ? (
+              <div>
+                <SavedScreenSkeleton />
+                <SavedScreenSkeleton />
+                <SavedScreenSkeleton />
+              </div>
+            ) : error ? (
+              <div style={{ padding: '24px', border: '1px solid #FCA5A5', background: '#FEF2F2', borderRadius: '10px', color: '#B91C1C', fontSize: '13px', fontWeight: 500, textAlign: 'center' }}>
+                <p style={{ margin: '0 0 10px' }}>{error}</p>
+                <button onClick={fetchScreens} style={{ padding: '6px 14px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                  Retry
+                </button>
+              </div>
+            ) : screens.length === 0 ? (
+              <div style={{ padding: '48px 24px', border: '1px dashed var(--fs-border-color)', borderRadius: '10px', background: 'var(--fs-surface)', textAlign: 'center' }}>
+                <Inbox style={{ width: '32px', height: '32px', color: 'var(--fs-text-muted)', marginBottom: '12px' }} />
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0 }}>No saved screens found</h3>
+                <p style={{ fontSize: '12px', color: 'var(--fs-text-secondary)', margin: '4px 0 16px' }}>
+                  Create and save custom screen formulas to monitor the market.
+                </p>
+                <Link to="/screener" style={{ display: 'inline-block', padding: '8px 18px', background: 'var(--fs-brand)', color: '#fff', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none' }}>
+                  Create a Screen
+                </Link>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {screens.map((screen) => (
+                  <SavedScreenTile
+                    key={screen.id}
+                    screen={screen}
+                    onDelete={handleDeleteScreen}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right: Browse sectors */}

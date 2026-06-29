@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: 'analyst', label: 'Analyst Consensus' },
   { id: 'shareholding', label: 'Shareholding' },
   { id: 'corporate-actions', label: 'Corporate Actions' },
+  { id: 'auditor-notes', label: 'Auditor Notes' },
   { id: 'documents', label: 'Documents' },
 ]
 

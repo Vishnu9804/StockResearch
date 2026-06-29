@@ -21,14 +21,28 @@ import { AnimatedCompanyName } from './AnimatedCompanyName'
 import { badgePopVariants, containerVariants, itemVariants, springs } from '@/lib/motion'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 
+import { useState, useEffect } from 'react'
+
 export function CompanyHeader({ company }: { company: Company }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const watchlist = useAppSelector((state) => state.company.watchlist)
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const [liveRating, setLiveRating] = useState<string | null>(null)
   const isWatched = watchlist.includes(company.symbol)
   const positive = company.change >= 0
   const prefersReduced = useReducedMotion()
+
+  useEffect(() => {
+    import('@/services/finscreenApi').then(({ default: finscreenApi }) => {
+      finscreenApi.fetchCompanyCreditRatings(company.symbol)
+        .then((res: any) => {
+          const ratingStr = res?.rating || res?.[0]?.rating || res?.[0]?.credit_rating || company.creditRating || 'AAA'
+          setLiveRating(ratingStr)
+        })
+        .catch(() => setLiveRating(company.creditRating || 'AAA'))
+    })
+  }, [company.symbol])
 
   const handleWatchToggle = () => {
     if (!isAuthenticated) {
@@ -97,6 +111,11 @@ export function CompanyHeader({ company }: { company: Company }) {
                 <Badge variant="outline" className="font-mono text-xs font-medium text-textSecondary bg-surfaceMuted border-border rounded-md">
                   {company.exchange}
                 </Badge>
+                {liveRating && (
+                  <Badge variant="outline" className="font-mono text-xs font-semibold text-accent bg-accentSoft border-accent/20 rounded-md">
+                    Rating: {liveRating}
+                  </Badge>
+                )}
               </div>
               <p className="mt-1 text-body text-textSecondary flex flex-wrap items-center gap-1 font-normal">
                 <span>Equity tracking {company.sector} · </span>

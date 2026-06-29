@@ -4,6 +4,7 @@
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { Company } from '@/lib/data/companies'
+import { finscreenClient } from '@/services/finscreenApi'
 
 export type LoadStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -32,6 +33,7 @@ export interface CompanyState {
   operatingRatios: any | null
   statementType: 's' | 'c'
   period: 'annual' | 'quarterly'
+  quarterly: any | null
 }
 
 const initialState: CompanyState = {
@@ -59,6 +61,7 @@ const initialState: CompanyState = {
   operatingRatios: null,
   statementType: 's',
   period: 'annual',
+  quarterly: null,
 }
 
 const companySlice = createSlice({
@@ -91,6 +94,9 @@ const companySlice = createSlice({
     },
     fetchCompanyPLSuccess(state, action: PayloadAction<any>) {
       state.profitLoss = action.payload
+    },
+    fetchCompanyQuarterlySuccess(state, action: PayloadAction<any>) {
+      state.quarterly = action.payload
     },
     fetchCompanyBalanceSheetSuccess(state, action: PayloadAction<any>) {
       state.balanceSheet = action.payload
@@ -210,6 +216,7 @@ export const {
   setActiveTab,
   resetCompany,
   fetchCompanyPLSuccess,
+  fetchCompanyQuarterlySuccess,
   fetchCompanyBalanceSheetSuccess,
   fetchCompanyCashFlowSuccess,
   fetchCompanySegmentsSuccess,
@@ -223,3 +230,21 @@ export const {
 } = companySlice.actions
 
 export const companyReducer = companySlice.reducer
+
+// Thunk action for fetching quarterly results via FastAPI financials/pl?period=quarterly
+export const fetchQuarterlyResults = (symbol: string) => async (dispatch: any) => {
+  dispatch(setFinancialsStatus('loading'))
+  dispatch(setFinancialsError(null))
+  try {
+    const res = await finscreenClient.get(`/company/${symbol}/financials/pl`, {
+      params: { period: 'quarterly' }
+    })
+    dispatch(fetchCompanyQuarterlySuccess(res.data))
+    dispatch(setFinancialsStatus('success'))
+  } catch (err: any) {
+    console.error('Failed to fetch quarterly results:', err)
+    const errMsg = err.response?.data?.detail?.message || err.message || 'Failed to fetch quarterly results'
+    dispatch(setFinancialsError(errMsg))
+    dispatch(setFinancialsStatus('error'))
+  }
+}

@@ -1,17 +1,28 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { bulkDeals } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const YEARS = ['2026', '2025', '2024']
 
 type SortField = 'company' | 'client' | 'quantity' | 'price' | 'valueCr' | 'date'
+
+interface Deal {
+  date: string
+  company: string
+  symbol: string
+  client: string
+  tradeType: 'Buy' | 'Sell'
+  quantity: number
+  price: number
+  valueCr: number
+}
 
 export default function BulkDeals() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,33 +30,30 @@ export default function BulkDeals() {
   const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
+  const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchDeals = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch bulk deals data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/bulk-deals')
+      setDeals(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch bulk deals data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchDeals()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchDeals()
   }
 
   const handleSort = (field: SortField) => {
@@ -66,9 +74,11 @@ export default function BulkDeals() {
   }
 
   const sortedData = useMemo(() => {
-    const filtered = bulkDeals.filter((d) => d.date?.startsWith(year))
+    // If the live dataset dates don't match the year chips, fallback to show all to avoid empty screens, or filter
+    const filtered = deals.filter((d) => !d.date || d.date.startsWith(year))
+    const displayData = filtered.length > 0 ? filtered : deals
 
-    return [...filtered].sort((a, b) => {
+    return [...displayData].sort((a, b) => {
       let valA: any = a[sortBy]
       let valB: any = b[sortBy]
 
@@ -81,7 +91,7 @@ export default function BulkDeals() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [year, sortBy, sortOrder])
+  }, [deals, year, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -133,16 +143,18 @@ export default function BulkDeals() {
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <TableRowsSkeleton rows={6} cols={8} />
+                <div className="p-5">
+                  <TableRowsSkeleton rows={6} cols={8} />
+                </div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <Inbox className="size-6 text-textMuted" />
                     </EmptyMedia>
-                    <EmptyTitle className="text-textPrimary font-semibold">No bulk deals found for {year}</EmptyTitle>
+                    <EmptyTitle className="text-textPrimary font-semibold">No bulk deals found</EmptyTitle>
                     <EmptyDescription className="text-textSecondary">
-                      Try selecting a different year chip.
+                      Try selecting a different year chip or filter.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -208,9 +220,9 @@ export default function BulkDeals() {
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date}</TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                               {d.company}
                             </Link>
                           </TableCell>
@@ -223,13 +235,13 @@ export default function BulkDeals() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {d.quantity?.toLocaleString('en-IN')}
+                            {d.quantity?.toLocaleString('en-IN') || '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            ₹{d.price.toLocaleString('en-IN')}
+                            {d.price ? `₹${d.price.toLocaleString('en-IN')}` : '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            ₹{Number(d.valueCr).toFixed(2)}
+                            {d.valueCr ? `₹${Number(d.valueCr).toFixed(2)}` : '—'}
                           </TableCell>
                         </TableRow>
                       )

@@ -29,13 +29,6 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string }> = {
 
 const CATEGORIES = ['All', 'Board Meeting', 'Concall', 'Annual Report', 'Dividend', 'Results']
 
-const FINANCIAL_NEWS = [
-  { category: "ECONOMY", color: "var(--fs-brand)", headline: "RBI maintains status quo on repo rates for the 6th consecutive session", time: "14 mins ago · Reuters" },
-  { category: "STOCKS", color: "var(--fs-positive)", headline: "Tata Motors reports 15% YoY jump in global sales for February", time: "42 mins ago · Bloomberg" },
-  { category: "COMMODITIES", color: "var(--fs-warning)", headline: "Gold touches all-time high as USD index weakens on inflation data", time: "1 hour ago · CNBC" },
-  { category: "TECH", color: "#534AB7", headline: "Zomato gets GST demand notice of ₹401 Crore; stock remains stable", time: "2 hours ago · ET" },
-]
-
 const UPCOMING_RESULTS = [
   { day: "MON", date: "Oct 14", items: [] },
   { day: "TUE", date: "Oct 15", items: ["ICICI Bank", "Axis Bank"] },
@@ -74,6 +67,7 @@ export function Feed() {
   const [error, setError] = useState<string | null>(null)
   const [liveAnnouncements, setLiveAnnouncements] = useState<any[]>([])
   const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
+  const [liveNews, setLiveNews] = useState<any[]>([])
   
   // Local storage persisted density state
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
@@ -87,12 +81,13 @@ export function Feed() {
       const pastDate = new Date(now)
       pastDate.setDate(pastDate.getDate() - 7)
       
-      const [annData, resData] = await Promise.allSettled([
+      const [annData, resData, newsData] = await Promise.allSettled([
         finscreenApi.fetchMarketAnnouncements({
           from_date: pastDate.toISOString().split('T')[0],
           to_date: now.toISOString().split('T')[0]
         }),
-        finscreenApi.fetchResultsCalendar()
+        finscreenApi.fetchResultsCalendar(),
+        finscreenApi.fetchMarketNews()
       ])
 
       if (annData.status === 'fulfilled') {
@@ -100,6 +95,9 @@ export function Feed() {
       }
       if (resData.status === 'fulfilled') {
         setResultsCalendar(resData.value || [])
+      }
+      if (newsData.status === 'fulfilled') {
+        setLiveNews(Array.isArray(newsData.value) ? newsData.value.slice(0, 6) : [])
       }
     } catch (err: any) {
       console.error('Failed to fetch feed data:', err)
@@ -412,19 +410,27 @@ export function Feed() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-5 py-2 divide-y divide-border/40">
-                {FINANCIAL_NEWS.map((news) => (
-                  <div key={news.headline} className="py-3 flex flex-col gap-1">
-                    <span style={{ color: news.color }} className="text-[11px] font-semibold uppercase tracking-wider leading-none">
+                {liveNews.length > 0 ? liveNews.map((news: any) => (
+                  <div key={news.id || news.headline} className="py-3 flex flex-col gap-1">
+                    <span style={{ color: news.categoryColor || 'var(--fs-brand)' }} className="text-[11px] font-semibold uppercase tracking-wider leading-none">
                       {news.category}
                     </span>
                     <Text variant="body" className="font-semibold leading-snug text-textPrimary">
                       {news.headline}
                     </Text>
                     <span className="text-[12px] text-textMuted font-medium">
-                      {news.time}
+                      {news.time} · {news.source || 'FinEdge'}
                     </span>
                   </div>
-                ))}
+                )) : loading ? (
+                  <div className="space-y-3 py-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-12 bg-surfaceMuted/60 rounded animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="py-4 text-xs text-textMuted">No news available right now.</p>
+                )}
               </CardContent>
             </Card>
 

@@ -1,18 +1,30 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, BookOpen, Inbox, ArrowUp, ArrowDown } from 'lucide-react'
-import { annualReports } from '@/lib/data/market-pulse'
+import { annualReports as fallbackReports } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const FY_OPTIONS = ['FY26', 'FY25', 'FY24']
 
 type SortField = 'company' | 'revenue' | 'pat' | 'eps' | 'roe' | 'dividendPerShare'
 type SortOrder = 'asc' | 'desc'
+
+interface AnnualReport {
+  company: string
+  symbol: string
+  fy: string
+  revenue: number
+  pat: number
+  eps: number
+  roe: number
+  dividendPerShare: number
+}
 
 export default function AnnualReports() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -20,43 +32,39 @@ export default function AnnualReports() {
   const sortBy = (searchParams.get('sortBy') ?? 'revenue') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as SortOrder
 
+  const [reports, setReports] = useState<AnnualReport[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchReports = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to load annual reports. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/annual-reports')
+      setReports(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to load annual reports. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchReports()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchReports()
   }
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
     if (sortBy === field) {
-      // Toggle sort order
       newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
     } else {
       newParams.set('sortBy', field)
-      newParams.set('sortOrder', 'desc') // default desc
+      newParams.set('sortOrder', 'desc')
     }
     setSearchParams(newParams)
   }
@@ -68,9 +76,11 @@ export default function AnnualReports() {
   }
 
   const sortedData = useMemo(() => {
-    const filtered = annualReports.filter(r => r.fy === fy || fy === 'All')
+    const list = reports.length > 0 ? reports : fallbackReports
+    const filtered = list.filter(r => r.fy === fy || fy === 'All')
+    const displayData = filtered.length > 0 ? filtered : list
     
-    return [...filtered].sort((a, b) => {
+    return [...displayData].sort((a, b) => {
       let valA: any = a[sortBy]
       let valB: any = b[sortBy]
 
@@ -83,7 +93,7 @@ export default function AnnualReports() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [fy, sortBy, sortOrder])
+  }, [reports, fy, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -138,7 +148,9 @@ export default function AnnualReports() {
             <div className="lg:col-span-7 bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 {loading ? (
-                  <TableRowsSkeleton rows={6} cols={7} />
+                  <div className="p-5">
+                    <TableRowsSkeleton rows={6} cols={7} />
+                  </div>
                 ) : sortedData.length === 0 ? (
                   <Empty className="py-12 border-0">
                     <EmptyHeader>
@@ -213,7 +225,7 @@ export default function AnnualReports() {
                             <div className="flex items-center gap-2">
                               <BookOpen className="size-3.5 text-textSecondary" />
                               <Link
-                                to={`/company/${report.symbol}`}
+                                to={`/company/${report.symbol.toLowerCase()}`}
                                 className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline"
                               >
                                 {report.company}
@@ -222,19 +234,19 @@ export default function AnnualReports() {
                           </TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3">{report.fy}</TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {report.revenue.toLocaleString('en-IN')}
+                            {report.revenue ? report.revenue.toLocaleString('en-IN') : '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {report.pat.toLocaleString('en-IN')}
+                            {report.pat ? report.pat.toLocaleString('en-IN') : '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {report.eps}
+                            {report.eps || '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {report.roe}%
+                            {report.roe ? `${report.roe}%` : '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            ₹{report.dividendPerShare}
+                            {report.dividendPerShare ? `₹${report.dividendPerShare}` : '—'}
                           </TableCell>
                         </TableRow>
                       ))}

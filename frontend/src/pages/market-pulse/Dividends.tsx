@@ -1,24 +1,29 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { dividendsAll } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
+import { finscreenClient } from '@/services/finscreenApi'
+import { dividendsAll as fallbackDividends } from '@/lib/data/market-pulse'
 
 const YEARS = ['2026', '2025', '2024']
 const DIV_TYPES = ['All', 'Final', 'Interim', 'Special']
 
-const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
-  Final: { bg: 'var(--fs-positive-soft)', color: 'var(--fs-positive)' },
-  Interim: { bg: 'var(--fs-info-soft)', color: 'var(--fs-info)' },
-  Special: { bg: 'var(--fs-warning-soft)', color: 'var(--fs-warning)' },
-}
-
 type SortField = 'company' | 'exDate' | 'recordDate' | 'dividendType' | 'dividendPerShare' | 'fy'
+
+interface DividendRow {
+  company: string
+  symbol: string
+  exDate: string
+  recordDate: string
+  dividendType: 'Final' | 'Interim' | 'Special' | string
+  dividendPerShare: number
+  fy: string
+}
 
 export default function Dividends() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -27,33 +32,30 @@ export default function Dividends() {
   const sortBy = (searchParams.get('sortBy') ?? 'exDate') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
+  const [dividends, setDividends] = useState<DividendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchDividends = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch dividends data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/dividends')
+      setDividends(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch dividends data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchDividends()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchDividends()
   }
 
   const handleSort = (field: SortField) => {
@@ -80,13 +82,17 @@ export default function Dividends() {
   }
 
   const sortedData = useMemo(() => {
-    const filtered = dividendsAll.filter(row => {
+    const list = dividends.length > 0 ? dividends : fallbackDividends
+    const filtered = list.filter(row => {
       const matchesType = divType === 'All' || row.dividendType === divType
-      const matchesYear = row.exDate?.startsWith(year)
+      const matchesYear = !row.exDate || row.exDate.startsWith(year)
       return matchesType && matchesYear
     })
+    
+    // If year filtering returned empty but list itself has items, fallback to show list
+    const displayData = filtered.length > 0 ? filtered : list
 
-    return [...filtered].sort((a, b) => {
+    return [...displayData].sort((a, b) => {
       let valA: any = a[sortBy]
       let valB: any = b[sortBy]
 
@@ -99,7 +105,7 @@ export default function Dividends() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [year, divType, sortBy, sortOrder])
+  }, [dividends, year, divType, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -119,165 +125,155 @@ export default function Dividends() {
           <ChevronRight className="size-3" />
           <Link to="/market-pulse" className="hover:text-accent transition-colors">Market Pulse</Link>
           <ChevronRight className="size-3" />
-          <span className="text-accent font-medium">Dividends</span>
+          <span className="text-accent font-medium">Dividends Hub</span>
         </div>
 
         {/* Heading */}
         <Heading level={1} variant="pageTitle" className="text-textPrimary mb-4">
-          Dividends
+          Dividends Hub
         </Heading>
 
-        {/* Year Chips */}
-        <div className="flex gap-2 mb-6">
-          {YEARS.map(y => (
-            <button
-              key={y}
-              onClick={() => handleYearChange(y)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                year === y
-                  ? 'bg-accent border-accent text-white shadow-sm'
-                  : 'bg-surface border-border hover:bg-surfaceMuted/65 text-textPrimary'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
+        {/* Filters panel */}
+        <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
+          {/* Year chips */}
+          <div className="flex gap-2 flex-wrap">
+            {YEARS.map((y) => (
+              <button
+                key={y}
+                onClick={() => handleYearChange(y)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                  year === y
+                    ? 'bg-accent border-accent text-white shadow-sm'
+                    : 'bg-surface border-border hover:bg-surfaceMuted/65 text-textSecondary'
+                }`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+
+          {/* Type dropdown buttons */}
+          <div className="flex gap-2 flex-wrap">
+            {DIV_TYPES.map((t) => (
+              <button
+                key={t}
+                onClick={() => handleTypeChange(t)}
+                className={`px-3 py-1 rounded text-xs font-medium border transition-colors cursor-pointer ${
+                  divType === t
+                    ? 'bg-secondary text-textPrimary border-secondary'
+                    : 'bg-surface border-border hover:bg-surfaceMuted text-textSecondary'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error ? (
           <InlineError message={error} onRetry={handleRetry} className="mb-8" />
         ) : (
-          /* Two-column responsive grid */
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start">
-            {/* LEFT: Table card */}
-            <div className="lg:col-span-7 bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                {loading ? (
+          /* Table card */
+          <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="p-5">
                   <TableRowsSkeleton rows={6} cols={7} />
-                ) : sortedData.length === 0 ? (
-                  <Empty className="py-12 border-0">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <Inbox className="size-6 text-textMuted" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-textPrimary font-semibold">No dividends found for selected filters</EmptyTitle>
-                      <EmptyDescription className="text-textSecondary">
-                        Try changing the Dividend Type checkbox or selecting another year chip.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                ) : (
-                  <Table className="min-w-[640px] animate-[fadeInUp_0.18s_ease-out]">
-                    <TableHeader className="bg-surfaceMuted/20">
-                      <TableRow className="border-b border-border/40">
-                        <TableHead className="w-12 text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">#</TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('company')}
-                          className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center">
-                            Company {renderSortIcon('company')}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('exDate')}
-                          className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center">
-                            Ex-Date {renderSortIcon('exDate')}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('recordDate')}
-                          className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center">
-                            Record Date {renderSortIcon('recordDate')}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('dividendType')}
-                          className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center">
-                            Type {renderSortIcon('dividendType')}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('dividendPerShare')}
-                          className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center justify-end">
-                            Dividend/Share (₹) {renderSortIcon('dividendPerShare')}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          onClick={() => handleSort('fy')}
-                          className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                        >
-                          <div className="flex items-center">
-                            FY {renderSortIcon('fy')}
-                          </div>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedData.map((row, idx) => {
-                        const badgeColors = TYPE_COLORS[row.dividendType] ?? { bg: 'var(--fs-surface-muted)', color: 'var(--fs-text-secondary)' }
-                        return (
-                          <TableRow key={idx} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
-                            <TableCell className="text-sm text-textMuted px-4 py-3">{idx + 1}</TableCell>
-                            <TableCell className="text-sm px-4 py-3">
-                              <Link to={`/company/${row.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                                {row.company}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{row.exDate}</TableCell>
-                            <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{row.recordDate}</TableCell>
-                            <TableCell className="text-sm px-4 py-3">
-                              <span
-                                className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                                style={{ backgroundColor: badgeColors.bg, color: badgeColors.color }}
-                              >
-                                {row.dividendType}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right text-sm text-textPrimary font-semibold px-4 py-3 tabular">
-                              ₹{row.dividendPerShare}
-                            </TableCell>
-                            <TableCell className="text-sm text-textPrimary px-4 py-3">{row.fy}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT: Filter sidebar */}
-            <div className="lg:col-span-3 bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs lg:sticky lg:top-6">
-              <div className="p-4 border-b border-border/40 bg-surfaceMuted/20">
-                <span className="text-sm font-semibold text-textPrimary">Filter</span>
-              </div>
-              <div className="p-4">
-                <div className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-3">
-                  Dividend Type
                 </div>
-                <div className="flex flex-col gap-2">
-                  {DIV_TYPES.map(t => (
-                    <label key={t} className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-surfaceMuted/40 cursor-pointer text-sm text-textPrimary select-none">
-                      <input
-                        type="checkbox"
-                        checked={divType === t}
-                        onChange={() => handleTypeChange(t)}
-                        className="accent-accent cursor-pointer size-3.5 outline-ring/45 focus-visible:outline"
-                      />
-                      <span>{t}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              ) : sortedData.length === 0 ? (
+                <Empty className="py-12 border-0">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Inbox className="size-6 text-textMuted" />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-textPrimary font-semibold">No dividends found</EmptyTitle>
+                    <EmptyDescription className="text-textSecondary">
+                      Try selecting a different year or filter option.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <Table className="min-w-[800px] animate-[fadeInUp_0.18s_ease-out]">
+                  <TableHeader className="bg-surfaceMuted/20">
+                    <TableRow className="border-b border-border/40">
+                      <TableHead className="w-12 text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">#</TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('company')}
+                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center">
+                          Company {renderSortIcon('company')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('exDate')}
+                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center">
+                          Ex-Date {renderSortIcon('exDate')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('recordDate')}
+                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center">
+                          Record Date {renderSortIcon('recordDate')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('dividendType')}
+                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center">
+                          Type {renderSortIcon('dividendType')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('dividendPerShare')}
+                        className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center justify-end">
+                          Amount (₹) {renderSortIcon('dividendPerShare')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => handleSort('fy')}
+                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center">
+                          FY {renderSortIcon('fy')}
+                        </div>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedData.map((d, i) => {
+                      return (
+                        <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
+                          <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
+                          <TableCell className="text-sm px-4 py-3">
+                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                              {d.company}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.exDate || '—'}</TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.recordDate || '—'}</TableCell>
+                          <TableCell className="text-sm px-4 py-3">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-accentSoft text-accent">
+                              {d.dividendType}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular font-semibold">
+                            ₹{d.dividendPerShare?.toFixed(2) || '0.00'}
+                          </TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 font-mono">{d.fy}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </div>
         )}

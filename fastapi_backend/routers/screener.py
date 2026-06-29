@@ -89,6 +89,7 @@ async def get_notifications(db: AsyncSession = Depends(get_db)):
     return {"success": True, "notifications": [_notif_dict(n) for n in notifs], "unreadCount": unread}
 
 @router.patch("/notifications/{notif_id}/read")
+@router.put("/notifications/{notif_id}/read")
 async def mark_read(notif_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Notification).where(Notification.id == notif_id))
     notif = result.scalar_one_or_none()
@@ -99,6 +100,7 @@ async def mark_read(notif_id: str, db: AsyncSession = Depends(get_db)):
     return {"success": True, "notification": _notif_dict(notif)}
 
 @router.patch("/notifications/read-all")
+@router.put("/notifications/read-all")
 async def mark_all_read(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Notification).where(Notification.read == False))
     for notif in result.scalars().all():

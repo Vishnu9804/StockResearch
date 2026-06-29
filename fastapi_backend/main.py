@@ -9,7 +9,6 @@ from core.config import settings
 from core.database import init_db
 from services.scheduler import start_scheduler
 
-from routers import auth, finedge, watchlist, screener, payments
 from routers.finedge import _auth as guest_auth
 
 logging.basicConfig(
@@ -67,12 +66,16 @@ async def health():
 
 
 # ── Routers ───────────────────────────────────────────────────────────────────
+from routers import auth, finedge, watchlist, screener, payments, portfolio, queries, admin
 app.include_router(auth.router)       # /api/auth/login, /api/auth/signup etc. — kept
 app.include_router(guest_auth)        # /api/auth/profile — returns guest if not logged in
 app.include_router(finedge.router)    # /api/finscreen/... — NO auth required
 app.include_router(watchlist.router)  # /api/watchlists/... — NO auth required
 app.include_router(screener.router)   # /api/screener/... — NO auth required
 app.include_router(payments.router)   # /api/payments/... — kept
+app.include_router(portfolio.router)  # /api/portfolio/... — authenticated
+app.include_router(queries.router)    # /api/queries/... — authenticated
+app.include_router(admin.router)      # /api/admin/... — authenticated
 
 
 if __name__ == "__main__":

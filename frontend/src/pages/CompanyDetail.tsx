@@ -59,6 +59,15 @@ const CorporateActionsTable = React.lazy(() =>
 const DocumentsList = React.lazy(() =>
   import('@/components/company/DocumentsList').then((m) => ({ default: m.DocumentsList }))
 )
+const AuditorNotes = React.lazy(() =>
+  import('@/components/company/AuditorNotes').then((m) => ({ default: m.AuditorNotes }))
+)
+const ShareholdingSubsections = React.lazy(() =>
+  import('@/components/company/ShareholdingSubsections').then((m) => ({ default: m.ShareholdingSubsections }))
+)
+const CompanyIdentityHistory = React.lazy(() =>
+  import('@/components/company/CompanyIdentityHistory').then((m) => ({ default: m.CompanyIdentityHistory }))
+)
 
 // Dark-mode–aware skeleton using CSS variable tokens from globals.css
 function SectionSkeleton() {
@@ -329,6 +338,10 @@ export function CompanyDetail() {
               </Card>
             </div>
 
+            <Suspense fallback={<SectionSkeleton />}>
+              <CompanyIdentityHistory symbol={company.symbol} />
+            </Suspense>
+
             {/* Row below: Upcoming Events & Recent Corporate Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Card for Upcoming Events */}
@@ -533,6 +546,13 @@ export function CompanyDetail() {
               <ShareholdingTable />
             </Suspense>
           </ScrollReveal>
+          <div className="mt-6">
+            <ScrollReveal>
+              <Suspense fallback={<SectionSkeleton />}>
+                <ShareholdingSubsections symbol={company.symbol} />
+              </Suspense>
+            </ScrollReveal>
+          </div>
         </section>
 
         {/* SECTION: Corporate Actions */}
@@ -540,6 +560,15 @@ export function CompanyDetail() {
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
               <CorporateActionsTable />
+            </Suspense>
+          </ScrollReveal>
+        </section>
+
+        {/* SECTION: Auditor Notes */}
+        <section id="auditor-notes" className="scroll-mt-16">
+          <ScrollReveal>
+            <Suspense fallback={<SectionSkeleton />}>
+              <AuditorNotes />
             </Suspense>
           </ScrollReveal>
         </section>

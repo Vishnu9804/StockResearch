@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
 import { SCREENER_TEMPLATES } from '@/lib/data/screener'
+import { finscreenClient } from '@/services/finscreenApi'
+import { markAllAsRead, markAsRead } from '@/store/slices/notificationsSlice'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,9 +50,27 @@ const MOCK_WATCHLISTS = [
 
 // ─── Sub-tabs ─────────────────────────────────────────────────────────────────
 
+// Sub-tabs
+
 function ProfileTab({ user }: { user: any }) {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
+  const [subStatus, setSubStatus] = useState<any>(null)
+  const [loadingSub, setLoadingSub] = useState(false)
+
+  useEffect(() => {
+    if (user && user.plan === 'PRO') {
+      setLoadingSub(true)
+      finscreenClient.get('/payments/status')
+        .then((res) => {
+          if (res.data?.subscription) {
+            setSubStatus(res.data.subscription)
+          }
+        })
+        .catch((err) => console.error('Failed to load subscription status:', err))
+        .finally(() => setLoadingSub(false))
+    }
+  }, [user])
 
   return (
     <div className="space-y-6">
@@ -59,21 +79,21 @@ function ProfileTab({ user }: { user: any }) {
         <div className="h-20 bg-gradient-to-r from-accent via-blue-600 to-indigo-600 relative">
           <div className="absolute -bottom-8 left-6">
             <div className="size-16 rounded-full bg-surface border-4 border-surface flex items-center justify-center font-medium text-accent text-xl shadow-md">
-              {user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              {(user?.name || 'User').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
           </div>
         </div>
         <CardContent className="pt-12 pb-6 px-6 flex items-end justify-between gap-4">
           <div>
-            <h3 className="text-base font-medium text-textPrimary">{user.name}</h3>
-            <p className="text-xs text-textSecondary mt-0.5">{user.email}</p>
+            <h3 className="text-base font-medium text-textPrimary">{user?.name}</h3>
+            <p className="text-xs text-textSecondary mt-0.5">{user?.email}</p>
           </div>
           <Badge variant="outline" className={cn(
             'text-xs font-medium uppercase tracking-wider shadow-none border-0',
-            user.plan === 'PRO' ? 'bg-warning-soft text-amber-700' : 'bg-surfaceMuted text-textSecondary'
+            user?.plan === 'PRO' ? 'bg-warning-soft text-amber-700' : 'bg-surfaceMuted text-textSecondary'
           )}>
-            {user.plan === 'PRO' && <Sparkles className="size-2.5 mr-1 fill-amber-500" />}
-            {user.plan} Member
+            {user?.plan === 'PRO' && <Sparkles className="size-2.5 mr-1 fill-amber-500" />}
+            {user?.plan} Member
           </Badge>
         </CardContent>
       </Card>
@@ -130,7 +150,7 @@ function ProfileTab({ user }: { user: any }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 px-6 pb-6">
-          {user.plan === 'PRO' ? (
+          {user?.plan === 'PRO' ? (
             <div className="p-5 bg-warning-soft/30 border border-amber-200/50 rounded-2xl space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-900 font-medium text-xs">
@@ -141,10 +161,12 @@ function ProfileTab({ user }: { user: any }) {
               <Text variant="bodyMuted" className="text-xs text-amber-800/80 leading-relaxed font-medium">
                 Unlimited watchlists · 15-year histories · custom formula builders · background email alerts.
               </Text>
-              <div className="pt-3 flex items-center justify-between border-t border-amber-200/30">
-                <span className="text-xs text-warning font-medium">Auto-renewal: Active (Yearly)</span>
+              <div className="pt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-amber-200/30">
+                <span className="text-xs text-warning font-medium">
+                  {loadingSub ? 'Loading billing details...' : subStatus?.endDate ? `Expires: ${new Date(subStatus.endDate).toLocaleDateString('en-IN')}` : 'Auto-renewal: Active (Yearly)'}
+                </span>
                 <Button variant="outline" size="sm" onClick={() => navigate('/pricing')}
-                  className="h-7 text-xs font-medium border-amber-300/50 text-amber-800 hover:bg-warning-soft">
+                  className="h-7 text-xs font-medium border-amber-300/50 text-amber-800 hover:bg-warning-soft self-start sm:self-auto">
                   Billing Portal
                 </Button>
               </div>
@@ -250,12 +272,13 @@ function SavedScreensTab() {
 }
 
 function WatchlistsTab() {
+  const { watchlists } = useAppSelector((state) => state.watchlist)
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-textPrimary">My Watchlists</h3>
-          <p className="text-xs text-textMuted mt-0.5">{MOCK_WATCHLISTS.length} watchlists · manage in full view</p>
+          <p className="text-xs text-textMuted mt-0.5">{watchlists.length} watchlists · manage in full view</p>
         </div>
         <Button asChild size="sm" className="h-8 text-xs font-medium bg-accent text-white hover:bg-accent/90 shadow-none gap-1.5">
           <Link to="/watchlists">
@@ -264,8 +287,8 @@ function WatchlistsTab() {
         </Button>
       </div>
 
-      {MOCK_WATCHLISTS.map((wl) => {
-        const positive = wl.change >= 0
+      {watchlists.map((wl) => {
+        const firstFew = wl.items.slice(0, 3)
         return (
           <Card key={wl.id} className="border-border/40 shadow-xs bg-surface rounded-2xl overflow-hidden">
             <CardContent className="p-5">
@@ -276,25 +299,25 @@ function WatchlistsTab() {
                     <h4 className="text-sm font-medium text-textPrimary truncate">{wl.name}</h4>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {wl.symbols.map((s) => (
-                      <Link key={s} to={`/company/${s}`}>
+                    {firstFew.map((item) => (
+                      <Link key={item.symbol} to={`/company/${item.symbol.toLowerCase()}`}>
                         <Badge variant="outline" className="font-mono text-xs font-medium bg-surfaceMuted border-0 text-textSecondary rounded-md hover:bg-accentSoft hover:text-accent transition-colors">
-                          {s}
+                          {item.symbol}
                         </Badge>
                       </Link>
                     ))}
-                    {wl.count > wl.symbols.length && (
+                    {wl.items.length > firstFew.length && (
                       <Badge variant="secondary" className="text-xs font-medium text-textMuted rounded-md border-0 bg-surfaceMuted">
-                        +{wl.count - wl.symbols.length} more
+                        +{wl.items.length - firstFew.length} more
                       </Badge>
                     )}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className={cn('font-mono text-sm font-medium tabular-nums', positive ? 'text-positive' : 'text-negative')}>
-                    {positive ? '+' : ''}{wl.change.toFixed(2)}%
+                  <span className="font-mono text-sm font-medium tabular-nums text-positive">
+                    Active
                   </span>
-                  <p className="text-xs text-textMuted mt-0.5">{wl.count} stocks</p>
+                  <p className="text-xs text-textMuted mt-0.5">{wl.items.length} stocks</p>
                 </div>
               </div>
             </CardContent>
@@ -306,51 +329,56 @@ function WatchlistsTab() {
 }
 
 function NotificationsTab() {
-  const typeIcon: Record<string, React.ElementType> = {
-    price: TrendingUp,
-    screen: Filter,
-    result: BookOpen,
-    dividend: Star,
-  }
-
-  // Import TrendingUp
-  function TrendingUp({ className }: { className?: string }) {
-    return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-  }
+  const dispatch = useAppDispatch()
+  const { items, unreadCount } = useAppSelector((state) => state.notifications)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-textPrimary">Alert History</h3>
-          <p className="text-xs text-textMuted mt-0.5">{MOCK_ALERTS.filter(a => !a.read).length} unread notifications</p>
+          <p className="text-xs text-textMuted mt-0.5">{unreadCount} unread notifications</p>
         </div>
-        <Button variant="outline" size="sm" className="h-8 text-xs font-medium border-border text-textSecondary shadow-none gap-1.5">
+        <Button
+          onClick={() => dispatch(markAllAsRead())}
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs font-medium border-border text-textSecondary shadow-none gap-1.5"
+        >
           <Check className="size-3.5" /> Mark all read
         </Button>
       </div>
 
       <div className="space-y-2">
-        {MOCK_ALERTS.map((alert) => {
+        {items.map((alert) => {
           return (
-            <Card key={alert.id} className={cn('border-border/40 shadow-xs rounded-2xl overflow-hidden', alert.read ? 'bg-surface opacity-70' : 'bg-surface border-accent/20')}>
+            <Card
+              key={alert.id}
+              onClick={() => { if (!alert.read) dispatch(markAsRead(alert.id)) }}
+              className={cn(
+                'border-border/40 shadow-xs rounded-2xl overflow-hidden cursor-pointer transition-colors',
+                alert.read ? 'bg-surface opacity-70' : 'bg-surface border-accent/20 hover:bg-surfaceMuted/25'
+              )}
+            >
               <CardContent className="p-5">
                 <div className="flex items-start gap-3.5">
                   <div className={cn(
                     'size-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5',
-                    alert.type === 'price' ? 'bg-accentSoft text-accent' :
-                    alert.type === 'screen' ? 'bg-purple-50 text-purple-600' :
+                    alert.type === 'alert' ? 'bg-accentSoft text-accent' :
                     alert.type === 'result' ? 'bg-positive-soft text-positive' :
-                    'bg-warning-soft text-amber-600'
+                    alert.type === 'dividend' ? 'bg-warning-soft text-amber-600' :
+                    'bg-surfaceMuted text-textSecondary'
                   )}>
                     <AlertCircle className="size-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-textPrimary leading-relaxed">{alert.message}</p>
+                    <p className="text-xs font-medium text-textPrimary leading-relaxed">{alert.body || alert.title}</p>
                     <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs text-textMuted font-medium">{alert.time}</span>
+                      <span className="text-xs text-textMuted font-medium">
+                        {new Date(alert.timestamp).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                      </span>
                       {alert.symbol && (
-                        <Link to={`/company/${alert.symbol}`}>
+                        <Link to={`/company/${alert.symbol.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
                           <Badge variant="outline" className="font-mono text-xs font-medium bg-surfaceMuted border-0 text-textSecondary hover:bg-accentSoft hover:text-accent transition-colors rounded-md">
                             {alert.symbol}
                           </Badge>

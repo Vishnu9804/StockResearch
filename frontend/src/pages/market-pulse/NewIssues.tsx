@@ -2,10 +2,10 @@
  * New Issues / IPO module — /market-pulse/new-issues
  * Tabbed card: Upcoming IPOs | Recent IPOs | Below IPO Price | Upcoming Rights
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { iposUpcoming, iposRecent, type UpcomingIPO, type RecentIPO } from '@/lib/data/market-pulse'
+import { iposRecent, type UpcomingIPO, type RecentIPO } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
-import { toast } from 'react-hot-toast'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const TABS = ['Upcoming IPOs', 'Recent IPOs', 'Below IPO Price', 'Upcoming Rights'] as const
 type Tab = typeof TABS[number]
@@ -98,93 +98,114 @@ export function NewIssues() {
   const sortBy = searchParams.get('sortBy') ?? 'company'
   const sortOrder = (searchParams.get('sortOrder') ?? 'asc') as 'asc' | 'desc'
 
+  const [ipoList, setIpoList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
-    setLoading(true)
-    setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch new issues data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
-  }
+  const fetchIpos = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const today = new Date()
+      const ninetyDaysAgo = new Date()
+      ninetyDaysAgo.setDate(today.getDate() - 90)
+      const fromDate = ninetyDaysAgo.toISOString().split('T')[0]
+
+      const ninetyDaysLater = new Date()
+      ninetyDaysLater.setDate(today.getDate() + 90)
+      const toDate = ninetyDaysLater.toISOString().split('T')[0]
+
+      const res = await finscreenClient.get('/market/ipo', {
+        params: {
+          from_date: fromDate,
+          to_date: toDate,
+        }
+      })
+      setIpoList(res.data?.data || [])
+    } catch (err: any) {
+      console.error('Failed to fetch IPO calendar:', err)
+      setError('Failed to fetch new issues data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchIpos()
+  }, [fetchIpos])
 
-  const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
-  }
+  const rawUpcoming = useMemo(() => {
+    return ipoList
+      .filter(item => item.ipo_status === 'Forthcoming' || item.ipo_status === 'Live')
+      .map(item => ({
+        company: item.company_name,
+        subscriptionStart: item.start_date,
+        subscriptionEnd: item.end_date,
+        listingDate: 'TBD',
+        issueSize: parseFloat(item.issue_size?.replace(/,/g, '')) || 0,
+        priceband: item.price_range || 'TBD',
+        category: item.security_type || 'Equity'
+      }))
+  }, [ipoList])
 
-  const handleTabChange = (tab: Tab) => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.set('tab', REVERSE_TAB_MAPPING[tab])
-    newParams.delete('bucket')
-    newParams.delete('page')
-    newParams.delete('sortBy')
-    newParams.delete('sortOrder')
-    setSearchParams(newParams)
-  }
-
-  const handleBucketChange = (b: string) => {
-    const newParams = new URLSearchParams(searchParams)
-    if (b === 'all') {
-      newParams.delete('bucket')
-    } else {
-      newParams.set('bucket', b)
+  const rawRecent = useMemo(() => {
+    const getIpoPrice = (range: string) => {
+      if (!range) return 0
+      const matches = range.match(/\d+(\.\d+)?/g)
+      if (matches && matches.length > 0) {
+        return parseFloat(matches[matches.length - 1])
+      }
+      return 0
     }
-    newParams.delete('page') // Reset page on filter change
-    setSearchParams(newParams)
-  }
 
-  const handlePageSizeChange = (sz: number) => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.set('size', sz.toString())
-    newParams.delete('page')
-    setSearchParams(newParams)
-  }
-
-  const handlePageChange = (p: number) => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.set('page', p.toString())
-    setSearchParams(newParams)
-  }
-
-  const handleSort = (field: string) => {
-    const newParams = new URLSearchParams(searchParams)
-    if (sortBy === field) {
-      newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      newParams.set('sortBy', field)
-      newParams.set('sortOrder', 'asc')
+    const parseIssueSize = (sz: string) => {
+      if (!sz) return 0
+      return parseFloat(sz.replace(/,/g, '')) || 0
     }
-    setSearchParams(newParams)
-  }
+
+    return ipoList
+      .filter(item => item.ipo_status === 'Listed')
+      .map(item => {
+        const seed = iposRecent.find(
+          s => s.symbol?.toUpperCase() === item.symbol?.toUpperCase() ||
+               s.company.toLowerCase().includes(item.company_name.toLowerCase())
+        )
+        const ipoPrice = seed ? seed.ipoPrice : getIpoPrice(item.price_range)
+        const currentPrice = seed ? seed.currentPrice : ipoPrice
+        const changePercent = seed ? seed.changePercent : 0
+        const ipoMarketCapCr = seed ? seed.ipoMarketCapCr : Math.round(parseIssueSize(item.issue_size) / 10000000) || 1000
+        const currentMarketCapCr = seed ? seed.currentMarketCapCr : ipoMarketCapCr
+        return {
+          company: item.company_name,
+          symbol: item.symbol || '',
+          listingDate: seed ? seed.listingDate : item.end_date,
+          ipoPrice,
+          currentPrice,
+          changePercent,
+          ipoMarketCapCr,
+          currentMarketCapCr
+        }
+      })
+  }, [ipoList])
+
+  const rawBelow = useMemo(() => {
+    return rawRecent.filter(r => r.changePercent < 0)
+  }, [rawRecent])
 
   // Filter raw data
   const rawData = useMemo(() => {
     if (activeTab === 'Upcoming IPOs') {
-      return iposUpcoming
+      return rawUpcoming
     }
     if (activeTab === 'Recent IPOs') {
-      return iposRecent
+      return rawRecent
     }
     if (activeTab === 'Below IPO Price') {
-      return iposRecent.filter(r => r.changePercent < 0)
+      return rawBelow
     }
     return RIGHTS_DATA
-  }, [activeTab])
+  }, [activeTab, rawUpcoming, rawRecent, rawBelow])
 
   // Apply bucket filters client-side
   const filteredData = useMemo(() => {
@@ -241,10 +262,54 @@ export function NewIssues() {
   const startEntry = (page - 1) * pageSize + 1
   const endEntry = Math.min(page * pageSize, sortedData.length)
 
+  const handleTabChange = (tab: Tab) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('tab', REVERSE_TAB_MAPPING[tab])
+    newParams.delete('bucket')
+    newParams.delete('page')
+    newParams.delete('sortBy')
+    newParams.delete('sortOrder')
+    setSearchParams(newParams)
+  }
+
+  const handleBucketChange = (b: string) => {
+    const newParams = new URLSearchParams(searchParams)
+    if (b === 'all') {
+      newParams.delete('bucket')
+    } else {
+      newParams.set('bucket', b)
+    }
+    newParams.delete('page')
+    setSearchParams(newParams)
+  }
+
+  const handlePageSizeChange = (sz: number) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('size', sz.toString())
+    newParams.delete('page')
+    setSearchParams(newParams)
+  }
+
+  const handlePageChange = (p: number) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('page', p.toString())
+    setSearchParams(newParams)
+  }
+
+  const handleSort = (field: string) => {
+    const newParams = new URLSearchParams(searchParams)
+    if (sortBy === field) {
+      newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      newParams.set('sortBy', field)
+      newParams.set('sortOrder', 'asc')
+    }
+    setSearchParams(newParams)
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans select-none">
       <div className="max-w-[1200px] mx-auto px-6 py-6 select-none">
-
         {/* Breadcrumb */}
         <div className="text-xs text-textSecondary/70 mb-2 flex items-center gap-1.5">
           <Link to="/" className="hover:text-accent transition-colors">Dashboard</Link>
@@ -259,7 +324,7 @@ export function NewIssues() {
         </Heading>
 
         {error ? (
-          <InlineError message={error} onRetry={handleRetry} className="mb-8" />
+          <InlineError message={error} onRetry={fetchIpos} className="mb-8" />
         ) : (
           /* Main tabbed card */
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
@@ -438,7 +503,7 @@ export function NewIssues() {
                               <TableCell className="text-sm font-semibold text-textPrimary px-4 py-2.5 text-left">{ipo.company}</TableCell>
                               <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{ipo.subscriptionStart} to {ipo.subscriptionEnd}</TableCell>
                               <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{ipo.listingDate}</TableCell>
-                              <TableCell className="text-right text-sm text-textPrimary font-semibold px-4 py-2.5 tabular">₹{ipo.issueSize.toLocaleString('en-IN')}</TableCell>
+                              <TableCell className="text-right text-sm text-textPrimary font-semibold px-4 py-2.5 tabular">₹{ipo.issueSize > 0 ? ipo.issueSize.toLocaleString('en-IN') : 'TBD'}</TableCell>
                               <TableCell className="text-sm text-textPrimary px-4 py-2.5 font-mono text-center">{ipo.priceband}</TableCell>
                               <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{ipo.category}</TableCell>
                             </TableRow>
@@ -453,9 +518,13 @@ export function NewIssues() {
                             <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                               <TableCell className="text-sm text-textMuted px-4 py-2.5 text-left">{globalIdx}</TableCell>
                               <TableCell className="text-sm px-4 py-2.5 text-left">
-                                <Link to={`/company/${ipo.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
-                                  {ipo.company}
-                                </Link>
+                                {ipo.symbol ? (
+                                  <Link to={`/company/${ipo.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
+                                    {ipo.company}
+                                  </Link>
+                                ) : (
+                                  <span className="font-semibold text-textPrimary">{ipo.company}</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{ipo.listingDate}</TableCell>
                               <TableCell className="text-right text-sm text-textSecondary px-4 py-2.5 tabular">₹{ipo.ipoPrice.toLocaleString('en-IN')}</TableCell>
@@ -517,7 +586,7 @@ export function NewIssues() {
                             <span>Listing: <span className="font-semibold text-textPrimary">{ipo.listingDate}</span></span>
                           </div>
                           <div className="text-xs text-textSecondary flex justify-between pt-1.5 border-t border-border/10">
-                            <span>Issue Size: <span className="font-semibold text-textPrimary">₹{ipo.issueSize.toLocaleString('en-IN')} Cr</span></span>
+                            <span>Issue Size: <span className="font-semibold text-textPrimary">{ipo.issueSize > 0 ? `₹${ipo.issueSize.toLocaleString('en-IN')} Cr` : 'TBD'}</span></span>
                             <span>Band: <span className="font-mono font-semibold text-textPrimary">{ipo.priceband}</span></span>
                           </div>
                         </div>
@@ -531,9 +600,13 @@ export function NewIssues() {
                       return (
                         <div key={i} className="p-4 space-y-2.5 min-h-[44px]">
                           <div className="flex justify-between items-start">
-                            <Link to={`/company/${ipo.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none">
-                              {ipo.company}
-                            </Link>
+                            {ipo.symbol ? (
+                              <Link to={`/company/${ipo.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none">
+                                {ipo.company}
+                              </Link>
+                            ) : (
+                              <span className="text-sm font-bold text-textPrimary">{ipo.company}</span>
+                            )}
                             <span className="text-[11px] text-textSecondary font-medium">List: {ipo.listingDate}</span>
                           </div>
                           <div className="text-xs text-textSecondary flex justify-between">

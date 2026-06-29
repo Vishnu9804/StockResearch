@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useAppSelector } from '@/store/hooks'
+import React, { useState, useEffect } from 'react'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { ChevronDown, ChevronRight, FileSpreadsheet } from 'lucide-react'
 import {
   Table,
@@ -13,13 +13,25 @@ import { quarterlyResults, quarters, type FinancialRow } from '@/lib/data/financ
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/utils/csv'
+import { fetchQuarterlyResults } from '@/store/slices/companySlice'
+import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 
 export function QuarterlyResultsTable() {
+  const dispatch = useAppDispatch()
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
   const storeQuarterly = useAppSelector((state) => (state.company as any)?.quarterly)
-  const activeQuarterly = storeQuarterly || quarterlyResults
+  const { financialsStatus, financialsError } = useAppSelector((state) => state.company)
   const company = useAppSelector((state) => state.company?.data)
   const symbol = company?.symbol || 'STOCK'
+
+  useEffect(() => {
+    if (symbol && symbol !== 'STOCK') {
+      fetchQuarterlyResults(symbol)(dispatch)
+    }
+  }, [symbol, dispatch])
+
+  const columnsList = storeQuarterly?.columns || quarters
+  const rowsList = storeQuarterly?.rows || quarterlyResults
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))
@@ -31,7 +43,7 @@ export function QuarterlyResultsTable() {
   }
 
   const handleExportCSV = () => {
-    const headers = ['Quarter Ending', ...quarters]
+    const headers = ['Quarter Ending', ...columnsList]
     const csvRows: (string | number | null)[][] = []
 
     const addRow = (row: FinancialRow, depth = 0) => {
@@ -42,7 +54,7 @@ export function QuarterlyResultsTable() {
       }
     }
 
-    activeQuarterly.forEach((row: FinancialRow) => addRow(row, 0))
+    rowsList.forEach((row: FinancialRow) => addRow(row, 0))
     exportToCSV(`${symbol.toLowerCase()}_quarterly_results.csv`, headers, csvRows)
   }
 
@@ -110,7 +122,8 @@ export function QuarterlyResultsTable() {
         </div>
         <button
           onClick={handleExportCSV}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
+          disabled={financialsStatus === 'loading' || financialsStatus === 'error'}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors disabled:opacity-50"
           title="Export quarterly results to CSV"
         >
           <FileSpreadsheet className="size-3 text-positive" /> Export
@@ -118,24 +131,42 @@ export function QuarterlyResultsTable() {
       </div>
 
       <div className="overflow-x-auto">
-        <Table className="min-w-[800px]">
-          <TableHeader className="bg-surfaceMuted">
-            <TableRow>
-              <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
-                Quarter Ending
-              </TableHead>
-              {quarters.map((q) => (
-                <TableHead
-                  key={q}
-                  className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
-                >
-                  {q}
+        {financialsStatus === 'loading' ? (
+          <div className="p-5">
+            <TableRowsSkeleton rows={6} cols={columnsList.length + 1} />
+          </div>
+        ) : financialsStatus === 'error' ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-destructive font-medium mb-3">
+              {financialsError || 'Failed to load quarterly results'}
+            </p>
+            <button
+              onClick={() => fetchQuarterlyResults(symbol)(dispatch)}
+              className="px-4 py-2 bg-secondary rounded-lg text-xs font-semibold hover:bg-secondary/80 transition-colors border"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <Table className="min-w-[800px]">
+            <TableHeader className="bg-surfaceMuted">
+              <TableRow>
+                <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
+                  Quarter Ending
                 </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>{activeQuarterly.map((row: FinancialRow) => renderRow(row))}</TableBody>
-        </Table>
+                {columnsList.map((q: string) => (
+                  <TableHead
+                    key={q}
+                    className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
+                  >
+                    {q}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>{rowsList.map((row: FinancialRow) => renderRow(row))}</TableBody>
+          </Table>
+        )}
       </div>
     </div>
   )

@@ -1,18 +1,30 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { insiderTrades } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const TRADE_FILTERS = ['All', 'Buy', 'Sell'] as const
 type TradeFilter = typeof TRADE_FILTERS[number]
 
 type SortField = 'company' | 'insider' | 'designation' | 'quantity' | 'price' | 'valueCr' | 'date'
+
+interface InsiderTrade {
+  date: string
+  company: string
+  symbol: string
+  insider: string
+  designation: string
+  tradeType: 'Buy' | 'Sell'
+  quantity: number
+  price: number
+  valueCr: number
+}
 
 export default function InsiderTrades() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -20,33 +32,30 @@ export default function InsiderTrades() {
   const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
+  const [trades, setTrades] = useState<InsiderTrade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchTrades = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch insider trades data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/insider-trades')
+      setTrades(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch insider trades data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchTrades()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchTrades()
   }
 
   const handleSort = (field: SortField) => {
@@ -67,7 +76,7 @@ export default function InsiderTrades() {
   }
 
   const sortedData = useMemo(() => {
-    const filtered = insiderTrades.filter((d) =>
+    const filtered = trades.filter((d) =>
       tradeType === 'All' ? true : d.tradeType === tradeType
     )
 
@@ -84,7 +93,7 @@ export default function InsiderTrades() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [tradeType, sortBy, sortOrder])
+  }, [trades, tradeType, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -112,7 +121,7 @@ export default function InsiderTrades() {
           Insider Trades
         </Heading>
 
-        {/* Trade type filter chips */}
+        {/* Trade filter tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
           {TRADE_FILTERS.map((f) => (
             <button
@@ -136,7 +145,9 @@ export default function InsiderTrades() {
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <TableRowsSkeleton rows={6} cols={9} />
+                <div className="p-5">
+                  <TableRowsSkeleton rows={6} cols={9} />
+                </div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
@@ -145,7 +156,7 @@ export default function InsiderTrades() {
                     </EmptyMedia>
                     <EmptyTitle className="text-textPrimary font-semibold">No insider trades found</EmptyTitle>
                     <EmptyDescription className="text-textSecondary">
-                      No records match the current filter selection.
+                      Try selecting a different filter.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -175,7 +186,7 @@ export default function InsiderTrades() {
                         className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
                       >
                         <div className="flex items-center">
-                          Insider {renderSortIcon('insider')}
+                          Insider Name {renderSortIcon('insider')}
                         </div>
                       </TableHead>
                       <TableHead 
@@ -186,13 +197,13 @@ export default function InsiderTrades() {
                           Designation {renderSortIcon('designation')}
                         </div>
                       </TableHead>
-                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Trade</TableHead>
+                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Trade Type</TableHead>
                       <TableHead 
                         onClick={() => handleSort('quantity')}
                         className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
                       >
                         <div className="flex items-center justify-end">
-                          Qty {renderSortIcon('quantity')}
+                          Quantity {renderSortIcon('quantity')}
                         </div>
                       </TableHead>
                       <TableHead 
@@ -219,13 +230,13 @@ export default function InsiderTrades() {
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date}</TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                               {d.company}
                             </Link>
                           </TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3">{d.insider}</TableCell>
+                          <TableCell className="text-sm text-textPrimary px-4 py-3 font-semibold">{d.insider}</TableCell>
                           <TableCell className="text-sm text-textSecondary px-4 py-3">{d.designation}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -235,13 +246,13 @@ export default function InsiderTrades() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {d.quantity?.toLocaleString('en-IN')}
+                            {d.quantity?.toLocaleString('en-IN') || '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            ₹{d.price.toLocaleString('en-IN')}
+                            {d.price ? `₹${d.price.toLocaleString('en-IN')}` : '—'}
                           </TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            ₹{Number(d.valueCr).toFixed(2)}
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular font-semibold">
+                            {d.valueCr ? `₹${Number(d.valueCr).toFixed(2)}` : '—'}
                           </TableCell>
                         </TableRow>
                       )

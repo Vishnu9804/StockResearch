@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-    allowedHosts: ['06c6-2409-40c1-10f0-c099-c87a-b67f-d35b-5a4d.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
+    allowedHosts: ['27a9-2401-4900-78f4-8eb9-10cb-1851-67eb-d24f.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
@@ -24,7 +24,7 @@ export default defineConfig({
   preview: {
     port: 3000,
     strictPort: true,
-    allowedHosts: ['06c6-2409-40c1-10f0-c099-c87a-b67f-d35b-5a4d.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
+    allowedHosts: ['27a9-2401-4900-78f4-8eb9-10cb-1851-67eb-d24f.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

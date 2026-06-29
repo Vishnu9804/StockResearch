@@ -11,11 +11,15 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import { runScreenerStart } from '@/store/slices/screenerSlice'
 
+import { finscreenClient } from '@/services/finscreenApi'
+
 export function Screener() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const { queryText, filters } = useAppSelector((state) => state.screener)
   const [insertedVariable, setInsertedVariable] = useState<Variable | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const handleInsert = useCallback((variable: Variable) => {
     setInsertedVariable(variable)
@@ -30,6 +34,54 @@ export function Screener() {
   const handleRunScreener = () => {
     dispatch(runScreenerStart())
     navigate('/screener/results')
+  }
+
+  const handleSaveScreen = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save screens.')
+      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+      navigate(`/login?redirect=${redirectPath}`)
+      return
+    }
+
+    const query = queryText.trim() || filters.map((f: any) => {
+      if (f.operator === 'between' && f.value2 !== undefined) {
+        return `${f.variableId} between ${f.value} and ${f.value2}`
+      }
+      return `${f.variableId} ${f.operator} ${f.value}`
+    }).join(' AND ')
+
+    if (!query) {
+      toast.error('Please add at least one query filter before saving.')
+      return
+    }
+
+    const name = window.prompt('Enter a name for this saved screen:')
+    if (name === null) return // Cancelled
+    if (!name.trim()) {
+      toast.error('Please provide a valid name.')
+      return
+    }
+
+    try {
+      setSaving(false)
+      const savePromise = finscreenClient.post('/screener/saved', {
+        name: name.trim(),
+        description: `Custom query filter: ${query}`,
+        queryText: query,
+        alertEnabled: false,
+        alertFrequency: 'IMMEDIATE',
+      })
+
+      toast.promise(savePromise, {
+        loading: 'Saving screen to account...',
+        success: '✓ Screen saved successfully!',
+        error: (err) => err.response?.data?.detail?.message || err.message || 'Failed to save screen',
+      })
+      await savePromise
+    } catch (err) {
+      console.error('Save screen error:', err)
+    }
   }
 
   return (
@@ -70,15 +122,8 @@ export function Screener() {
 
             <Button
               variant="outline"
-              onClick={() => {
-                if (!isAuthenticated) {
-                  toast.error('Please sign in to save screens.')
-                  const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-                  navigate(`/login?redirect=${redirectPath}`)
-                } else {
-                  toast.success('✓ Screen saved (mock)')
-                }
-              }}
+              disabled={saving}
+              onClick={handleSaveScreen}
               className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-medium shadow-none"
             >
               <Save className="w-3.5 h-3.5" />

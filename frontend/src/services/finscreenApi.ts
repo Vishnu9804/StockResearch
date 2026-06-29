@@ -131,6 +131,11 @@ export const finscreenApi = {
     return response.data
   },
 
+  fetchCompanyCreditRatings: async (symbol: string, params?: Record<string, any>): Promise<any> => {
+    const response = await finscreenClient.get<any>(`/company/${symbol}/credit-ratings`, { params })
+    return response.data
+  },
+
   fetchPeersList: async (symbol: string): Promise<{ peers: string[] }> => {
     const response = await finscreenClient.get<{ peers: string[] }>(`/company/${symbol}/peers`)
     return response.data
@@ -205,6 +210,33 @@ export const finscreenApi = {
    */
   fetchIndexReturns: async (): Promise<any[]> => {
     const response = await finscreenClient.get<any[]>('/market/index-returns')
+    return response.data
+  },
+
+  /**
+   * Fetch recent financial news (mapped from FinEdge corp-announcements)
+   * Maps to: GET /api/finscreen/market/news
+   */
+  fetchMarketNews: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/news')
+    return response.data
+  },
+
+  /**
+   * Fetch market holidays calendar
+   * Maps to: GET /api/finscreen/market/holidays
+   */
+  fetchMarketHolidays: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/holidays')
+    return response.data
+  },
+
+  /**
+   * Fetch MCX and global commodities live prices
+   * Maps to: GET /api/finscreen/market/commodities
+   */
+  fetchCommodities: async (): Promise<any[]> => {
+    const response = await finscreenClient.get<any[]>('/market/commodities')
     return response.data
   },
 

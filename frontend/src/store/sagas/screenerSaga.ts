@@ -131,76 +131,69 @@ function* validateQuerySaga(action: ReturnType<typeof setQuery>): Generator<any,
   }
 }
 
+import { finscreenClient } from '@/services/finscreenApi'
+
 // Saga for Running Screener
 function* runScreenerSaga(): Generator<any, void, any> {
   try {
     const state: ReturnType<typeof selectScreenerState> = yield select(selectScreenerState)
     const { filters, queryText, queryValid } = state
 
-    yield delay(500) // Simulate network delay
-
-    let filtered = [...companies]
-
-    if (queryText.trim()) {
-      if (!queryValid) {
-        throw new Error('Cannot run query with syntax errors')
-      }
-      const { parsed } = parseQueryText(queryText)
-      for (const clause of parsed) {
-        filtered = filtered.filter((company) => {
-          const compVal = getCompanyValue(company, clause.field)
-          if (compVal === null) return false
-          return evaluateFilter(compVal, clause.operator, clause.value, clause.value2)
-        })
-      }
-    } else if (filters.length > 0) {
-      // Visual mode filters
-      for (const filter of filters) {
-        filtered = filtered.filter((company) => {
-          const compVal = getCompanyValue(company, filter.variableId.toLowerCase())
-          if (compVal === null) return false
-          return evaluateFilter(compVal, filter.operator, filter.value, filter.value2)
-        })
-      }
+    if (queryText.trim() && !queryValid) {
+      throw new Error('Cannot run query with syntax errors')
     }
 
-    // Map to ScreenerResult interface.
-    // Fields sourced directly from company data. Fields without real company-level data
-    // (salesGrowth3Y, rsi14, etc.) are mapped from the company object where available,
-    // otherwise 0 — no more hardcoded constants that make every company identical.
-    const results: ScreenerResult[] = filtered.map((c) => ({
+    // Construct the query string
+    const query = queryText.trim() || filters.map((f: FilterRow) => {
+      if (f.operator === 'between' && f.value2 !== undefined) {
+        return `${f.variableId} between ${f.value} and ${f.value2}`
+      }
+      return `${f.variableId} ${f.operator} ${f.value}`
+    }).join(' AND ')
+
+    // API call to the backend FastAPI screener proxy
+    const response = yield call([finscreenClient, finscreenClient.post], '/screener/run', { query })
+    
+    // Map response structure (supports direct array list or results wrapper)
+    const resultsList = Array.isArray(response.data) ? response.data
+                       : Array.isArray(response.data?.results) ? response.data.results
+                       : Array.isArray(response.data?.data) ? response.data.data
+                       : []
+
+    const results: ScreenerResult[] = resultsList.map((c: any) => ({
       symbol: c.symbol,
-      name: c.name,
-      sector: c.sector,
-      marketCap: c.marketCap,
-      pe: c.pe,
-      pb: c.bookValue > 0 ? c.price / c.bookValue : 0,
-      dividendYield: c.dividendYield,
-      roe: c.roe,
-      roce: c.roce,
-      debtToEquity: c.debtToEquity,
-      // Real data where available; 0 when not present in company dataset
-      salesGrowth3Y: (c as any).salesGrowth3Y ?? 0,
-      profitGrowth3Y: (c as any).profitGrowth3Y ?? 0,
-      netProfitMargin: (c as any).netProfitMargin ?? 0,
-      ebitdaMargin: (c as any).ebitdaMargin ?? 0,
-      promoterHolding: c.promoterHolding,
-      fiiHolding: c.fiiHolding,
-      currentRatio: (c as any).currentRatio ?? 0,
-      interestCoverage: (c as any).interestCoverage ?? 0,
-      cmp: c.price,
-      changePct: c.changePct,
-      high52w: c.high52w,
-      low52w: c.low52w,
-      eps: c.eps,
-      bookValue: c.bookValue,
-      rsi14: (c as any).rsi14 ?? 0,
-      beta: (c as any).beta ?? 0,
+      name: c.name || c.company_name || c.symbol,
+      sector: c.sector || 'Other',
+      marketCap: c.marketCap || c.market_cap || 0,
+      pe: c.pe || 0,
+      pb: c.pb || 0,
+      dividendYield: c.dividendYield || c.dividend_yield || 0,
+      roe: c.roe || 0,
+      roce: c.roce || 0,
+      debtToEquity: c.debtToEquity || c.debt_to_equity || 0,
+      salesGrowth3Y: c.salesGrowth3Y || c.sales_growth_3y || 0,
+      profitGrowth3Y: c.profitGrowth3Y || c.profit_growth_3y || 0,
+      netProfitMargin: c.netProfitMargin || c.net_profit_margin || 0,
+      ebitdaMargin: c.ebitdaMargin || c.ebitda_margin || 0,
+      promoterHolding: c.promoterHolding || c.promoter_holding || 0,
+      fiiHolding: c.fiiHolding || c.fii_holding || 0,
+      currentRatio: c.currentRatio || c.current_ratio || 0,
+      interestCoverage: c.interestCoverage || c.interest_coverage || 0,
+      cmp: c.cmp || c.price || c.close_price || 0,
+      changePct: c.changePct || c.pct_change || 0,
+      high52w: c.high52w || c.week52_high || 0,
+      low52w: c.low52w || c.week52_low || 0,
+      eps: c.eps || 0,
+      bookValue: c.bookValue || c.book_value || 0,
+      rsi14: c.rsi14 || 0,
+      beta: c.beta || 0,
     }))
 
     yield put(runScreenerSuccess({ results, totalCount: results.length }))
   } catch (err: any) {
-    yield put(runScreenerFailure(err.message || 'Failed to run screener'))
+    console.error('Screener run error:', err)
+    const errorMsg = err.response?.data?.detail?.message || err.message || 'Failed to run screener'
+    yield put(runScreenerFailure(errorMsg))
   }
 }
 

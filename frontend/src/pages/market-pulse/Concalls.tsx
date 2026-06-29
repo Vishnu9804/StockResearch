@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { concalls, upcomingConcalls } from '@/lib/data/market-pulse'
+import { concalls as fallbackConcalls, upcomingConcalls } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
@@ -10,41 +10,49 @@ import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { toast } from 'react-hot-toast'
+import { finscreenClient } from '@/services/finscreenApi'
 
 type SortField = 'company' | 'date'
+
+interface Concall {
+  company: string
+  symbol: string
+  date: string
+  quarter: string
+  hasRecording: boolean
+  hasTranscript: boolean
+  hasSummary: boolean
+}
 
 export function Concalls() {
   const [searchParams, setSearchParams] = useSearchParams()
   const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
+  const [concallsList, setConcallsList] = useState<Concall[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFetch = (showError = false) => {
+  const fetchConcalls = async () => {
     setLoading(true)
     setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch concalls data. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
+    try {
+      const res = await finscreenClient.get('/finscreen/market/concalls')
+      setConcallsList(res.data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch concalls data. Please retry.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
-  }, [searchParams])
+    fetchConcalls()
+  }, [])
 
   const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
+    fetchConcalls()
   }
 
   const handleSort = (field: SortField) => {
@@ -59,14 +67,15 @@ export function Concalls() {
   }
 
   const sortedData = useMemo(() => {
-    return [...concalls].sort((a, b) => {
-      let valA = a[sortBy].toLowerCase()
-      let valB = b[sortBy].toLowerCase()
+    const list = concallsList.length > 0 ? concallsList : fallbackConcalls
+    return [...list].sort((a, b) => {
+      let valA = (a[sortBy] || '').toLowerCase()
+      let valB = (b[sortBy] || '').toLowerCase()
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [sortBy, sortOrder])
+  }, [concallsList, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
@@ -101,7 +110,9 @@ export function Concalls() {
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <TableRowsSkeleton rows={6} cols={7} />
+                <div className="p-5">
+                  <TableRowsSkeleton rows={6} cols={7} />
+                </div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
@@ -146,12 +157,12 @@ export function Concalls() {
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                         <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
                         <TableCell className="text-sm px-4 py-3">
-                          <Link to={`/company/${d.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                          <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                             {d.company}
                           </Link>
                         </TableCell>
                         <TableCell className="text-sm text-textPrimary px-4 py-3">{d.quarter}</TableCell>
-                        <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date}</TableCell>
+                        <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                         <TableCell className="text-sm px-4 py-3">
                           {d.hasRecording ? (
                             <a href="#" onClick={(e) => { e.preventDefault(); toast.success('Opening recording...') }} className="text-xs font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
@@ -199,33 +210,14 @@ export function UpcomingConcalls() {
   const sortOrder = (searchParams.get('sortOrder') ?? 'asc') as 'asc' | 'desc'
 
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleFetch = (showError = false) => {
-    setLoading(true)
-    setError(null)
-    const delay = setTimeout(() => {
-      if (showError) {
-        setError('Failed to fetch upcoming concalls. Please retry.')
-      } else {
-        setLoading(false)
-      }
-    }, 450)
-    return () => clearTimeout(delay)
-  }
+  const [error] = useState<string | null>(null)
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    const cleanup = handleFetch(mockError)
-    return cleanup
+    const delay = setTimeout(() => {
+      setLoading(false)
+    }, 450)
+    return () => clearTimeout(delay)
   }, [searchParams])
-
-  const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    handleFetch(false)
-  }
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
@@ -233,7 +225,7 @@ export function UpcomingConcalls() {
       newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
     } else {
       newParams.set('sortBy', field)
-      newParams.set('sortOrder', 'asc') // default asc for upcoming dates
+      newParams.set('sortOrder', 'asc')
     }
     setSearchParams(newParams)
   }
@@ -275,13 +267,15 @@ export function UpcomingConcalls() {
         </Heading>
 
         {error ? (
-          <InlineError message={error} onRetry={handleRetry} className="mb-8" />
+          <InlineError message={error} onRetry={() => {}} className="mb-8" />
         ) : (
           /* Table card */
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <TableRowsSkeleton rows={4} cols={5} />
+                <div className="p-5">
+                  <TableRowsSkeleton rows={4} cols={5} />
+                </div>
               ) : sortedUpcoming.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
@@ -313,10 +307,10 @@ export function UpcomingConcalls() {
                         className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
                       >
                         <div className="flex items-center">
-                          Scheduled Date {renderSortIcon('date')}
+                          Date {renderSortIcon('date')}
                         </div>
                       </TableHead>
-                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Set Reminder</TableHead>
+                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -324,7 +318,7 @@ export function UpcomingConcalls() {
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                         <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
                         <TableCell className="text-sm px-4 py-3">
-                          <Link to={`/company/${d.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                          <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                             {d.company}
                           </Link>
                         </TableCell>

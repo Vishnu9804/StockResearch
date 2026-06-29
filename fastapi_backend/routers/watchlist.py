@@ -88,6 +88,7 @@ async def add_item(watchlist_id: str, body: AddItemBody, db: AsyncSession = Depe
     return {"success": True, "item": _item_dict(item)}
 
 @router.patch("/items/{item_id}")
+@router.put("/items/{item_id}")
 async def update_item(item_id: str, body: UpdateItemBody, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(WatchlistItem).where(WatchlistItem.id == item_id))
     item = result.scalar_one_or_none()

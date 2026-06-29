@@ -1,11 +1,54 @@
-import { Link } from 'react-router-dom'
-import { Check, ShieldCheck, HeartHandshake, Headphones, ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Check, ShieldCheck, HeartHandshake, Headphones, ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
+import { useAppSelector } from '@/store/hooks'
+import { finscreenClient } from '@/services/finscreenApi'
 
 export function Pricing() {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleUpgrade = async (plan: 'PRO' | 'PREMIUM') => {
+    if (!isAuthenticated) {
+      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    try {
+      // Initiate request to backend
+      const res = await finscreenClient.post('/payments/initiate', { plan })
+      const { payuData, checkoutUrl } = res.data
+
+      // Create a temporary form to POST parameters to PayU
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = checkoutUrl
+
+      Object.entries(payuData).forEach(([key, val]) => {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = key
+        input.value = String(val)
+        form.appendChild(input)
+      })
+
+      document.body.appendChild(form)
+      form.submit()
+    } catch (err: any) {
+      console.error('Failed to initiate payment:', err)
+      setError(err.response?.data?.detail?.message || 'Payment initiation failed. Please try again.')
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accentSoft/20 flex flex-col justify-between font-sans text-textPrimary select-none">
       {/* Mini Nav Header */}
@@ -127,9 +170,25 @@ export function Pricing() {
               </ul>
             </div>
 
+            {error && (
+              <div className="px-6 pb-2 text-[11px] text-negative font-medium">
+                {error}
+              </div>
+            )}
             <div className="p-6 bg-surfaceMuted/50 border-t border-border/40 shrink-0">
-              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-10 shadow-none">
-                <Link to="/">Upgrade to Pro</Link>
+              <Button
+                onClick={() => handleUpgrade('PRO')}
+                disabled={loading}
+                className="w-full bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-10 shadow-none gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Upgrade to Pro'
+                )}
               </Button>
             </div>
           </Card>

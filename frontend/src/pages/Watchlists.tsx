@@ -32,13 +32,6 @@ interface UpcomingEvent {
   type: 'results' | 'agm' | 'dividend' | 'bonus'
 }
 
-const UPCOMING_EVENTS: UpcomingEvent[] = [
-  { id: 'e1', title: 'INFY Q4 Results', date: 'May 28', type: 'results' },
-  { id: 'e2', title: 'TCS AGM', date: 'May 30', type: 'agm' },
-  { id: 'e3', title: 'ITC Dividend Ex-Date', date: 'Jun 2', type: 'dividend' },
-  { id: 'e4', title: 'RELIANCE Q4 Results', date: 'Jun 4', type: 'results' },
-]
-
 const EVENT_COLORS = {
   results: 'bg-info/10 text-info border border-info/20',
   agm: 'bg-purple-100 text-purple-700 border border-purple-200',
@@ -64,6 +57,10 @@ export function Watchlists() {
   // Live quotes state for watchlist symbols
   const [quotes, setQuotes] = useState<Record<string, any>>({})
   const [quotesLoading, setQuotesLoading] = useState(false)
+
+  // Live upcoming events from results-calendar API
+  const [liveEvents, setLiveEvents] = useState<UpcomingEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(false)
 
   // Get all unique symbols across all watchlists to fetch quotes
   const allSymbols = useMemo(() => {
@@ -93,6 +90,43 @@ export function Watchlists() {
     }
     loadQuotes()
   }, [allSymbols])
+
+  // Fetch live upcoming events from results-calendar filtered to watchlist symbols
+  useEffect(() => {
+    async function loadEvents() {
+      setEventsLoading(true)
+      try {
+        const res = await finscreenApi.fetchResultsCalendar()
+        const raw: any[] = Array.isArray(res) ? res : []
+        const symbolSet = new Set(allSymbols.map(s => s.toUpperCase()))
+        const mapped: UpcomingEvent[] = raw
+          .filter(e => !symbolSet.size || symbolSet.has((e.symbol || '').toUpperCase()))
+          .slice(0, 6)
+          .map((e, i) => {
+            const dt = e.result_date || e.date || ''
+            const d = dt ? new Date(dt) : null
+            const dateStr = d && !isNaN(d.getTime())
+              ? d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+              : dt.slice(0, 10)
+            const sym = (e.symbol || '').toUpperCase()
+            const name = e.company_name || e.name || sym
+            return {
+              id: `live-${i}`,
+              title: `${sym} Results`,
+              date: dateStr,
+              type: 'results' as const,
+            }
+          })
+        setLiveEvents(mapped)
+      } catch (err) {
+        console.error('Failed to load results calendar:', err)
+        setLiveEvents([])
+      } finally {
+        setEventsLoading(false)
+      }
+    }
+    loadEvents()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map Redux watchlist items to local model with live quotes
   const selectedStocks = useMemo(() => {
@@ -430,25 +464,38 @@ export function Watchlists() {
             <div className="flex items-center gap-2 mb-3">
               <Calendar className="w-4 h-4 text-textSecondary" />
               <Heading level={3} className="text-lg font-semibold text-textPrimary">
-                Upcoming Events This Week
+                Upcoming Results
               </Heading>
+              {eventsLoading && <span className="text-xs text-textMuted animate-pulse ml-1">Loading…</span>}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {UPCOMING_EVENTS.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-surface border border-border/40 shadow-xs rounded-xl p-5 hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between mb-2.5">
-                    <Badge variant="outline" className={`text-xs font-medium capitalize shadow-none border-none ${EVENT_COLORS[event.type]}`}>
-                      {event.type}
-                    </Badge>
-                    <Text variant="caption" className="text-textSecondary font-medium">{event.date}</Text>
+            {liveEvents.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {liveEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="bg-surface border border-border/40 shadow-xs rounded-xl p-5 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between mb-2.5">
+                      <Badge variant="outline" className={`text-xs font-medium capitalize shadow-none border-none ${EVENT_COLORS[event.type]}`}>
+                        {event.type}
+                      </Badge>
+                      <Text variant="caption" className="text-textSecondary font-medium">{event.date}</Text>
+                    </div>
+                    <Text variant="body" className="font-medium text-textPrimary">{event.title}</Text>
                   </div>
-                  <Text variant="body" className="font-medium text-textPrimary">{event.title}</Text>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : !eventsLoading ? (
+              <p className="text-xs text-textMuted border border-dashed border-border/40 rounded-xl px-4 py-6 text-center">
+                No upcoming results events found for your watchlist symbols.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-20 bg-surface border border-border/30 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

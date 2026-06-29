@@ -44,6 +44,8 @@ class User(Base):
     saved_screens: Mapped[List["SavedScreen"]] = relationship(back_populates="user", cascade="all, delete")
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="user", cascade="all, delete")
     notifications: Mapped[List["Notification"]] = relationship(back_populates="user", cascade="all, delete")
+    portfolios: Mapped[List["Portfolio"]] = relationship(back_populates="user", cascade="all, delete")
+    saved_queries: Mapped[List["SavedQuery"]] = relationship(back_populates="user", cascade="all, delete")
 
 
 class Session(Base):
@@ -102,6 +104,17 @@ class SavedScreen(Base):
     user: Mapped["User"] = relationship(back_populates="saved_screens")
 
 
+class SavedQuery(Base):
+    __tablename__ = "saved_queries"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    query_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    user: Mapped["User"] = relationship(back_populates="saved_queries")
+
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
@@ -134,6 +147,33 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     user: Mapped["User"] = relationship(back_populates="notifications")
+
+
+class Portfolio(Base):
+    __tablename__ = "portfolios"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    user: Mapped["User"] = relationship(back_populates="portfolios")
+    holdings: Mapped[List["PortfolioHolding"]] = relationship(back_populates="portfolio", cascade="all, delete")
+
+
+class PortfolioHolding(Base):
+    __tablename__ = "portfolio_holdings"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_uuid)
+    portfolio_id: Mapped[str] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"))
+    symbol: Mapped[str] = mapped_column(String)
+    company_name: Mapped[str] = mapped_column(String)
+    quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    avg_buy_price: Mapped[float] = mapped_column(Float, default=0.0)
+    buy_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    portfolio: Mapped["Portfolio"] = relationship(back_populates="holdings")
 
 
 # ── DB Session Dependency ──────────────────────────────────────────────────────

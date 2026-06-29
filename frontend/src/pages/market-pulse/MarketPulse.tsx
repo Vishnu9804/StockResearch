@@ -71,6 +71,8 @@ const MARKET_PULSE_ROWS: HubRow[] = [
   { label: 'FII Investments', badge: 'Net ₹1,245 Cr', href: '/market-pulse/insider-trades', icon: DollarSign },
   { label: 'New Issues / IPO', badge: '8 upcoming', href: '/market-pulse/new-issues', icon: BarChart3 },
   { label: 'Upcoming Results', badge: '24 this week', href: '/market-pulse/results', icon: TrendingUp },
+  { label: 'Trading Holidays', badge: 'NSE/BSE Calendar', href: '/market-pulse/holidays', icon: CalendarClock },
+  { label: 'Commodities Board', badge: 'Live MCX Rates', href: '/market-pulse/commodities', icon: DollarSign },
 ]
 
 const TRADE_ROWS: HubRow[] = [

@@ -21,6 +21,8 @@ import Account from './pages/Account'
 import { MarketPulse } from './pages/market-pulse/MarketPulse'
 import { NewIssues } from './pages/market-pulse/NewIssues'
 import Feed from './pages/Feed'
+import PaymentResult from './pages/PaymentResult'
+import AdminDashboard from './pages/AdminDashboard'
 import Announcements from './pages/market-pulse/Announcements'
 import Industries from './pages/market-pulse/Industries'
 import AnnualReports from './pages/market-pulse/AnnualReports'
@@ -33,6 +35,8 @@ import { Concalls, UpcomingConcalls } from './pages/market-pulse/Concalls'
 import Results from './pages/market-pulse/Results'
 import { QueryBuilder } from './pages/market-pulse/QueryBuilder'
 import { QueryResults } from './pages/market-pulse/QueryResults'
+import { Holidays } from './pages/market-pulse/Holidays'
+import { Commodities } from './pages/market-pulse/Commodities'
 
 function ProtectedRoute() {
   return (
@@ -58,6 +62,8 @@ export function App() {
 
         {/* Pricing (Public page) */}
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/payment/success" element={<PaymentResult />} />
+        <Route path="/payment/failure" element={<PaymentResult />} />
 
         {/* Dashboard Group */}
         <Route element={<DashboardLayout />}>
@@ -86,6 +92,8 @@ export function App() {
           <Route path="/market-pulse/results" element={<Results />} />
           <Route path="/market-pulse/queries/new" element={<QueryBuilder />} />
           <Route path="/market-pulse/queries/results" element={<QueryResults />} />
+          <Route path="/market-pulse/holidays" element={<Holidays />} />
+          <Route path="/market-pulse/commodities" element={<Commodities />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
@@ -93,6 +101,7 @@ export function App() {
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/custom-ratios" element={<CustomRatios />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             {/* Legacy profile — redirect to /account (was incorrectly rendering Profile.tsx) */}
             <Route path="/profile" element={<Navigate to="/account" replace />} />
           </Route>

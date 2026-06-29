@@ -1,12 +1,22 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, TrendingUp, TrendingDown, AlertCircle, Plus, Trash2, Search, X } from 'lucide-react'
+import { ChevronRight, TrendingUp, TrendingDown, AlertCircle, Plus, Trash2, Search, X, Edit3, Briefcase } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
 import { companies } from '@/lib/data/companies'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  fetchPortfolios,
+  createPortfolio,
+  deletePortfolio,
+  fetchHoldings,
+  addHolding,
+  updateHolding,
+  deleteHolding,
+} from '@/store/slices/portfolioSlice'
 import {
   PieChart, Pie, Cell,
   Tooltip as RechartsTooltip,
@@ -14,65 +24,18 @@ import {
   AreaChart, Area, XAxis, YAxis,
 } from 'recharts'
 
-interface Holding {
-  id: string
-  symbol: string
-  name: string
-  sector: string
-  qty: number
-  avgCost: number
-  cmp: number
-  dayChange: number
-}
-
 type SparklinePeriod = 'Today' | '1W' | '1M' | '1Y'
 
-const INITIAL_HOLDINGS: Holding[] = [
-  { id: '1', symbol: 'RELIANCE', name: 'Reliance Industries', sector: 'Energy', qty: 50, avgCost: 2450.0, cmp: 2847.35, dayChange: 1.24 },
-  { id: '2', symbol: 'INFY', name: 'Infosys Ltd', sector: 'IT', qty: 120, avgCost: 1380.5, cmp: 1521.80, dayChange: -0.78 },
-  { id: '3', symbol: 'HDFCBANK', name: 'HDFC Bank', sector: 'Banking', qty: 80, avgCost: 1550.0, cmp: 1687.45, dayChange: 0.52 },
-  { id: '4', symbol: 'TCS', name: 'TCS Ltd', sector: 'IT', qty: 30, avgCost: 3600.0, cmp: 3956.20, dayChange: -1.12 },
-  { id: '5', symbol: 'NESTLEIND', name: 'Nestle India', sector: 'FMCG', qty: 15, avgCost: 2100.0, cmp: 2298.75, dayChange: 0.18 },
-  { id: '6', symbol: 'TITAN', name: 'Titan Company', sector: 'Consumer', qty: 40, avgCost: 3100.0, cmp: 3398.00, dayChange: -0.23 },
-  { id: '7', symbol: 'MARUTI', name: 'Maruti Suzuki', sector: 'Auto', qty: 10, avgCost: 10200.0, cmp: 13240.00, dayChange: 2.12 },
-  { id: '8', symbol: 'ITC', name: 'ITC Ltd', sector: 'FMCG', qty: 500, avgCost: 390.0, cmp: 453.80, dayChange: 0.34 },
-]
-
-const SPARKLINE_SETS: Record<SparklinePeriod, { t: string; v: number }[]> = {
-  Today: [
-    { t: '9:15', v: 4820000 }, { t: '10:00', v: 4835000 }, { t: '11:00', v: 4798000 },
-    { t: '12:00', v: 4862000 }, { t: '13:00', v: 4880000 }, { t: '14:00', v: 4841000 },
-    { t: '15:00', v: 4892000 }, { t: '15:30', v: 4910432 },
-  ],
-  '1W': [
-    { t: 'Mon', v: 4720000 }, { t: 'Tue', v: 4780000 }, { t: 'Wed', v: 4750000 },
-    { t: 'Thu', v: 4820000 }, { t: 'Fri', v: 4910432 },
-  ],
-  '1M': [
-    { t: 'W1', v: 4560000 }, { t: 'W2', v: 4620000 }, { t: 'W3', v: 4700000 },
-    { t: 'W4', v: 4850000 }, { t: 'W5', v: 4910432 },
-  ],
-  '1Y': [
-    { t: 'Jun', v: 3800000 }, { t: 'Aug', v: 4050000 }, { t: 'Oct', v: 4200000 },
-    { t: 'Dec', v: 4450000 }, { t: 'Feb', v: 4650000 }, { t: 'Apr', v: 4810000 },
-    { t: 'May', v: 4910432 },
-  ],
-}
-
 const SECTOR_COLORS: Record<string, string> = {
-  Energy: '#1D4ED8', IT: '#7C3AED', Banking: '#0891B2',
-  FMCG: '#16A34A', Consumer: '#EA580C', Auto: '#D97706',
-}
-
-function computeHoldings(holdings: Holding[]) {
-  return holdings.map((h) => {
-    const totalCost = h.qty * h.avgCost
-    const currentValue = h.qty * h.cmp
-    const totalPnl = currentValue - totalCost
-    const totalPnlPct = (totalPnl / totalCost) * 100
-    const dayPnl = h.qty * h.cmp * (h.dayChange / 100)
-    return { ...h, totalCost, currentValue, totalPnl, totalPnlPct, dayPnl }
-  })
+  'Energy': '#1D4ED8',
+  'Information Technology': '#7C3AED',
+  'IT': '#7C3AED',
+  'Financial Services': '#0891B2',
+  'Banking': '#0891B2',
+  'FMCG': '#16A34A',
+  'Consumer Goods': '#EA580C',
+  'Consumer': '#EA580C',
+  'Auto': '#D97706',
 }
 
 function formatCurrency(n: number): string {
@@ -86,7 +49,9 @@ function formatPrice(n: number): string {
 }
 
 export function Portfolio() {
-  const [holdings, setHoldings] = useState<Holding[]>(INITIAL_HOLDINGS)
+  const dispatch = useAppDispatch()
+  const { portfolios, holdings, status, error, activePortfolioId } = useAppSelector((state) => state.portfolio)
+
   const [period, setPeriod] = useState<SparklinePeriod>('Today')
   const [showAddModal, setShowAddModal] = useState(false)
   const [addSearch, setAddSearch] = useState('')
@@ -94,39 +59,109 @@ export function Portfolio() {
   const [addCost, setAddCost] = useState('')
   const [addSelected, setAddSelected] = useState<typeof companies[0] | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [quotes, setQuotes] = useState<Record<string, any>>({})
+  const [buyingPower, setBuyingPower] = useState(142800)
+  const [editingBuyingPower, setEditingBuyingPower] = useState(false)
+  const [buyingPowerInput, setBuyingPowerInput] = useState('')
 
-  // Fetch live prices for all portfolio holdings
+  // Load portfolios on mount
   useEffect(() => {
-    const symbols = INITIAL_HOLDINGS.map(h => h.symbol)
-    import('@/services/finscreenApi').then(({ default: finscreenApi }) => {
-      finscreenApi.fetchMultipleQuotes(symbols).then((quotes: Record<string, any>) => {
-        setHoldings(prev => prev.map(h => {
-          const q = quotes[h.symbol]
-          if (!q) return h
-          const livePrice = q.current_price || q.close_price || q.ltp || h.cmp
-          const livePct = typeof q.pct_change === 'number' ? q.pct_change
-            : typeof q.change === 'number' ? q.change
-            : h.dayChange
-          return { ...h, cmp: livePrice, dayChange: livePct }
-        }))
-      }).catch(() => { /* Keep hardcoded values on error */ })
-    })
-  }, [])
+    fetchPortfolios()(dispatch)
+  }, [dispatch])
 
-  const computed = computeHoldings(holdings)
+  // Automatically initialize a default portfolio if none exist
+  useEffect(() => {
+    if (status === 'success' && portfolios.length === 0) {
+      createPortfolio('My Portfolio')(dispatch)
+    }
+  }, [status, portfolios, dispatch])
+
+  // Fetch holdings when active portfolio ID changes
+  useEffect(() => {
+    if (activePortfolioId) {
+      fetchHoldings(activePortfolioId)(dispatch)
+    }
+  }, [activePortfolioId, dispatch])
+
+  // Fetch live prices for all loaded portfolio holdings
+  useEffect(() => {
+    if (holdings.length === 0) {
+      setQuotes({})
+      return
+    }
+    const symbols = holdings.map(h => h.symbol)
+    import('@/services/finscreenApi').then(({ default: finscreenApi }) => {
+      finscreenApi.fetchMultipleQuotes(symbols).then((quotesData: Record<string, any>) => {
+        setQuotes(quotesData)
+      }).catch((err) => console.error("Failed to fetch live quotes:", err))
+    })
+  }, [holdings])
+
+  // Merge database holdings with live quotes
+  const computed = useMemo(() => {
+    return holdings.map((h) => {
+      const q = quotes[h.symbol]
+      const cmp = q?.current_price || q?.close_price || q?.ltp || h.avgBuyPrice
+      const dayChange = typeof q?.pct_change === 'number' ? q.pct_change
+        : typeof q?.change === 'number' ? q.change
+        : 0
+      
+      const totalCost = h.quantity * h.avgBuyPrice
+      const currentValue = h.quantity * cmp
+      const totalPnl = currentValue - totalCost
+      const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
+      const dayPnl = h.quantity * cmp * (dayChange / 100)
+
+      // Resolve sector locally from static list if possible
+      const localComp = companies.find(c => c.symbol === h.symbol)
+      const sector = localComp?.sector || 'Other'
+
+      return {
+        ...h,
+        sector,
+        cmp,
+        dayChange,
+        totalCost,
+        currentValue,
+        totalPnl,
+        totalPnlPct,
+        dayPnl
+      }
+    })
+  }, [holdings, quotes])
+
   const totalValue = computed.reduce((s, h) => s + h.currentValue, 0)
   const totalCost = computed.reduce((s, h) => s + h.totalCost, 0)
   const totalPnl = totalValue - totalCost
-  const totalPnlPct = (totalPnl / totalCost) * 100
+  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
   const todayPnl = computed.reduce((s, h) => s + h.dayPnl, 0)
-  const buyingPower = 142800
   const profitStocks = computed.filter((h) => h.totalPnl > 0).length
+
+  // Build a sparkline showing portfolio value over simulated intraday / period points
+  // We use total cost as the base and apply the day-change to simulate a realistic curve
+  const sparklineData = useMemo(() => {
+    if (computed.length === 0) return [{ t: 'Now', v: 0 }]
+    const base = totalValue - todayPnl // portfolio value at open
+    const current = totalValue
+    const labels: Record<SparklinePeriod, string[]> = {
+      Today: ['9:15', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '15:30'],
+      '1W': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      '1M': ['W1', 'W2', 'W3', 'W4', 'W5'],
+      '1Y': ['Jun', 'Aug', 'Oct', 'Dec', 'Feb', 'Apr', 'Now'],
+    }
+    const pts = labels[period]
+    return pts.map((t, i) => {
+      const ratio = pts.length === 1 ? 1 : i / (pts.length - 1)
+      // Simulate wavy realistic growth from base → current
+      const jitter = Math.sin(i * 1.5) * (current - base) * 0.05
+      const v = base + (current - base) * ratio + jitter
+      return { t, v: Math.max(0, Math.round(v)) }
+    })
+  }, [computed, period, totalValue, todayPnl])
 
   const sectorMap: Record<string, number> = {}
   computed.forEach((h) => { sectorMap[h.sector] = (sectorMap[h.sector] ?? 0) + h.currentValue })
   const pieData = Object.entries(sectorMap).map(([name, value]) => ({ name, value }))
-
-  const sparklineData = SPARKLINE_SETS[period]
 
   const searchResults = useMemo(() => {
     if (!addSearch.trim()) return []
@@ -137,32 +172,26 @@ export function Portfolio() {
   }, [addSearch])
 
   const handleAddHolding = () => {
-    if (!addSelected || !addQty || !addCost) return
+    if (!addSelected || !addQty || !addCost || !activePortfolioId) return
     const qty = parseFloat(addQty)
     const cost = parseFloat(addCost)
     if (isNaN(qty) || isNaN(cost) || qty <= 0 || cost <= 0) return
-    const existing = holdings.findIndex(h => h.symbol === addSelected.symbol)
-    if (existing >= 0) {
-      // Merge — weighted avg cost
-      setHoldings(prev => prev.map((h, i) => {
-        if (i !== existing) return h
-        const totalShares = h.qty + qty
-        const newAvg = (h.qty * h.avgCost + qty * cost) / totalShares
-        return { ...h, qty: totalShares, avgCost: newAvg }
-      }))
+
+    const existing = holdings.find(h => h.symbol === addSelected.symbol)
+    if (existing) {
+      const totalShares = existing.quantity + qty
+      const newAvg = (existing.quantity * existing.avgBuyPrice + qty * cost) / totalShares
+      updateHolding(activePortfolioId, existing.id, { quantity: totalShares, avgBuyPrice: newAvg })(dispatch)
     } else {
-      const newHolding: Holding = {
-        id: `hold-${Date.now()}`,
+      addHolding(activePortfolioId, {
         symbol: addSelected.symbol,
-        name: addSelected.name,
-        sector: addSelected.sector,
-        qty,
-        avgCost: cost,
-        cmp: addSelected.price,
-        dayChange: addSelected.changePct,
-      }
-      setHoldings(prev => [...prev, newHolding])
+        companyName: addSelected.name,
+        quantity: qty,
+        avgBuyPrice: cost,
+        buyDate: new Date().toISOString()
+      })(dispatch)
     }
+
     setShowAddModal(false)
     setAddSearch('')
     setAddQty('')
@@ -170,8 +199,28 @@ export function Portfolio() {
     setAddSelected(null)
   }
 
-  const handleDelete = (id: string) => {
-    setHoldings(prev => prev.filter(h => h.id !== id))
+  const handleEditHolding = (h: any) => {
+    if (!activePortfolioId) return
+    const qtyStr = prompt("Enter new quantity:", String(h.quantity))
+    if (qtyStr === null) return
+    const costStr = prompt("Enter new average cost (₹):", String(h.avgBuyPrice))
+    if (costStr === null) return
+
+    const quantity = parseFloat(qtyStr)
+    const avgBuyPrice = parseFloat(costStr)
+
+    if (isNaN(quantity) || isNaN(avgBuyPrice) || quantity <= 0 || avgBuyPrice <= 0) {
+      alert("Please enter valid positive numbers.")
+      return
+    }
+
+    updateHolding(activePortfolioId, h.id, { quantity, avgBuyPrice })(dispatch)
+  }
+
+  const handleDeleteHolding = (holdingId: string) => {
+    if (activePortfolioId && window.confirm("Are you sure you want to delete this holding?")) {
+      deleteHolding(activePortfolioId, holdingId)(dispatch)
+    }
   }
 
   const MOCK_TRANSACTIONS = [
@@ -187,7 +236,7 @@ export function Portfolio() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background select-none font-sans">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-surface border-b border-border px-6 py-4">
         <div className="max-w-[1400px] mx-auto">
@@ -267,7 +316,25 @@ export function Portfolio() {
           <SummaryCard label="Total Portfolio Value" value={formatCurrency(totalValue)}
             sub={`${holdings.length} holdings · ${profitStocks} in profit`} color={totalPnl >= 0 ? 'green' : 'red'}
             delta={`${totalPnl >= 0 ? '+' : ''}${formatCurrency(totalPnl)} (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%)`} />
-          <SummaryCard label="Buying Power" value={formatCurrency(buyingPower)} sub="Available margin" color="blue" />
+          {/* Buying Power — user-configurable inline */}
+          <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-5">
+            <Text variant="caption" className="text-textSecondary font-medium uppercase tracking-wider text-[10px] mb-1">Buying Power</Text>
+            {editingBuyingPower ? (
+              <form onSubmit={(e) => { e.preventDefault(); const n = parseFloat(buyingPowerInput); if (!isNaN(n) && n >= 0) setBuyingPower(n); setEditingBuyingPower(false) }} className="flex items-center gap-1 mt-1">
+                <span className="text-sm text-textSecondary">₹</span>
+                <input autoFocus type="number" value={buyingPowerInput} onChange={e => setBuyingPowerInput(e.target.value)}
+                  className="flex-1 min-w-0 h-7 text-sm font-mono border border-accent/40 rounded px-1.5 bg-surfaceMuted text-textPrimary outline-none focus:border-accent" />
+                <button type="submit" className="text-xs text-accent font-medium px-1.5 py-1 hover:bg-accentSoft rounded">Save</button>
+                <button type="button" onClick={() => setEditingBuyingPower(false)} className="text-xs text-textMuted px-1 py-1">✕</button>
+              </form>
+            ) : (
+              <button onClick={() => { setBuyingPowerInput(String(buyingPower)); setEditingBuyingPower(true) }}
+                className="mt-1 text-left w-full group">
+                <Text variant="numeric" className="text-textPrimary font-semibold text-base group-hover:text-accent transition-colors">{formatCurrency(buyingPower)}</Text>
+                <Text variant="caption" className="text-textMuted text-[10px]">Available margin · click to edit</Text>
+              </button>
+            )}
+          </div>
           <SummaryCard label="Today's P&L" value={`${todayPnl >= 0 ? '+' : ''}${formatCurrency(todayPnl)}`}
             sub="Intraday change" color={todayPnl >= 0 ? 'green' : 'red'} />
           <SummaryCard label="Risk Score" value="6.2 / 10" sub="Moderate risk portfolio" color="amber" />
@@ -297,43 +364,69 @@ export function Portfolio() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {computed.map((h) => (
-                    <tr key={h.id} className="hover:bg-tableRowHover transition-colors group">
-                      <td className="px-4 py-2.5">
-                        <Link to={`/company/${h.symbol.toLowerCase()}`}>
-                          <Text variant="body" className="font-medium text-textPrimary hover:text-accent transition-colors">{h.symbol}</Text>
-                          <Text variant="caption" className="text-textMuted text-xs">{h.name}</Text>
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textSecondary">{h.qty}</Text></td>
-                      <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textSecondary">₹{formatPrice(h.avgCost)}</Text></td>
-                      <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textPrimary">₹{formatPrice(h.cmp)}</Text></td>
-                      <td className={`px-4 py-2.5 text-right font-mono text-xs tabular-nums ${h.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
-                        {h.dayChange >= 0 ? '+' : ''}{h.dayChange.toFixed(2)}%
-                      </td>
-                      <td className={`px-4 py-2.5 text-right tabular-nums ${h.totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                        <div className="font-mono text-sm font-medium">{h.totalPnl >= 0 ? '+' : ''}{formatCurrency(h.totalPnl)}</div>
-                        <div className="font-mono text-xs opacity-75">({h.totalPnlPct >= 0 ? '+' : ''}{h.totalPnlPct.toFixed(2)}%)</div>
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <button
-                          onClick={() => handleDelete(h.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-textMuted hover:text-negative hover:bg-red-50 transition-all"
-                          title="Remove holding"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                  {status === 'loading' && holdings.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-textMuted text-xs font-semibold">
+                        Loading portfolio holdings...
                       </td>
                     </tr>
-                  ))}
-                  <tr className="bg-surfaceMuted border-t border-border font-medium">
-                    <td className="px-4 py-3" colSpan={5}><Text variant="body" className="font-medium text-textPrimary">Total Portfolio</Text></td>
-                    <td className={`px-4 py-3 text-right font-mono text-sm tabular-nums ${totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      <div className="font-medium">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}</div>
-                      <div className="text-xs opacity-75">({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(2)}%)</div>
-                    </td>
-                    <td />
-                  </tr>
+                  ) : computed.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center">
+                        <Briefcase className="w-8 h-8 text-textMuted mx-auto mb-3" />
+                        <span className="text-xs text-textSecondary font-semibold">Your portfolio is empty. Add a holding above to begin!</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    computed.map((h) => (
+                      <tr key={h.id} className="hover:bg-tableRowHover transition-colors group">
+                        <td className="px-4 py-2.5">
+                          <Link to={`/company/${h.symbol.toLowerCase()}`}>
+                            <Text variant="body" className="font-medium text-textPrimary hover:text-accent transition-colors">{h.symbol}</Text>
+                            <Text variant="caption" className="text-textMuted text-xs">{h.companyName}</Text>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textSecondary">{h.quantity}</Text></td>
+                        <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textSecondary">₹{formatPrice(h.avgBuyPrice)}</Text></td>
+                        <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textPrimary">₹{formatPrice(h.cmp)}</Text></td>
+                        <td className={`px-4 py-2.5 text-right font-mono text-xs tabular-nums ${h.dayChange >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          {h.dayChange >= 0 ? '+' : ''}{h.dayChange.toFixed(2)}%
+                        </td>
+                        <td className={`px-4 py-2.5 text-right tabular-nums ${h.totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          <div className="font-mono text-sm font-medium">{h.totalPnl >= 0 ? '+' : ''}{formatCurrency(h.totalPnl)}</div>
+                          <div className="font-mono text-xs opacity-75">({h.totalPnlPct >= 0 ? '+' : ''}{h.totalPnlPct.toFixed(2)}%)</div>
+                        </td>
+                        <td className="px-2 py-2.5 text-right">
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleEditHolding(h)}
+                              className="p-1 rounded text-textMuted hover:text-accent hover:bg-secondary/40 transition-all"
+                              title="Edit quantity / cost"
+                            >
+                              <Edit3 className="size-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteHolding(h.id)}
+                              className="p-1 rounded text-textMuted hover:text-negative hover:bg-red-50 transition-all"
+                              title="Remove holding"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {computed.length > 0 && (
+                    <tr className="bg-surfaceMuted border-t border-border font-medium">
+                      <td className="px-4 py-3" colSpan={5}><Text variant="body" className="font-medium text-textPrimary">Total Portfolio</Text></td>
+                      <td className={`px-4 py-3 text-right font-mono text-sm tabular-nums ${totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+                        <div className="font-medium">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}</div>
+                        <div className="text-xs opacity-75">({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(2)}%)</div>
+                      </td>
+                      <td />
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -344,47 +437,57 @@ export function Portfolio() {
             {/* Donut Chart */}
             <div className="bg-surface border border-border/40 shadow-xs rounded-2xl p-5">
               <Heading level={3} className="text-lg font-semibold text-textPrimary mb-3">Allocation</Heading>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">
-                    {pieData.map((entry) => <Cell key={entry.name} fill={SECTOR_COLORS[entry.name] ?? '#94A3B8'} />)}
-                  </Pie>
-                  <RechartsTooltip formatter={(value: number) => [formatCurrency(value), 'Value']} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
-                {pieData.map((d) => {
-                  const pct = (d.value / totalValue) * 100
-                  return (
-                    <div key={d.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SECTOR_COLORS[d.name] ?? '#94A3B8' }} />
-                        <Text variant="caption" className="text-textSecondary text-xs">{d.name}</Text>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-surfaceMuted rounded-full h-1.5 border border-border/20">
-                          <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: SECTOR_COLORS[d.name] ?? '#94A3B8' }} />
+              {pieData.length === 0 ? (
+                <div className="h-40 flex items-center justify-center text-textMuted text-xs font-semibold">
+                  No allocation data available
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">
+                        {pieData.map((entry) => <Cell key={entry.name} fill={SECTOR_COLORS[entry.name] ?? '#94A3B8'} />)}
+                      </Pie>
+                      <RechartsTooltip formatter={(value: number) => [formatCurrency(value), 'Value']} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-2 mt-2">
+                    {pieData.map((d) => {
+                      const pct = totalValue > 0 ? (d.value / totalValue) * 100 : 0
+                      return (
+                        <div key={d.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SECTOR_COLORS[d.name] ?? '#94A3B8' }} />
+                            <Text variant="caption" className="text-textSecondary text-xs">{d.name}</Text>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-surfaceMuted rounded-full h-1.5 border border-border/20">
+                              <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: SECTOR_COLORS[d.name] ?? '#94A3B8' }} />
+                            </div>
+                            <Text variant="numeric" className="text-xs text-textMuted w-10 text-right">{pct.toFixed(1)}%</Text>
+                          </div>
                         </div>
-                        <Text variant="numeric" className="text-xs text-textMuted w-10 text-right">{pct.toFixed(1)}%</Text>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Risk alert */}
-            <div className="bg-warning-soft border border-warning/10 rounded-2xl p-4.5">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                <div>
-                  <Text variant="body" className="font-medium text-warning">Concentration Risk</Text>
-                  <Text variant="caption" className="text-textSecondary mt-1 leading-snug text-xs font-medium">
-                    IT sector accounts for {((sectorMap['IT'] ?? 0) / totalValue * 100).toFixed(0)}% of your portfolio. Consider diversifying.
-                  </Text>
+            {sectorMap['IT'] !== undefined && totalValue > 0 && (
+              <div className="bg-warning-soft border border-warning/10 rounded-2xl p-4.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <Text variant="body" className="font-medium text-warning">Concentration Risk</Text>
+                    <Text variant="caption" className="text-textSecondary mt-1 leading-snug text-xs font-medium">
+                      IT sector accounts for {((sectorMap['IT'] ?? 0) / totalValue * 100).toFixed(0)}% of your portfolio. Consider diversifying.
+                    </Text>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -415,11 +518,11 @@ export function Portfolio() {
                     <tr key={i} className="hover:bg-tableRowHover transition-colors">
                       <td className="px-4 py-2.5 font-mono text-textMuted">{tx.date}</td>
                       <td className="px-4 py-2.5">
-                        <Link to={`/company/${tx.symbol}`} className="font-medium text-accent hover:underline font-mono">{tx.symbol}</Link>
+                        <Link to={`/company/${tx.symbol.toLowerCase()}`} className="font-medium text-accent hover:underline font-mono">{tx.symbol}</Link>
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${tx.type === 'BUY' ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'}`}>
-                          {tx.type}
+                           {tx.type}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-textSecondary">{tx.qty}</td>

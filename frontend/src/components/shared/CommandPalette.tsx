@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Search, X, Clock, TrendingUp, TrendingDown, ArrowRight, Hash } from 'lucide-react'
+import { Search, X, Clock, TrendingUp, TrendingDown, ArrowRight, Hash, Loader2 } from 'lucide-react'
 import { companies } from '@/lib/data/companies'
 import { cn } from '@/lib/utils'
 import { paletteVariants, backdropVariants, containerVariantsFast, itemVariantsX } from '@/lib/motion'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { fetchStockSymbols } from '@/store/slices/searchSlice'
 
 const INDEX_RESULTS = [
   { type: 'index' as const, name: 'NIFTY 50',          slug: 'NIFTY50',    exchange: 'NSE', value: 22845.75, changePct:  0.56 },
@@ -30,34 +32,66 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const prefersReduced = useReducedMotion()
   const [query, setQuery]       = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
   const [recents, setRecents]   = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const { symbols, loading } = useAppSelector(state => state.search)
+
   useEffect(() => {
     if (open) {
       setQuery('')
+      setDebouncedQuery('')
       setActiveIdx(0)
       setRecents(getRecents())
+      dispatch(fetchStockSymbols() as any)
       setTimeout(() => inputRef.current?.focus(), 80)
     }
-  }, [open])
+  }, [open, dispatch])
 
-  const matchingCompanies = query.trim()
-    ? companies.filter(c =>
-        c.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        c.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 7)
-    : []
+  // Debounce query term by 300ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [query])
 
-  const matchingIndices = query.trim()
-    ? INDEX_RESULTS.filter(i =>
-        i.name.toLowerCase().includes(query.toLowerCase()) ||
-        i.slug.toLowerCase().includes(query.toLowerCase())
-      )
-    : []
+  const matchingCompanies = useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase()
+    if (!q) return []
+    const filtered = symbols.filter(c =>
+      c.symbol.toLowerCase().includes(q) ||
+      c.name.toLowerCase().includes(q)
+    ).slice(0, 7)
+
+    return filtered.map(item => {
+      const staticCompany = companies.find(c => c.symbol.toUpperCase() === item.symbol.toUpperCase())
+      if (staticCompany) return staticCompany
+      return {
+        symbol: item.symbol,
+        name: item.name,
+        exchange: item.nse_code ? 'NSE' : 'BSE',
+        sector: 'Other',
+        price: 0,
+        change: 0,
+        changePct: 0,
+      }
+    })
+  }, [debouncedQuery, symbols])
+
+  const matchingIndices = useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase()
+    if (!q) return []
+    return INDEX_RESULTS.filter(i =>
+      i.name.toLowerCase().includes(q) ||
+      i.slug.toLowerCase().includes(q)
+    )
+  }, [debouncedQuery])
 
   const totalResults = matchingIndices.length + matchingCompanies.length
 
@@ -84,8 +118,29 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }
 
   const recentCompanies = recents
-    .map(s => companies.find(c => c.symbol === s))
+    .map(s => {
+      const staticCompany = companies.find(c => c.symbol === s)
+      if (staticCompany) return staticCompany
+      const apiSymbol = symbols.find(c => c.symbol === s)
+      if (apiSymbol) {
+        return {
+          symbol: apiSymbol.symbol,
+          name: apiSymbol.name,
+          price: 0,
+          change: 0,
+          changePct: 0,
+        }
+      }
+      return {
+        symbol: s,
+        name: s,
+        price: 0,
+        change: 0,
+        changePct: 0,
+      }
+    })
     .filter(Boolean) as typeof companies
+
 
   const ResultRow = ({ children, isActive, onClick }: { children: React.ReactNode; isActive: boolean; onClick: () => void }) => (
     <motion.button
@@ -127,7 +182,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           >
             {/* Search Input */}
             <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
-              <Search className="size-5 text-textMuted shrink-0" />
+              {loading ? (
+                <Loader2 className="size-5 text-accent animate-spin shrink-0" />
+              ) : (
+                <Search className="size-5 text-textMuted shrink-0" />
+              )}
               <input
                 ref={inputRef}
                 type="text"

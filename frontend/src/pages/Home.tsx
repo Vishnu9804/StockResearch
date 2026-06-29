@@ -4,7 +4,8 @@ import { useMarketStatus } from "@/hooks/useMarketStatus"
 import { cn } from "@/lib/utils"
 import { Link } from "react-router-dom"
 import { useAppSelector } from "@/store/hooks"
-import finscreenApi from "@/services/finscreenApi"
+import finscreenApi, { finscreenClient } from "@/services/finscreenApi"
+import axios from "axios"
 import { companies } from "@/lib/data/companies"
 import {
   BarChart2, Bell, Bookmark, Calendar, ChevronRight, ExternalLink,
@@ -12,52 +13,23 @@ import {
   TriangleAlert, Zap, Activity, Clock, Newspaper, Search
 } from "lucide-react"
 
-const FINANCIAL_NEWS = [
-  {
-    id: 1,
-    category: "ECONOMY",
-    categoryColor: "text-accent",
+// Fallback news when API hasn't loaded yet
+const FALLBACK_NEWS = [
+  { id: "n1", category: "ECONOMY", categoryColor: "var(--fs-brand)",
     headline: "RBI maintains status quo on repo rates for the 6th consecutive session.",
-    summary: "The Monetary Policy Committee voted 5:1 to keep rates at 6.5%…",
-    time: "14 MINS AGO",
-    source: "REUTERS",
-  },
-  {
-    id: 2,
-    category: "STOCKS",
-    categoryColor: "text-positive",
-    headline: "Tata Motors reports 15% YoY jump in global sales for February.",
-    summary: "JLR volumes continue to support margin expansion across premium segments…",
-    time: "42 MINS AGO",
-    source: "BLOOMBERG",
-  },
-  {
-    id: 3,
-    category: "COMMODITIES",
-    categoryColor: "text-warning",
-    headline: "Gold touches all-time high as USD index weakens on inflation data.",
-    summary: "",
-    time: "1 HOUR AGO",
-    source: "CNBC",
-  },
-  {
-    id: 4,
-    category: "TECH",
-    categoryColor: "text-purple-500",
-    headline: "Zomato gets GST demand notice of ₹401 Crore; stock remains stable.",
-    summary: "",
-    time: "2 HOURS AGO",
-    source: "ET",
-  },
+    summary: "The MPC voted 5:1 to keep the benchmark rate at 6.5%.", time: "Today", source: "FinEdge" },
+  { id: "n2", category: "MARKETS", categoryColor: "var(--fs-positive)",
+    headline: "NSE Nifty closes above 22,500 for the third consecutive session.",
+    summary: "FII buying in banking and IT lifted the broader indices.", time: "Today", source: "FinEdge" },
+  { id: "n3", category: "COMMODITIES", categoryColor: "#f59e0b",
+    headline: "Crude oil slips 2% on US inventory build amid demand concerns.",
+    summary: "Brent Crude dropped below $82/barrel in early trade.", time: "Yesterday", source: "FinEdge" },
+  { id: "n4", category: "CORPORATE", categoryColor: "#8b5cf6",
+    headline: "RIL board approves ₹5,000 Cr buyback at ₹3,000 per share.",
+    summary: "The open-market buyback will run for 12 months.", time: "Yesterday", source: "FinEdge" },
 ]
 
-const CUSTOM_SCANS = [
-  { label: "RSI Oversold (D)", count: 12, tickers: ["ADANI ENT", "UPL", "ZEEL"], color: "bg-negative-soft text-negative border-negative/20" },
-  { label: "MACD Bullish Cross", count: 42, tickers: ["RELIANCE", "BHARTIARTL"], color: "bg-positive-soft text-positive border-positive/20" },
-  { label: "Golden Crossover (50/200)", count: 3, tickers: ["HAL", "BHEL"], color: "bg-accent/10 text-accent border-accent/20" },
-  { label: "52-Week High Breakout", count: 8, tickers: ["TATASTEEL", "ZOMATO"], color: "bg-positive-soft text-positive border-positive/20" },
-]
-
+// Fallback feed items when announcements haven't loaded
 const FEED_ITEMS = [
   {
     id: 1, symbol: "TCS", name: "TCS", type: "document", icon: "file", time: "2h ago",
@@ -116,13 +88,16 @@ export function Home() {
   const [refreshedStocks, setRefreshedStocks] = useState<string[]>([])
   const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
   const [announcements, setAnnouncements] = useState<any[]>([])
+  const [news, setNews] = useState<any[]>(FALLBACK_NEWS)
+  const [savedScans, setSavedScans] = useState<any[]>([])
+  const [scansLoading, setScansLoading] = useState(true)
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
         setLoading(true)
         
-        const [indicesData, benchmarkQuotes, refreshedData, resultsData, announcementsData] = await Promise.allSettled([
+        const [indicesData, benchmarkQuotes, refreshedData, resultsData, announcementsData, newsData] = await Promise.allSettled([
           finscreenApi.fetchMarketIndices(),
           finscreenApi.fetchMultipleQuotes([
             'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
@@ -132,7 +107,8 @@ export function Home() {
           ]),
           finscreenApi.fetchRefreshedStocks(),
           finscreenApi.fetchResultsCalendar(),
-          finscreenApi.fetchMarketAnnouncements()
+          finscreenApi.fetchMarketAnnouncements(),
+          finscreenClient.get('/market/news'),
         ])
 
         if (indicesData.status === 'fulfilled') {
@@ -161,6 +137,11 @@ export function Home() {
         if (announcementsData.status === 'fulfilled') {
           setAnnouncements(announcementsData.value || [])
         }
+        if (newsData.status === 'fulfilled') {
+          const nd = (newsData.value as any)?.data
+          const arr = Array.isArray(nd) ? nd : Array.isArray(newsData.value) ? newsData.value as any[] : []
+          if (arr.length > 0) setNews(arr)
+        }
       } catch (err) {
         console.error('Error loading dashboard data:', err)
       } finally {
@@ -168,6 +149,23 @@ export function Home() {
       }
     }
     loadDashboardData()
+
+    // Load saved screener scans separately (auth-gated, non-blocking)
+    async function loadSavedScans() {
+      setScansLoading(true)
+      try {
+        const BASE_API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+        const res = await axios.get(`${BASE_API.replace(/\/$/, '')}/screener/saved`, { withCredentials: true })
+        const data = Array.isArray(res.data) ? res.data : (res.data?.screens || res.data?.data || [])
+        setSavedScans(data)
+      } catch (_e) {
+        // Not authenticated or no saved scans — silently ignore
+        setSavedScans([])
+      } finally {
+        setScansLoading(false)
+      }
+    }
+    loadSavedScans()
   }, [])
 
   // Dynamically compute watchlists
@@ -769,28 +767,31 @@ export function Home() {
           </div>
 
           <div className="flex flex-col w-full">
-            {[
-              { category: "ECONOMY", color: "var(--fs-brand)", headline: "RBI maintains status quo on repo rates for the 6th consecutive session", time: "14 mins ago · Reuters" },
-              { category: "STOCKS", color: "var(--fs-positive)", headline: "Tata Motors reports 15% YoY jump in global sales for February", time: "42 mins ago · Bloomberg" },
-              { category: "COMMODITIES", color: "var(--fs-warning)", headline: "Gold touches all-time high as USD index weakens on inflation data", time: "1 hour ago · CNBC" },
-              { category: "TECH", color: "#534AB7", headline: "Zomato gets GST demand notice of ₹401 Crore; stock remains stable", time: "2 hours ago · ET" },
-            ].map((news, idx, arr) => (
-              <div 
-                key={news.headline}
-                style={{ 
-                  padding: '11px 0', 
-                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+            {loading ? (
+              [1, 2, 3, 4].map(i => (
+                <div key={i} style={{ padding: '11px 0', borderBottom: i < 4 ? '0.5px solid var(--fs-border-color)' : 'none' }} className="flex flex-col gap-1.5">
+                  <div className="w-16 h-2.5 bg-surfaceMuted/70 rounded animate-pulse" />
+                  <div className="w-full h-3.5 bg-surfaceMuted/50 rounded animate-pulse" />
+                  <div className="w-1/3 h-2.5 bg-surfaceMuted/40 rounded animate-pulse" />
+                </div>
+              ))
+            ) : news.slice(0, 4).map((item: any, idx: number, arr: any[]) => (
+              <div
+                key={item.id ?? item.headline}
+                style={{
+                  padding: '11px 0',
+                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
                 }}
                 className="w-full flex flex-col gap-1"
               >
-                <span style={{ color: news.color }} className="text-xs font-semibold uppercase tracking-wider leading-none">
-                  {news.category}
+                <span style={{ color: item.categoryColor || 'var(--fs-brand)' }} className="text-xs font-semibold uppercase tracking-wider leading-none">
+                  {item.category}
                 </span>
                 <p className="text-body font-medium leading-normal text-textPrimary">
-                  {news.headline}
+                  {item.headline}
                 </p>
                 <span className="text-sm text-textSecondary font-normal">
-                  {news.time}
+                  {item.time}{item.source ? ` · ${item.source}` : ''}
                 </span>
               </div>
             ))}
@@ -951,47 +952,52 @@ export function Home() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-md)', marginTop: '4px' }} className="w-full">
-            {[
-              { title: "RSI OVERSOLD (D)", count: 12, chips: ["ADANIENT", "UPL", "ZEEL"] },
-              { title: "MACD BULLISH C.", count: 42, chips: ["RELIANCE", "BHARTIARTI"] },
-              { title: "GOLDEN CROSSOVER", count: 3, chips: ["HAL", "BHEL"] },
-              { title: "52-WEEK HIGH B.", count: 8, chips: ["TATASTEEL", "ZOMATO"] },
-            ].map((scan) => (
-              <div 
-                key={scan.title}
-                style={{ 
-                  background: 'var(--fs-surface-muted)', 
-                  borderRadius: 'var(--fs-radius-sm)', 
-                  padding: 'var(--fs-space-md) var(--fs-space-lg)' 
-                }}
-                className="flex flex-col"
-              >
-                <span className="text-xs text-textSecondary font-semibold uppercase tracking-wider mb-1">
-                  {scan.title}
-                </span>
-                <div className="font-mono text-2xl font-semibold text-textPrimary leading-none flex items-baseline gap-1">
-                  {scan.count}
-                  <span className="font-sans text-xs text-textSecondary font-normal">stocks</span>
+            {scansLoading ? (
+              [1, 2, 3, 4].map(i => (
+                <div key={i} style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md) var(--fs-space-lg)' }} className="flex flex-col gap-2">
+                  <div className="w-24 h-2.5 bg-surfaceMuted rounded animate-pulse" />
+                  <div className="w-10 h-6 bg-surfaceMuted rounded animate-pulse" />
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
-                  {scan.chips.map((chip) => (
-                    <span 
-                      key={chip}
-                      style={{ 
-                        padding: '2px 8px', 
-                        background: 'var(--fs-surface)', 
-                        border: 'var(--fs-border)', 
-                        borderRadius: 'var(--fs-radius-xl)', 
-                        color: '#5F5E5A' 
-                      }}
-                      className="text-xs font-medium"
-                    >
-                      {chip}
+              ))
+            ) : savedScans.length > 0 ? (
+              savedScans.slice(0, 4).map((scan: any) => {
+                const title = scan.name || scan.title || scan.query || 'Custom Scan'
+                const query = scan.query || scan.filter_query || scan.filters || ''
+                const created = scan.created_at ? new Date(scan.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+                return (
+                  <Link
+                    key={scan.id}
+                    to={`/screener?scan=${scan.id}`}
+                    style={{
+                      background: 'var(--fs-surface-muted)',
+                      borderRadius: 'var(--fs-radius-sm)',
+                      padding: 'var(--fs-space-md) var(--fs-space-lg)'
+                    }}
+                    className="flex flex-col hover:bg-surfaceMuted/80 transition-colors"
+                  >
+                    <span className="text-xs text-textSecondary font-semibold uppercase tracking-wider mb-1 truncate">
+                      {String(title).toUpperCase().slice(0, 22)}
                     </span>
-                  ))}
-                </div>
+                    <div className="font-mono text-body font-medium text-accent leading-none flex items-baseline gap-1 mt-1">
+                      <span className="text-xs text-textMuted font-sans font-normal truncate max-w-full">{String(query).slice(0, 40)}</span>
+                    </div>
+                    {created && (
+                      <span className="text-xs text-textMuted font-normal mt-2">Saved: {created}</span>
+                    )}
+                  </Link>
+                )
+              })
+            ) : (
+              // No saved scans — show empty state with CTA
+              <div style={{ gridColumn: '1 / -1' }} className="flex flex-col items-center justify-center py-6 text-center">
+                <Search className="size-8 text-textMuted mb-2" />
+                <p className="text-sm text-textSecondary font-medium">No saved scans yet</p>
+                <p className="text-xs text-textMuted mt-1">Create and save screener queries to see them here.</p>
+                <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'white', borderRadius: 'var(--fs-radius-sm)', padding: '6px 16px' }} className="mt-3 text-xs font-medium inline-flex items-center gap-1 hover:opacity-90 transition-opacity">
+                  <Plus className="size-3" /> Build a Screen
+                </Link>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,10 @@
+import os
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings
 from typing import List
+
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+env_file_path = os.path.join(base_dir, ".env")
 
 
 class Settings(BaseSettings):
@@ -35,7 +40,7 @@ class Settings(BaseSettings):
         return "https://sandboxsecure.payu.in/_payment"
 
     class Config:
-        env_file = ".env"
+        env_file = env_file_path
         extra = "ignore"
 
 

@@ -9,6 +9,8 @@ import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useAppSelector } from '@/store/hooks'
+import { finscreenClient } from '@/services/finscreenApi'
 
 const EXAMPLE_QUERIES = [
   'Mergers and de-mergers',
@@ -28,7 +30,29 @@ export function QueryBuilder() {
 
   const [query, setQuery] = useState(queryParam)
   const [saveOnSubmit, setSaveOnSubmit] = useState(false)
-  const [savedFilters, setSavedFilters] = useLocalStorage<string[]>('saved_announcement_filters', [])
+  const [savedFilters, setSavedFilters] = useState<{ id?: string; text: string }[]>([])
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const [localFilters, setLocalFilters] = useLocalStorage<string[]>('saved_announcement_filters', [])
+
+  const loadSavedFilters = async () => {
+    if (isAuthenticated) {
+      try {
+        const res = await finscreenClient.get('/queries')
+        const items = res.data?.queries || []
+        setSavedFilters(items.map((q: any) => ({ id: q.id, text: q.queryText })))
+      } catch (err) {
+        console.error('Failed to load saved queries from database:', err)
+        // fallback
+        setSavedFilters(localFilters.map(text => ({ text })))
+      }
+    } else {
+      setSavedFilters(localFilters.map(text => ({ text })))
+    }
+  }
+
+  useEffect(() => {
+    loadSavedFilters()
+  }, [isAuthenticated])
 
   // Auto focus input on mount
   useEffect(() => {
@@ -50,12 +74,50 @@ export function QueryBuilder() {
     }
   }, [queryParam])
 
-  const handleSubmit = (q: string) => {
+  const handleSaveFilter = async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+
+    if (savedFilters.some(f => f.text.toLowerCase() === trimmed.toLowerCase())) return
+
+    if (isAuthenticated) {
+      try {
+        const res = await finscreenClient.post('/queries', { queryText: trimmed })
+        if (res.data?.query) {
+          const q = res.data.query
+          setSavedFilters(prev => [{ id: q.id, text: q.queryText }, ...prev])
+        }
+      } catch (err) {
+        console.error('Failed to save query to DB:', err)
+      }
+    } else {
+      const next = [trimmed, ...localFilters]
+      setLocalFilters(next)
+      setSavedFilters(next.map(text => ({ text })))
+    }
+  }
+
+  const handleDeleteFilter = async (filter: { id?: string; text: string }) => {
+    if (isAuthenticated && filter.id) {
+      try {
+        await finscreenClient.delete(`/queries/${filter.id}`)
+        setSavedFilters(prev => prev.filter(f => f.id !== filter.id))
+      } catch (err) {
+        console.error('Failed to delete query from DB:', err)
+      }
+    } else {
+      const next = localFilters.filter(t => t.toLowerCase() !== filter.text.toLowerCase())
+      setLocalFilters(next)
+      setSavedFilters(next.map(text => ({ text })))
+    }
+  }
+
+  const handleSubmit = async (q: string) => {
     const trimmed = q.trim()
     if (!trimmed) return
 
-    if (saveOnSubmit && !savedFilters.includes(trimmed)) {
-      setSavedFilters([...savedFilters, trimmed])
+    if (saveOnSubmit) {
+      await handleSaveFilter(trimmed)
     }
 
     navigate(`/market-pulse/queries/results?query=${encodeURIComponent(trimmed)}`)
@@ -133,12 +195,7 @@ export function QueryBuilder() {
                 {query.trim() && (
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      const trimmed = query.trim()
-                      if (trimmed && !savedFilters.includes(trimmed)) {
-                        setSavedFilters([...savedFilters, trimmed])
-                      }
-                    }}
+                    onClick={() => handleSaveFilter(query)}
                     className="h-10 cursor-pointer text-xs font-bold border-border/60 hover:bg-surfaceMuted"
                   >
                     Save Filter
@@ -214,28 +271,28 @@ export function QueryBuilder() {
               ) : (
                 <div className="divide-y divide-border/30">
                   {savedFilters.map((saved) => (
-                    <div key={saved} className="py-3.5 flex items-center justify-between gap-2">
+                    <div key={saved.id || saved.text} className="py-3.5 flex items-center justify-between gap-2">
                       <button
                         onClick={() => {
-                          setQuery(saved)
+                          setQuery(saved.text)
                           const inputEl = document.getElementById('query-input')
                           if (inputEl) inputEl.focus()
                         }}
                         className="text-xs text-left font-semibold text-textPrimary hover:text-accent truncate flex-1 outline-none cursor-pointer"
-                        title={saved}
+                        title={saved.text}
                       >
-                        {saved}
+                        {saved.text}
                       </button>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Link
-                          to={`/market-pulse/queries/results?query=${encodeURIComponent(saved)}`}
+                          to={`/market-pulse/queries/results?query=${encodeURIComponent(saved.text)}`}
                           className="p-1 text-textSecondary hover:text-accent hover:bg-surfaceMuted rounded transition-colors"
                           title="Run search"
                         >
                           <Play className="size-3.5 fill-current" />
                         </Link>
                         <button
-                          onClick={() => setSavedFilters(savedFilters.filter(f => f !== saved))}
+                          onClick={() => handleDeleteFilter(saved)}
                           className="p-1 text-textMuted hover:text-negative hover:bg-negative-soft rounded transition-colors cursor-pointer"
                           title="Delete"
                         >
