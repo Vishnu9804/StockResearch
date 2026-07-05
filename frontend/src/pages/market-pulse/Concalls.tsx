@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { concalls as fallbackConcalls, upcomingConcalls } from '@/lib/data/market-pulse'
+
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
@@ -67,7 +67,7 @@ export function Concalls() {
   }
 
   const sortedData = useMemo(() => {
-    const list = concallsList.length > 0 ? concallsList : fallbackConcalls
+    const list = concallsList
     return [...list].sort((a, b) => {
       let valA = (a[sortBy] || '').toLowerCase()
       let valB = (b[sortBy] || '').toLowerCase()
@@ -231,7 +231,7 @@ export function UpcomingConcalls() {
   }
 
   const sortedUpcoming = useMemo(() => {
-    return [...upcomingConcalls].sort((a, b) => {
+    return ([] as Concall[]).sort((a, b) => {
       let valA = a[sortBy].toLowerCase()
       let valB = b[sortBy].toLowerCase()
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1

@@ -76,8 +76,8 @@ const mockNotifications: Notification[] = [
 ]
 
 const initialState: NotificationsState = {
-  items: mockNotifications,
-  unreadCount: mockNotifications.filter((n) => !n.read).length,
+  items: [],
+  unreadCount: 0,
   drawerOpen: false,
 }
 

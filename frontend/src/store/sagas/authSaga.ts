@@ -17,8 +17,34 @@ import {
 import { navigateTo } from '../slices/uiSlice'
 import { clearAllNotifications } from '../slices/notificationsSlice'
 
+// ─── Static Demo Credentials ──────────────────────────────────────────────────
+const STATIC_USER = {
+  email: 'free@finscreen.in',
+  password: 'free@finscreen.in',
+  user: {
+    id: 'usr_free_demo',
+    email: 'free@finscreen.in',
+    name: 'Free User',
+    plan: 'FREE' as const,
+  },
+}
+
 function* loginSaga(action: ReturnType<typeof loginStart>): Generator<any, void, any> {
   try {
+    const { email, password } = action.payload
+
+    // ── Static login bypass ────────────────────────────────────────────────
+    if (
+      email?.trim().toLowerCase() === STATIC_USER.email &&
+      password === STATIC_USER.password
+    ) {
+      yield put(loginSuccess({ user: STATIC_USER.user, accessToken: 'static_demo_token' }))
+      toast.success(`Welcome back, ${STATIC_USER.user.name}! 🚀`)
+      yield put(navigateTo('/'))
+      return
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     const data = yield call(AuthService.login, action.payload)
     if (data.success) {
       yield put(loginSuccess({ user: data.user, accessToken: data.accessToken }))

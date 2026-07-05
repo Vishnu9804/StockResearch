@@ -43,40 +43,7 @@ interface ActiveFilter {
 type SortKey = keyof Pick<StockResult, 'name' | 'cmp' | 'pe' | 'marketCap' | 'divYield' | 'netProfit' | 'roce'>
 type SortDir = 'asc' | 'desc'
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_RESULTS: StockResult[] = [
-  { id: '1', name: 'Reliance Industries', symbol: 'RELIANCE', sector: 'Energy', cmp: 2847.35, change: 1.24, pe: 24.6, marketCap: 1926432, divYield: 0.42, netProfit: 19945, netProfitChange: 12.3, roce: 11.8 },
-  { id: '2', name: 'Infosys Ltd', symbol: 'INFY', sector: 'IT', cmp: 1521.80, change: -0.78, pe: 21.4, marketCap: 633142, divYield: 2.61, netProfit: 6548, netProfitChange: 8.9, roce: 33.2 },
-  { id: '3', name: 'HDFC Bank', symbol: 'HDFCBANK', sector: 'Banking', cmp: 1687.45, change: 0.52, pe: 18.2, marketCap: 1276543, divYield: 1.18, netProfit: 16511, netProfitChange: 21.7, roce: 17.4 },
-  { id: '4', name: 'TCS Ltd', symbol: 'TCS', sector: 'IT', cmp: 3956.20, change: -1.12, pe: 28.3, marketCap: 1432876, divYield: 1.52, netProfit: 12434, netProfitChange: 11.2, roce: 55.3 },
-  { id: '5', name: 'Avenue Supermarts', symbol: 'DMART', sector: 'Retail', cmp: 4213.60, change: 2.34, pe: 86.4, marketCap: 273498, divYield: 0.00, netProfit: 2278, netProfitChange: 17.8, roce: 18.9 },
-  { id: '6', name: 'Bajaj Finance', symbol: 'BAJFINANCE', sector: 'NBFC', cmp: 7856.90, change: 1.87, pe: 31.2, marketCap: 473921, divYield: 0.26, netProfit: 5658, netProfitChange: 31.4, roce: 10.2 },
-  { id: '7', name: 'Asian Paints', symbol: 'ASIANPAINT', sector: 'Consumer', cmp: 2934.15, change: -0.34, pe: 52.1, marketCap: 280896, divYield: 1.16, netProfit: 1512, netProfitChange: 4.5, roce: 29.7 },
-  { id: '8', name: 'Kotak Mahindra Bank', symbol: 'KOTAKBANK', sector: 'Banking', cmp: 1923.75, change: 0.91, pe: 22.7, marketCap: 383429, divYield: 0.10, netProfit: 4133, netProfitChange: 26.3, roce: 13.2 },
-  { id: '9', name: 'Larsen & Toubro', symbol: 'LT', sector: 'Engineering', cmp: 3512.40, change: 1.56, pe: 33.8, marketCap: 494632, divYield: 0.91, netProfit: 10472, netProfitChange: 17.5, roce: 14.7 },
-  { id: '10', name: 'Titan Company', symbol: 'TITAN', sector: 'Consumer', cmp: 3398.00, change: -0.23, pe: 71.6, marketCap: 301754, divYield: 0.31, netProfit: 3497, netProfitChange: 22.1, roce: 28.4 },
-  { id: '11', name: 'Sun Pharmaceutical', symbol: 'SUNPHARMA', sector: 'Pharma', cmp: 1648.90, change: 0.67, pe: 38.2, marketCap: 395232, divYield: 0.91, netProfit: 3892, netProfitChange: 19.6, roce: 19.3 },
-  { id: '12', name: 'Wipro Ltd', symbol: 'WIPRO', sector: 'IT', cmp: 459.35, change: -1.44, pe: 19.8, marketCap: 239891, divYield: 0.22, netProfit: 3053, netProfitChange: -2.8, roce: 24.1 },
-  { id: '13', name: 'HCL Technologies', symbol: 'HCLTECH', sector: 'IT', cmp: 1578.60, change: 0.89, pe: 22.6, marketCap: 428243, divYield: 3.80, netProfit: 4350, netProfitChange: 14.3, roce: 30.7 },
-  { id: '14', name: 'Maruti Suzuki', symbol: 'MARUTI', sector: 'Auto', cmp: 13240.00, change: 2.12, pe: 25.4, marketCap: 400368, divYield: 1.13, netProfit: 13490, netProfitChange: 64.2, roce: 21.8 },
-  { id: '15', name: 'Nestle India', symbol: 'NESTLEIND', sector: 'FMCG', cmp: 2298.75, change: 0.18, pe: 71.9, marketCap: 221632, divYield: 1.93, netProfit: 3143, netProfitChange: 37.9, roce: 122.3 },
-  { id: '16', name: 'Pidilite Industries', symbol: 'PIDILITIND', sector: 'Chemicals', cmp: 2876.40, change: -0.67, pe: 84.3, marketCap: 145987, divYield: 0.49, netProfit: 1387, netProfitChange: 11.7, roce: 33.8 },
-  { id: '17', name: 'Hindustan Unilever', symbol: 'HINDUNILVR', sector: 'FMCG', cmp: 2412.30, change: -0.52, pe: 53.7, marketCap: 566432, divYield: 2.09, netProfit: 10143, netProfitChange: 5.6, roce: 22.6 },
-  { id: '18', name: 'Divis Laboratories', symbol: 'DIVISLAB', sector: 'Pharma', cmp: 5342.10, change: 1.23, pe: 43.2, marketCap: 142176, divYield: 0.75, netProfit: 1891, netProfitChange: 35.8, roce: 26.4 },
-  { id: '19', name: 'ITC Ltd', symbol: 'ITC', sector: 'FMCG', cmp: 453.80, change: 0.34, pe: 26.1, marketCap: 567892, divYield: 3.28, netProfit: 20458, netProfitChange: 11.2, roce: 35.8 },
-  { id: '20', name: 'ICICI Bank', symbol: 'ICICIBANK', sector: 'Banking', cmp: 1245.60, change: 1.03, pe: 17.8, marketCap: 876543, divYield: 0.80, netProfit: 11059, netProfitChange: 38.5, roce: 14.3 },
-  { id: '21', name: 'SBI Life Insurance', symbol: 'SBILIFE', sector: 'Insurance', cmp: 1643.20, change: -0.41, pe: 67.8, marketCap: 164320, divYield: 0.18, netProfit: 1894, netProfitChange: 29.7, roce: 16.8 },
-  { id: '22', name: 'Tata Consultancy', symbol: 'TCS', sector: 'IT', cmp: 3945.10, change: 0.44, pe: 27.9, marketCap: 1429834, divYield: 1.54, netProfit: 12103, netProfitChange: 9.8, roce: 54.7 },
-  { id: '23', name: 'Polycab India', symbol: 'POLYCAB', sector: 'Electricals', cmp: 6234.50, change: 3.21, pe: 38.9, marketCap: 93432, divYield: 0.64, netProfit: 1698, netProfitChange: 28.4, roce: 31.2 },
-  { id: '24', name: 'Delhivery Ltd', symbol: 'DELHIVERY', sector: 'Logistics', cmp: 412.35, change: -2.15, pe: null, marketCap: 30432, divYield: 0.00, netProfit: -109, netProfitChange: 87.3, roce: 5.2 },
-  { id: '25', name: 'Laurus Labs', symbol: 'LAURUSLABS', sector: 'Pharma', cmp: 789.20, change: 1.78, pe: 22.3, marketCap: 42432, divYield: 0.13, netProfit: 678, netProfitChange: -14.2, roce: 17.4 },
-  { id: '26', name: 'Cholafin', symbol: 'CHOLAFIN', sector: 'NBFC', cmp: 1342.60, change: 0.89, pe: 28.4, marketCap: 111543, divYield: 0.08, netProfit: 2140, netProfitChange: 27.1, roce: 8.9 },
-  { id: '27', name: 'Havells India', symbol: 'HAVELLS', sector: 'Electricals', cmp: 1567.80, change: -0.87, pe: 62.8, marketCap: 98456, divYield: 0.64, netProfit: 1312, netProfitChange: 10.4, roce: 27.3 },
-  { id: '28', name: 'Page Industries', symbol: 'PAGEIND', sector: 'Consumer', cmp: 43210.00, change: 0.31, pe: 68.4, marketCap: 48234, divYield: 0.83, netProfit: 716, netProfitChange: 7.9, roce: 76.2 },
-  { id: '29', name: 'Bata India', symbol: 'BATAINDIA', sector: 'Consumer', cmp: 1567.40, change: -1.23, pe: 52.3, marketCap: 20232, divYield: 0.51, netProfit: 186, netProfitChange: 32.6, roce: 18.7 },
-  { id: '30', name: 'Astral Ltd', symbol: 'ASTRAL', sector: 'Building Mat.', cmp: 2143.70, change: 1.67, pe: 78.2, marketCap: 57432, divYield: 0.14, netProfit: 521, netProfitChange: 15.8, roce: 25.3 },
-]
+// ─── Columns & Defaults ────────────────────────────────────────────────────────
 
 const DEFAULT_ACTIVE_FILTERS: ActiveFilter[] = [
   { id: 'f1', label: 'Market Cap ≥ 500 Cr' },
@@ -120,6 +87,8 @@ const getFilterChipColors = (label: string) => {
 export function ScreenerResultsTable() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const { results, status } = useAppSelector((state) => state.screener)
+  
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(1)
@@ -131,8 +100,25 @@ export function ScreenerResultsTable() {
   const [tempColumns, setTempColumns] = useState<Set<string>>(new Set(visibleColumns))
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
+  const mappedResults: StockResult[] = useMemo(() => {
+    return results.map((r, index) => ({
+      id: r.symbol || String(index),
+      name: r.name,
+      symbol: r.symbol,
+      sector: r.sector,
+      cmp: r.cmp,
+      change: r.changePct,
+      pe: r.pe || null,
+      marketCap: r.marketCap,
+      divYield: r.dividendYield,
+      netProfit: Math.round(r.marketCap * (r.netProfitMargin || 5) / 100),
+      netProfitChange: r.profitGrowth3Y,
+      roce: r.roce,
+    }))
+  }, [results])
+
   const filtered = useMemo(() => {
-    let list = [...MOCK_RESULTS]
+    let list = [...mappedResults]
     const activeIds = new Set(activeFilters.map((f) => f.id))
 
     if (activeIds.has('f1')) {
@@ -148,7 +134,7 @@ export function ScreenerResultsTable() {
       list = list.filter((r) => r.netProfitChange > 10)
     }
     return list
-  }, [activeFilters])
+  }, [mappedResults, activeFilters])
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -423,7 +409,20 @@ export function ScreenerResultsTable() {
               </tr>
             </thead>
             <tbody>
-              {pageData.map((row, idx, arr) => (
+              {status === 'loading' ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-text-secondary)' }}>
+                    Loading screener results...
+                  </td>
+                </tr>
+              ) : pageData.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-text-secondary)' }}>
+                    No matching stocks found. Try adjusting your query parameters (e.g. market_cap &gt; 500).
+                  </td>
+                </tr>
+              ) : (
+                pageData.map((row, idx, arr) => (
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/company/${row.symbol.toLowerCase()}`)}
@@ -480,7 +479,8 @@ export function ScreenerResultsTable() {
                     </td>
                   )}
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

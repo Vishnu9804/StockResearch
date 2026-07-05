@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Building2, Globe, Users, Calendar, Fingerprint, ShieldCheck, AlertTriangle, ArrowLeft, Activity, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { fetchCompanyStart, resetCompany } from '@/store/slices/companySlice'
-import { upcomingEvents, corporateActions } from '@/lib/data/corporate-actions'
+import { finscreenClient } from '@/services/finscreenApi'
 import { cn } from '@/lib/utils'
 import { AppFooter } from '@/components/shared/AppFooter'
 import type { Company } from '@/lib/data/companies'
@@ -161,9 +161,20 @@ export function CompanyDetail() {
   const companyStatus = useAppSelector((state) => state.company.status)
   const { isAuthenticated } = useAppSelector((state) => state.auth)
 
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([])
+  const [corporateActions, setCorporateActions] = useState<any[]>([])
+
   useEffect(() => {
     if (symbol) {
       dispatch(fetchCompanyStart(symbol))
+      // Fetch corporate events from API
+      finscreenClient.get(`/finscreen/company/${symbol.toUpperCase()}/corporate-actions`)
+        .then(res => {
+          const d = res.data || {}
+          setUpcomingEvents(d.upcomingEvents || [])
+          setCorporateActions(d.corporateActions || [])
+        })
+        .catch(() => { /* silent — show empty state */ })
     }
     return () => {
       dispatch(resetCompany())

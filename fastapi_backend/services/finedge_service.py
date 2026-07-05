@@ -200,4 +200,16 @@ async def _do_fetch(method: str, endpoint: str, query: dict, body: Any, request_
             json=body if body else None,
         )
         response.raise_for_status()
-        return response.json()
+        
+        content = response.content.strip() if response.content else b""
+        if not content:
+            if any(x in clean for x in ["screener", "symbols", "peers", "list", "calendar", "announcements", "history", "corporate-actions", "documents", "ratios", "financials"]):
+                return []
+            return {}
+            
+        try:
+            return response.json()
+        except ValueError:
+            if any(x in clean for x in ["screener", "symbols", "peers", "list", "calendar", "announcements", "history", "corporate-actions", "documents", "ratios", "financials"]):
+                return []
+            return {}

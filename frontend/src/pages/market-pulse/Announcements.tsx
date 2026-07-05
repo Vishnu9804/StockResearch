@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Search, Inbox } from 'lucide-react'
-import { type Announcement, announcements as staticAnnouncements } from '@/lib/data/market-pulse'
+import type { Announcement } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
@@ -102,7 +102,7 @@ export default function Announcements() {
         summary: ann.summary || ann.description || ''
       }))
     }
-    return staticAnnouncements
+    return []
   }, [liveAnnouncements])
 
   const filtered = useMemo(() => {

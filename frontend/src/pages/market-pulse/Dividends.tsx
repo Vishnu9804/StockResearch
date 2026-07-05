@@ -8,7 +8,7 @@ import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { finscreenClient } from '@/services/finscreenApi'
-import { dividendsAll as fallbackDividends } from '@/lib/data/market-pulse'
+
 
 const YEARS = ['2026', '2025', '2024']
 const DIV_TYPES = ['All', 'Final', 'Interim', 'Special']
@@ -82,7 +82,7 @@ export default function Dividends() {
   }
 
   const sortedData = useMemo(() => {
-    const list = dividends.length > 0 ? dividends : fallbackDividends
+    const list = dividends
     const filtered = list.filter(row => {
       const matchesType = divType === 'All' || row.dividendType === divType
       const matchesYear = !row.exDate || row.exDate.startsWith(year)

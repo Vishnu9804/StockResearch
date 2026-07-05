@@ -13,7 +13,6 @@ import {
   type FilterRow,
   type ScreenerResult,
 } from '../slices/screenerSlice'
-import { companies } from '@/lib/data/companies'
 
 // Selectors
 const selectScreenerState = (state: any) => state.screener

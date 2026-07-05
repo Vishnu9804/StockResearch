@@ -16,6 +16,8 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
   const [viewMode, setViewMode] = useState<ViewMode>('financial-ratios')
   const [selectedSector, setSelectedSector] = useState(sector)
   const [peerSymbols, setPeerSymbols] = useState<string[]>([])
+  const [quotes, setQuotes] = useState<Record<string, any>>({})
+  const [profiles, setProfiles] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,13 +25,38 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
       try {
         setLoading(true)
         const response = await finscreenApi.fetchPeersList(symbol)
-        if (response && Array.isArray(response.peers)) {
-          setPeerSymbols(response.peers)
-        } else {
-          setPeerSymbols([])
+        const peers = response && Array.isArray(response.peers) ? response.peers : []
+        setPeerSymbols(peers)
+        
+        const symbolsToFetch = Array.from(new Set([...peers, symbol].map(s => s.toUpperCase())))
+        if (symbolsToFetch.length > 0) {
+          const [quotesRes, profilesList] = await Promise.all([
+            finscreenApi.fetchMultipleQuotes(symbolsToFetch).catch(() => ({ data: {} })),
+            Promise.all(
+              symbolsToFetch.map(async (sym) => {
+                try {
+                  return await finscreenApi.fetchCompanyProfile(sym)
+                } catch {
+                  return null
+                }
+              })
+            )
+          ])
+
+          if (quotesRes && quotesRes.data) {
+            setQuotes(quotesRes.data)
+          }
+
+          const profileMap: Record<string, any> = {}
+          profilesList.forEach(p => {
+            if (p && p.symbol) {
+              profileMap[p.symbol.toUpperCase()] = p
+            }
+          })
+          setProfiles(profileMap)
         }
       } catch (err) {
-        console.error('Failed to fetch peers:', err)
+        console.error('Failed to fetch peers or quotes:', err)
         setPeerSymbols([])
       } finally {
         setLoading(false)
@@ -54,19 +81,78 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
     )
   }
 
-  // Map symbols to local companies data
+  // Map symbols to profile and quote overrides
   let peersList = peerSymbols
-    .map(sym => companies.find(c => c.symbol === sym.toUpperCase()))
-    .filter((c): c is typeof companies[0] => c !== undefined)
+    .map(sym => {
+      const uSym = sym.toUpperCase()
+      const profile = profiles[uSym]
+      const base = companies.find(c => c.symbol === uSym)
+      const quote = quotes[uSym]
+      if (!profile && !base && !quote) return undefined
+
+      const price = quote?.current_price || profile?.price || base?.price || 0
+      const pb = profile?.bookValue > 0 ? (price / profile.bookValue) : ((base as any)?.pb || 0)
+
+      return {
+        symbol: uSym,
+        name: profile?.name || base?.name || uSym,
+        sector: profile?.sector || base?.sector || selectedSector,
+        marketCap: quote?.market_cap || profile?.marketCap || base?.marketCap || 0,
+        price,
+        change: quote?.pct_change || profile?.changePct || base?.change || 0,
+        pe: profile?.pe || base?.pe || 0,
+        pb: pb,
+        evEbitda: profile?.evEbitda || (base as any)?.evEbitda || 0,
+        dividendYield: profile?.dividendYield || base?.dividendYield || 0,
+        debtToEquity: profile?.debtToEquity || base?.debtToEquity || 0,
+      }
+    })
+    .filter((c): c is any => c !== undefined)
 
   const isFallbackUsed = peersList.length === 0
   if (isFallbackUsed) {
     // Fallback to sector filtering
-    peersList = companies.filter((c) => c.sector === selectedSector && c.symbol !== symbol).slice(0, 8)
+    peersList = companies.filter((c) => c.sector === selectedSector && c.symbol !== symbol).map(c => {
+      const quote = quotes[c.symbol]
+      const profile = profiles[c.symbol]
+      const price = quote?.current_price || profile?.price || c.price || 0
+      const pb = profile?.bookValue > 0 ? (price / profile.bookValue) : ((c as any).pb || 0)
+
+      return {
+        ...c,
+        marketCap: quote?.market_cap || profile?.marketCap || c.marketCap || 0,
+        price,
+        change: quote?.pct_change || profile?.changePct || c.change || 0,
+        pe: profile?.pe || c.pe || 0,
+        pb: pb,
+        evEbitda: profile?.evEbitda || (c as any).evEbitda || 0,
+        dividendYield: profile?.dividendYield || c.dividendYield || 0,
+        debtToEquity: profile?.debtToEquity || c.debtToEquity || 0,
+      }
+    }).slice(0, 8)
   }
 
   // Include current company at the top of comparison if not present
-  const currentCompany = companies.find(c => c.symbol === symbol.toUpperCase())
+  const currentCompanyProfile = profiles[symbol.toUpperCase()]
+  const currentCompanyBase = companies.find(c => c.symbol === symbol.toUpperCase())
+  const currentCompanyQuote = quotes[symbol.toUpperCase()]
+  const currentPrice = currentCompanyQuote?.current_price || currentCompanyProfile?.price || currentCompanyBase?.price || 0
+  const currentPB = currentCompanyProfile?.bookValue > 0 ? (currentPrice / currentCompanyProfile.bookValue) : ((currentCompanyBase as any)?.pb || 0)
+
+  const currentCompany = currentCompanyProfile || currentCompanyBase || currentCompanyQuote ? {
+    symbol: symbol.toUpperCase(),
+    name: currentCompanyProfile?.name || currentCompanyBase?.name || symbol.toUpperCase(),
+    sector: currentCompanyProfile?.sector || currentCompanyBase?.sector || sector || selectedSector,
+    marketCap: currentCompanyQuote?.market_cap || currentCompanyProfile?.marketCap || currentCompanyBase?.marketCap || 0,
+    price: currentPrice,
+    change: currentCompanyQuote?.pct_change || currentCompanyProfile?.changePct || currentCompanyBase?.change || 0,
+    pe: currentCompanyProfile?.pe || currentCompanyBase?.pe || 0,
+    pb: currentPB,
+    evEbitda: currentCompanyProfile?.evEbitda || (currentCompanyBase as any)?.evEbitda || 0,
+    dividendYield: currentCompanyProfile?.dividendYield || currentCompanyBase?.dividendYield || 0,
+    debtToEquity: currentCompanyProfile?.debtToEquity || currentCompanyBase?.debtToEquity || 0,
+  } : undefined
+
   if (currentCompany && !peersList.some(p => p.symbol === symbol.toUpperCase())) {
     peersList.unshift(currentCompany)
   }
@@ -175,10 +261,10 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        {formatNumber(peer.debtToEquity ?? 0, 2)}
+                        {formatNumber(peer.pb, 2)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        N/A
+                        {peer.evEbitda > 0 ? formatNumber(peer.evEbitda, 2) : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
                         {formatNumber(peer.dividendYield, 2)}

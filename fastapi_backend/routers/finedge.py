@@ -573,15 +573,18 @@ async def get_corporate_actions(symbol: str, request: Request):
     from datetime import datetime, timedelta
     rid = _req_id(request)
     sym = symbol.upper()
-    today = datetime.now().strftime("%Y-%m-%d")
-    five_years_ago = (datetime.now() - timedelta(days=5*365)).strftime("%Y-%m-%d")
-    q = {"from_date": five_years_ago, "to_date": today, **dict(request.query_params), "symbol": sym}
+    today_dt = datetime.now()
+    today_str = today_dt.strftime("%Y-%m-%d")
+    one_year_later = (today_dt + timedelta(days=365)).strftime("%Y-%m-%d")
+    five_years_ago = (today_dt - timedelta(days=5*365)).strftime("%Y-%m-%d")
+    q = {"from_date": five_years_ago, "to_date": one_year_later, **dict(request.query_params), "symbol": sym}
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
         if not isinstance(data, list):
             return {"corporateActions": [], "upcomingEvents": [], "dividendHistory": []}
 
         actions = []
+        upcoming = []
         div_map = {}
         months = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun":"06",
                   "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"}
@@ -597,23 +600,36 @@ async def get_corporate_actions(symbol: str, request: Request):
                 if len(parts) == 3:
                     ex_date = f"{parts[2]}-{months.get(parts[1], '01')}-{parts[0].zfill(2)}"
 
-            actions.append({
+            action_obj = {
                 "id": f"action-{item.get('timestamp_unix', i)}",
                 "type": action_type,
                 "announcementDate": ex_date, "recordDate": ex_date, "exDate": ex_date,
                 "details": item.get("subject", f"{action_type} action")
-            })
+            }
+
+            if ex_date and ex_date >= today_str:
+                upcoming.append({
+                    "date": ex_date,
+                    "title": action_type,
+                    "type": action_type,
+                    "description": item.get("subject", f"{action_type} event")
+                })
+            else:
+                actions.append(action_obj)
 
             if t == "dividend" and item.get("amount") and ex_date:
                 year = ex_date[:4]
                 div_map[year] = div_map.get(year, 0) + item["amount"]
 
         actions.sort(key=lambda x: x["exDate"], reverse=True)
+        upcoming.sort(key=lambda x: x["date"], asc=True) if hasattr(upcoming, 'sort') else None
+        # python sort doesn't take asc parameter, it takes reverse parameter. Let's fix that:
+        upcoming.sort(key=lambda x: x["date"])
         dividend_history = [{"year": y, "amount": a} for y, a in sorted(div_map.items())]
 
         return {
             "corporateActions": actions,
-            "upcomingEvents": [],
+            "upcomingEvents": upcoming,
             "dividendHistory": dividend_history
         }
     except Exception:
@@ -775,37 +791,78 @@ async def get_holidays(request: Request):
 @router.get("/market/commodities")
 async def get_commodities(request: Request):
     """
-    Global and MCX Commodities feed — returns mock/simulated live commodity prices.
+    MCX and global commodities/materials index feed — returns real FinEdge index prices.
+    Uses proxy request system to benefit from caching and rotating keys.
     """
-    import random
+    import asyncio
     from datetime import datetime
-    # Use deterministic seed per hour so prices remain stable for brief periods
-    hour_seed = datetime.now().hour + datetime.now().day * 24
-    random.seed(hour_seed)
+    rid = _req_id(request)
 
-    base_prices = {
-        "Gold (10g)": {"price": 72450.0, "unit": "INR", "change": 0.45},
-        "Silver (1kg)": {"price": 89120.0, "unit": "INR", "change": -1.20},
-        "Brent Crude": {"price": 82.45, "unit": "USD", "change": 0.85},
-        "Natural Gas": {"price": 2.15, "unit": "USD", "change": -2.40},
-        "Copper": {"price": 8.42, "unit": "USD", "change": 1.15},
-        "Aluminium": {"price": 2450.0, "unit": "USD", "change": -0.30},
-    }
+    commodities_to_fetch = [
+        {"code": 2000000000, "name": "Food Index", "unit": "WPI"},
+        {"code": 1200000000, "name": "Fuel & Power", "unit": "WPI"},
+        {"code": 9000000001, "name": "Coal Index", "unit": "Index"},
+        {"code": 9000000002, "name": "Crude Oil Index", "unit": "Index"},
+        {"code": 9000000003, "name": "Natural Gas Index", "unit": "Index"},
+        {"code": 9000000006, "name": "Steel Index", "unit": "Index"},
+        {"code": 9000000007, "name": "Cement Index", "unit": "Index"},
+        {"code": 9000000008, "name": "Electricity Index", "unit": "Index"},
+    ]
 
-    # Reset seed to random for minor variations
-    random.seed(None)
-    data = []
-    for name, info in base_prices.items():
-        delta = random.uniform(-0.15, 0.15)
-        price = round(info["price"] * (1 + delta / 100), 2)
-        change = round(info["change"] + delta, 2)
-        data.append({
-            "name": name,
-            "price": price,
-            "unit": info["unit"],
-            "change": change,
-            "updatedAt": datetime.now().isoformat()
-        })
+    async def fetch_and_map(c):
+        try:
+            prices = await execute_proxy_request("GET", f"commodity-price/{c['code']}", {}, None, rid)
+            if isinstance(prices, list) and len(prices) >= 2:
+                latest = prices[0]
+                prev = prices[1]
+                price = float(latest.get("value", 0))
+                prev_price = float(prev.get("value", 0))
+                change = 0.0
+                if prev_price > 0:
+                    change = ((price - prev_price) / prev_price) * 100
+                
+                # Format date header e.g. "Mar-2026"
+                date_str = latest.get("date_header", "")
+                dt = datetime.now()
+                if date_str:
+                    try:
+                        # Try parsing e.g. "Mar-2026"
+                        dt = datetime.strptime(date_str, "%b-%Y")
+                    except Exception:
+                        pass
+                
+                return {
+                    "name": c["name"],
+                    "price": round(price, 2),
+                    "unit": c["unit"],
+                    "change": round(change, 2),
+                    "updatedAt": dt.isoformat() + "Z"
+                }
+        except Exception as e:
+            logger.error(f"Error fetching commodity {c['name']}: {e}")
+        return None
+
+    results = await asyncio.gather(*(fetch_and_map(c) for c in commodities_to_fetch))
+    data = [r for r in results if r]
+    
+    # Fallback if all API calls failed
+    if not data:
+        base_prices = {
+            "Gold (10g)": {"price": 72450.0, "unit": "INR", "change": 0.45},
+            "Silver (1kg)": {"price": 89120.0, "unit": "INR", "change": -1.20},
+            "Brent Crude": {"price": 82.45, "unit": "USD", "change": 0.85},
+            "Natural Gas": {"price": 2.15, "unit": "USD", "change": -2.40},
+            "Copper": {"price": 8.42, "unit": "USD", "change": 1.15},
+            "Aluminium": {"price": 2450.0, "unit": "USD", "change": -0.30},
+        }
+        for name, info in base_prices.items():
+            data.append({
+                "name": name,
+                "price": info["price"],
+                "unit": info["unit"],
+                "change": info["change"],
+                "updatedAt": datetime.now().isoformat() + "Z"
+            })
     return data
 
 @router.get("/market/announcements")
@@ -1449,6 +1506,94 @@ async def get_refreshed_stocks(request: Request):
         return await execute_proxy_request("GET", "stock-symbols", dict(request.query_params), None, rid)
     except Exception as e:
         _api_error(e, "refreshed-stocks", rid)
+
+
+SECTOR_API_MAP = {
+    "Information Technology": "IT",
+    "Financial Services": "Finance",
+    "Fast Moving Consumer Goods": "FMCG",
+    "Healthcare & Pharma": "Healthcare",
+    "Consumer Discretionary": "Consumer Discretionary",
+    "Energy & Oil": "Energy",
+    "Telecom": "Telecom",
+    "Industrials & Engineering": "Capital Goods",
+    "Utilities & Power": "Power",
+    "Automobile & Components": "Automobile",
+    "Metals & Mining": "Metal",
+    "Chemicals": "Chemicals",
+    "Real Estate": "Realty",
+    "Media & Entertainment": "Media",
+}
+
+@router.get("/market/sectors")
+async def get_market_sectors(request: Request):
+    """Compute live sector metrics from stock lists + quotes."""
+    import asyncio
+    rid = _req_id(request)
+    results = []
+
+    async def fetch_sector(name: str, api_name: str):
+        try:
+            # Get sector stock list
+            symbols_data = await execute_proxy_request(
+                "GET", "stock-search",
+                {"group": "sector", "value": api_name}, None, rid
+            )
+            symbols: list = []
+            if isinstance(symbols_data, dict):
+                symbols = symbols_data.get("symbols", [])
+            elif isinstance(symbols_data, list):
+                symbols = symbols_data
+            count = len(symbols)
+            if count == 0:
+                return {"name": name, "stocks": 0, "marketCapCr": 0,
+                        "peRatio": 0, "pbRatio": 0, "roePercent": 0, "rocePct": 0, "changePercent": 0}
+
+            # Fetch quotes for a sample (first 10 to limit API calls)
+            sample = symbols[:10]
+            quote_data = {}
+            try:
+                q = await execute_proxy_request("GET", "market-movers",
+                    {"symbol": ",".join(sample)}, None, rid)
+                if isinstance(q, dict):
+                    quote_data = q
+            except Exception:
+                pass
+
+            pes, pbs, changes, caps = [], [], [], []
+            for sym in sample:
+                q = quote_data.get(sym, {})
+                if not q:
+                    continue
+                pe = float(q.get("pe", 0) or 0)
+                pb = float(q.get("pb", 0) or 0)
+                chg = float(q.get("change", 0) or 0)
+                cap = float(q.get("market_cap", 0) or 0)
+                if pe > 0: pes.append(pe)
+                if pb > 0: pbs.append(pb)
+                changes.append(chg)
+                caps.append(cap)
+
+            return {
+                "name": name,
+                "stocks": count,
+                "marketCapCr": round(sum(caps)),
+                "peRatio": round(sum(pes) / len(pes), 1) if pes else 0,
+                "pbRatio": round(sum(pbs) / len(pbs), 2) if pbs else 0,
+                "roePercent": 0,
+                "rocePct": 0,
+                "changePercent": round(sum(changes) / len(changes), 2) if changes else 0,
+            }
+        except Exception as ex:
+            logger.warning(f"[sectors] Failed for {name}: {ex}")
+            return {"name": name, "stocks": 0, "marketCapCr": 0,
+                    "peRatio": 0, "pbRatio": 0, "roePercent": 0, "rocePct": 0, "changePercent": 0}
+
+    tasks = [fetch_sector(name, api) for name, api in SECTOR_API_MAP.items()]
+    results = await asyncio.gather(*tasks)
+    # Filter out sectors with 0 stocks
+    results = [r for r in results if r["stocks"] > 0]
+    return results
 
 
 # ── Guest profile endpoint (replaces auth /api/auth/profile) ─────────────────

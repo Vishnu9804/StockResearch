@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, BookOpen, Inbox, ArrowUp, ArrowDown } from 'lucide-react'
-import { annualReports as fallbackReports } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
@@ -76,7 +75,7 @@ export default function AnnualReports() {
   }
 
   const sortedData = useMemo(() => {
-    const list = reports.length > 0 ? reports : fallbackReports
+    const list = reports
     const filtered = list.filter(r => r.fy === fy || fy === 'All')
     const displayData = filtered.length > 0 ? filtered : list
     

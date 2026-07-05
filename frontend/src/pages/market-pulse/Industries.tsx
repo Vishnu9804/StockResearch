@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox, Building2, RefreshCw } from 'lucide-react'
-import { industries as mockIndustries } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
@@ -31,7 +30,7 @@ export default function Industries() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [industriesList, setIndustriesList] = useState<IndustryItem[]>(mockIndustries)
+  const [industriesList, setIndustriesList] = useState<IndustryItem[]>([])
   
   // Selected sector and its companies
   const [selectedSector, setSelectedSector] = useState<string>('Information Technology')
@@ -52,28 +51,22 @@ export default function Industries() {
     setLoading(true)
     setError(null)
     try {
-      const updatedList = [...mockIndustries]
-      // Fetch live stock counts for each sector in parallel
-      const promises = updatedList.map(async (ind) => {
-        try {
-          const apiSector = getApiSectorName(ind.name)
-          const res = await finscreenClient.get('/stock-search', {
-            params: { group: 'sector', value: apiSector }
-          })
-          return { name: ind.name, count: res.data?.symbols?.length || 0 }
-        } catch (e) {
-          console.warn(`Failed to fetch stock count for sector: ${ind.name}`, e)
-          return { name: ind.name, count: ind.stocks }
-        }
-      })
+      // Fetch real sector list from backend
+      const sectorsRes = await finscreenClient.get('/finscreen/market/sectors')
+      const sectors: any[] = sectorsRes.data || []
+      
+      // Map to IndustryItem shape (backend returns computed stats)
+      const updatedList: IndustryItem[] = sectors.map((s: any) => ({
+        name: s.name,
+        stocks: s.stocks || 0,
+        marketCapCr: s.marketCapCr || 0,
+        peRatio: s.peRatio || 0,
+        pbRatio: s.pbRatio || 0,
+        roePercent: s.roePercent || 0,
+        rocePct: s.rocePct || 0,
+        changePercent: s.changePercent || 0,
+      }))
 
-      const results = await Promise.all(promises)
-      results.forEach(res => {
-        const item = updatedList.find(x => x.name === res.name)
-        if (item) {
-          item.stocks = res.count
-        }
-      })
       setIndustriesList(updatedList)
     } catch (err: any) {
       console.error(err)

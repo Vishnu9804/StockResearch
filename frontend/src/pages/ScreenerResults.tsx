@@ -1,23 +1,42 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { Bell, Columns3, Download, Edit3, Play, ChevronRight, Mail } from 'lucide-react'
 import { ScreenerResultsTable } from '@/components/screener/results-table'
-import { useAppSelector } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { setQuery as setReduxQuery, runScreenerStart } from '@/store/slices/screenerSlice'
 import { toast } from 'react-hot-toast'
 import { AppFooter } from '@/components/shared/AppFooter'
 
 export function ScreenerResults() {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const { queryText, totalCount, status } = useAppSelector((state) => state.screener)
 
   const [query, setQuery] = useState(
-    `Market Cap > 500 AND
-ROE > 15 AND
-Debt to equity < 1 AND
-Profit Growth 3Y > 10`
+    queryText ||
+    `market_cap > 500 AND
+roe > 15 AND
+debt_to_equity < 1`
   )
   const [onlyLatest, setOnlyLatest] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlQuery = params.get('query')
+    if (urlQuery) {
+      setQuery(urlQuery)
+      dispatch(setReduxQuery(urlQuery))
+      dispatch(runScreenerStart())
+    } else if (queryText) {
+      setQuery(queryText)
+      dispatch(runScreenerStart())
+    } else {
+      dispatch(setReduxQuery(query))
+      dispatch(runScreenerStart())
+    }
+  }, [dispatch])
 
   return (
     <div className="min-h-screen bg-background font-sans select-none">
@@ -67,8 +86,8 @@ Profit Growth 3Y > 10`
                   <span style={{ color: 'var(--fs-brand)', fontWeight: 500, cursor: 'default' }}>FinScreen Team</span>
                 </p>
                 <p style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-text-muted)', margin: '4px 0 0' }}>
-                  <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>15 results found</span>
-                  {' · '}Showing page 1 of 2
+                  <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>{totalCount} results found</span>
+                  {status === 'loading' && <span style={{ marginLeft: '8px', color: 'var(--fs-text-secondary)' }}>(Loading...)</span>}
                 </p>
               </div>
 
@@ -243,7 +262,11 @@ Profit Growth 3Y > 10`
                 {/* Run Query button */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px' }}>
                   <button
-                    onClick={() => toast.success('Query executed — results updated')}
+                    onClick={() => {
+                      dispatch(setReduxQuery(query))
+                      dispatch(runScreenerStart())
+                      toast.success('Query executed — results updated')
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '7px',
                       padding: '9px 20px',
