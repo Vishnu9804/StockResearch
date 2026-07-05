@@ -15,7 +15,7 @@ export default defineConfig({
     allowedHosts: ['27a9-2401-4900-78f4-8eb9-10cb-1851-67eb-d24f.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
@@ -27,7 +27,7 @@ export default defineConfig({
     allowedHosts: ['27a9-2401-4900-78f4-8eb9-10cb-1851-67eb-d24f.ngrok-free.app', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
