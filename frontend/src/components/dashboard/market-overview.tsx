@@ -3,19 +3,48 @@ import { formatNumber, formatPct, changeClass } from "@/lib/formatters"
 import { MetricCard } from "@/components/shared/metric-card"
 import { Link } from "react-router-dom"
 import { marketIndices, marketBreadth } from "@/lib/data/market"
+import { TrendingUp, TrendingDown } from "lucide-react"
 
-// Map display names to URL slugs for deep linking
-const INDEX_SLUG: Record<string, string> = {
-  'NIFTY 50': 'NIFTY50',
-  'SENSEX': 'SENSEX',
-  'BANK NIFTY': 'BANKNIFTY',
-  'NIFTY IT': 'NIFTYIT',
-  'NIFTY MIDCAP 100': 'NIFTYMIDCAP',
-  'NIFTY SMALLCAP 100': 'NIFTY50', // fallback
-  'NIFTY AUTO': 'NIFTY50',
-  'NIFTY PHARMA': 'NIFTY50',
-  'NIFTY FMCG': 'NIFTY50',
-  'NIFTY METAL': 'NIFTY50',
+// ─── Static Fallback Config ──────────────────────────────────────────────────
+// Maps display name → { symbol used in URL, exchange label }
+const STATIC_INDEX_CONFIG: { name: string; symbol: string; exchange: string }[] = [
+  { name: 'NIFTY 50',          symbol: 'NIF50',       exchange: 'NSE' },
+  { name: 'SENSEX',            symbol: 'SNSXBSE30',   exchange: 'BSE' },
+  { name: 'BANK NIFTY',        symbol: 'NIFBAN',      exchange: 'NSE' },
+  { name: 'NIFTY IT',          symbol: 'NIFIT',       exchange: 'NSE' },
+  { name: 'NIFTY MIDCAP 100',  symbol: 'NIFMDCP100',  exchange: 'NSE' },
+  { name: 'NIFTY SMALLCAP 100',symbol: 'NIFSMCP100',  exchange: 'NSE' },
+  { name: 'NIFTY AUTO',        symbol: 'NIFAUTO',     exchange: 'NSE' },
+  { name: 'NIFTY PHARMA',      symbol: 'NIFPHRM',     exchange: 'NSE' },
+  { name: 'NIFTY FMCG',        symbol: 'NIFFMCG',     exchange: 'NSE' },
+  { name: 'NIFTY METAL',       symbol: 'NIFMETAL',    exchange: 'NSE' },
+]
+
+// Friendly display name lookup from raw API index_name
+function friendlyName(raw: string): string {
+  const map: Record<string, string> = {
+    'Nifty 50': 'NIFTY 50',
+    'Nifty Bank': 'BANK NIFTY',
+    'Nifty IT': 'NIFTY IT',
+    'Nifty Midcap 100': 'NIFTY MIDCAP 100',
+    'Nifty Smallcap 100': 'NIFTY SMALLCAP 100',
+    'Nifty Auto': 'NIFTY AUTO',
+    'Nifty Pharma': 'NIFTY PHARMA',
+    'Nifty FMCG': 'NIFTY FMCG',
+    'Nifty Metal': 'NIFTY METAL',
+    'Sensex': 'SENSEX',
+    'S&P BSE SENSEX': 'SENSEX',
+    'India VIX': 'INDIA VIX',
+  }
+  return map[raw] ?? raw?.toUpperCase()
+}
+
+// Exchange label from index_symbol prefix
+function exchangeLabel(sym: string): string {
+  if (!sym) return 'NSE'
+  const s = sym.toUpperCase()
+  if (s.startsWith('SNSX') || s.startsWith('BSE')) return 'BSE'
+  return 'NSE'
 }
 
 interface MarketOverviewProps {
@@ -24,10 +53,11 @@ interface MarketOverviewProps {
 }
 
 export function MarketOverview({ loading, indices }: MarketOverviewProps) {
-  if (loading || !indices || indices.length === 0) {
+  // ── Skeleton ──────────────────────────────────────────────────────────────
+  if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+        {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i} className="border-border/40 shadow-xs bg-surface rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
               <div className="space-y-1 flex-1">
@@ -46,80 +76,132 @@ export function MarketOverview({ loading, indices }: MarketOverviewProps) {
     )
   }
 
-  // Find live indices or use fallback from static data
-  const nifty50Live = indices.find(idx => idx.index_symbol === 'NIF50')
-  const sensexLive = indices.find(idx => idx.index_symbol === 'SNSXSENSEX' || idx.index_symbol === 'SNSXBSE30')
-  const bankNiftyLive = indices.find(idx => idx.index_symbol === 'NIFBAN')
-  const niftyItLive = indices.find(idx => idx.index_symbol === 'NIFIT')
+  // ── Build display list using loop engineering ─────────────────────────────
+  // First try live API data, loop over STATIC_INDEX_CONFIG to match & enrich
+  // If API has data, merge live values; otherwise fall back to static data.
+  const hasLiveData = Array.isArray(indices) && indices.length > 0
 
-  const featured = [
-    {
-      name: 'NIFTY 50',
-      value: nifty50Live ? nifty50Live.close_price : marketIndices[0].value,
-      change: nifty50Live ? nifty50Live.points_change : marketIndices[0].change,
-      changePct: nifty50Live ? nifty50Live.change_pct : marketIndices[0].changePct,
-    },
-    {
-      name: 'SENSEX',
-      value: sensexLive ? sensexLive.close_price : marketIndices[1].value,
-      change: sensexLive ? sensexLive.points_change : marketIndices[1].change,
-      changePct: sensexLive ? sensexLive.change_pct : marketIndices[1].changePct,
-    },
-    {
-      name: 'BANK NIFTY',
-      value: bankNiftyLive ? bankNiftyLive.close_price : marketIndices[2].value,
-      change: bankNiftyLive ? bankNiftyLive.points_change : marketIndices[2].change,
-      changePct: bankNiftyLive ? bankNiftyLive.change_pct : marketIndices[2].changePct,
-    },
-    {
-      name: 'NIFTY IT',
-      value: niftyItLive ? niftyItLive.close_price : marketIndices[3].value,
-      change: niftyItLive ? niftyItLive.points_change : marketIndices[3].change,
-      changePct: niftyItLive ? niftyItLive.change_pct : marketIndices[3].changePct,
-    },
-  ]
+  const displayItems = STATIC_INDEX_CONFIG.map((cfg, i) => {
+    const staticFallback = marketIndices[i] ?? marketIndices[0]
+
+    if (hasLiveData) {
+      // Try exact index_symbol match first
+      let live = indices.find(
+        (idx: any) => idx.index_symbol === cfg.symbol
+      )
+      // Then try partial index_name match (fuzzy)
+      if (!live) {
+        live = indices.find(
+          (idx: any) =>
+            idx.index_name &&
+            (idx.index_name.toLowerCase().includes(cfg.name.split(' ')[1]?.toLowerCase() ?? '') ||
+             friendlyName(idx.index_name) === cfg.name)
+        )
+      }
+
+      if (live) {
+        return {
+          name: cfg.name,
+          symbol: live.index_symbol ?? cfg.symbol,  // use real symbol for deep link
+          exchange: exchangeLabel(live.index_symbol ?? cfg.symbol),
+          value: live.close_price ?? staticFallback.value,
+          change: live.points_change ?? staticFallback.change,
+          changePct: live.change_pct ?? staticFallback.changePct,
+          isLive: true,
+        }
+      }
+    }
+
+    // Pure static fallback
+    return {
+      name: cfg.name,
+      symbol: cfg.symbol,
+      exchange: cfg.exchange,
+      value: staticFallback.value,
+      change: staticFallback.change,
+      changePct: staticFallback.changePct,
+      isLive: false,
+    }
+  })
 
   return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {featured.map((idx, i) => {
-        const positive = idx.change >= 0
-        const slug = INDEX_SLUG[idx.name] ?? 'NIFTY50'
-        return (
-          <Link key={idx.name} to={`/index/${slug}`} className="block">
-            <Card className={`hover:border-accent/30 cursor-pointer bg-surface border-border/40 shadow-xs hover:shadow-sm rounded-xl animate-count-up stagger-${Math.min(i + 1, 4)} transition-all duration-200`}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-5">
-                <div>
-                  <CardTitle className="tracking-tight">
-                    {idx.name}
-                  </CardTitle>
-                  <p className="text-xs text-textMuted font-medium mt-0.5">NSE Index</p>
-                </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-mono font-medium tabular-nums ${
-                    positive
-                      ? 'bg-positive-soft text-positive'
-                      : 'bg-negative-soft text-negative'
-                  }`}
-                >
-                  {formatPct(idx.changePct)}
-                </span>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="font-mono tabular text-2xl font-semibold tracking-tight text-textPrimary">
-                  {formatNumber(idx.value, 2)}
-                </div>
-                <div className={`mt-1 font-mono tabular text-body font-medium ${changeClass(idx.change)}`}>
-                  {idx.change >= 0 ? '+' : ''}
-                  {formatNumber(idx.change, 2)} pts
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        )
-      })}
+    <div className="space-y-3">
+      {/* Live indicator */}
+      <div className="flex items-center gap-2">
+        <span className={`size-1.5 rounded-full ${hasLiveData ? 'bg-positive animate-pulse' : 'bg-amber-400'}`} />
+        <span className="text-xs text-textMuted font-medium">
+          {hasLiveData ? `Live data · ${indices.length} indices loaded` : 'Using cached data'}
+        </span>
+      </div>
+
+      {/* ── Index Cards Grid — loop over all indices ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+        {displayItems.map((idx, i) => {
+          const positive = idx.change >= 0
+          // Use the real index_symbol directly so IndexDetail gets the correct symbol
+          const slug = encodeURIComponent(idx.symbol)
+
+          return (
+            <Link
+              key={idx.name}
+              to={`/index/${slug}`}
+              className="block group"
+              aria-label={`View ${idx.name} details`}
+            >
+              <Card
+                className={`
+                  cursor-pointer bg-surface border-border/40 shadow-xs
+                  hover:shadow-md hover:border-accent/40
+                  rounded-xl animate-count-up transition-all duration-200
+                  stagger-${Math.min((i % 4) + 1, 4)}
+                  group-hover:scale-[1.015]
+                `}
+              >
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-5">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="tracking-tight truncate text-sm leading-tight">
+                      {idx.name}
+                    </CardTitle>
+                    <p className="text-xs text-textMuted font-medium mt-0.5">
+                      {idx.exchange} Index
+                      {!idx.isLive && (
+                        <span className="ml-1 text-amber-500/70">· cached</span>
+                      )}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-mono font-medium tabular-nums flex items-center gap-1 ${
+                      positive
+                        ? 'bg-positive-soft text-positive'
+                        : 'bg-negative-soft text-negative'
+                    }`}
+                  >
+                    {positive
+                      ? <TrendingUp className="size-3" />
+                      : <TrendingDown className="size-3" />
+                    }
+                    {formatPct(idx.changePct)}
+                  </span>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  <div className="font-mono tabular text-2xl font-semibold tracking-tight text-textPrimary">
+                    {formatNumber(idx.value, 2)}
+                  </div>
+                  <div className={`mt-1 font-mono tabular text-body font-medium ${changeClass(idx.change)}`}>
+                    {idx.change >= 0 ? '+' : ''}
+                    {formatNumber(idx.change, 2)} pts
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </div>
   )
 }
+
+// ─── BreadthCards (unchanged logic, extracted cleanly) ────────────────────────
 
 interface BreadthCardsProps {
   loading: boolean
@@ -151,7 +233,7 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
 
   Object.values(quotes).forEach((q: any) => {
     if (q && q.change) {
-      const changeVal = parseFloat(q.change.replace('%', ''))
+      const changeVal = parseFloat(String(q.change).replace('%', ''))
       if (changeVal > 0) advances++
       else if (changeVal < 0) declines++
       else unchanged++
@@ -170,7 +252,9 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
   const decPct = total > 0 ? (declines / total) * 100 : 50
 
   // Find India VIX from indices
-  const vixLive = indices?.find(idx => idx.index_symbol === 'INDVIX')
+  const vixLive = indices?.find(
+    (idx: any) => idx.index_symbol === 'INDVIX' || idx.index_name?.toLowerCase().includes('vix')
+  )
   const vixValue = vixLive ? vixLive.close_price : marketBreadth.vix
   const vixChangePct = vixLive ? vixLive.change_pct : marketBreadth.vixChangePct
 

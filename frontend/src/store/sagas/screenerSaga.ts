@@ -130,7 +130,7 @@ function* validateQuerySaga(action: ReturnType<typeof setQuery>): Generator<any,
   }
 }
 
-import { finscreenClient } from '@/services/finscreenApi'
+import { finscreenClient, screenerApiClient } from '@/services/finscreenApi'
 
 // Saga for Running Screener
 function* runScreenerSaga(): Generator<any, void, any> {
@@ -150,8 +150,12 @@ function* runScreenerSaga(): Generator<any, void, any> {
       return `${f.variableId} ${f.operator} ${f.value}`
     }).join(' AND ')
 
-    // API call to the backend FastAPI screener proxy
-    const response = yield call([finscreenClient, finscreenClient.post], '/screener/run', { query })
+    // API call to the backend screener endpoint using the configured screenerApiClient
+    const response = yield call(
+      [screenerApiClient, screenerApiClient.post],
+      '/run',
+      { query }
+    )
     
     // Map response structure (supports direct array list or results wrapper)
     const resultsList = Array.isArray(response.data) ? response.data

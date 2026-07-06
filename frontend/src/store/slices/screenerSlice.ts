@@ -129,10 +129,13 @@ const screenerSlice = createSlice({
     },
 
     // ─── Run screener ────────────────────────────────────────────────────
-    runScreenerStart(state) {
+    runScreenerStart(state, action: PayloadAction<{ query?: string } | undefined>) {
       state.status = 'loading'
       state.error = null
       state.page = 1
+      if (action.payload?.query) {
+        state.queryText = action.payload.query
+      }
     },
     runScreenerSuccess(
       state,

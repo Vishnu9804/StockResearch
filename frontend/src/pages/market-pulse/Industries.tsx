@@ -52,7 +52,7 @@ export default function Industries() {
     setError(null)
     try {
       // Fetch real sector list from backend
-      const sectorsRes = await finscreenClient.get('/finscreen/market/sectors')
+      const sectorsRes = await finscreenClient.get('/market/sectors')
       const sectors: any[] = sectorsRes.data || []
       
       // Map to IndustryItem shape (backend returns computed stats)

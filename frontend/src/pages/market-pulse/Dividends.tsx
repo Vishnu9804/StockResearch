@@ -40,7 +40,7 @@ export default function Dividends() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/dividends')
+      const res = await finscreenClient.get('/market/dividends')
       setDividends(res.data || [])
     } catch (err: any) {
       console.error(err)

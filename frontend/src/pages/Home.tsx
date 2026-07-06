@@ -15,18 +15,26 @@ import {
 
 // Fallback news when API hasn't loaded yet
 const FALLBACK_NEWS = [
-  { id: "n1", category: "ECONOMY", categoryColor: "var(--fs-brand)",
+  {
+    id: "n1", category: "ECONOMY", categoryColor: "var(--fs-brand)",
     headline: "RBI maintains status quo on repo rates for the 6th consecutive session.",
-    summary: "The MPC voted 5:1 to keep the benchmark rate at 6.5%.", time: "Today", source: "FinEdge" },
-  { id: "n2", category: "MARKETS", categoryColor: "var(--fs-positive)",
+    summary: "The MPC voted 5:1 to keep the benchmark rate at 6.5%.", time: "Today", source: "FinEdge"
+  },
+  {
+    id: "n2", category: "MARKETS", categoryColor: "var(--fs-positive)",
     headline: "NSE Nifty closes above 22,500 for the third consecutive session.",
-    summary: "FII buying in banking and IT lifted the broader indices.", time: "Today", source: "FinEdge" },
-  { id: "n3", category: "COMMODITIES", categoryColor: "#f59e0b",
+    summary: "FII buying in banking and IT lifted the broader indices.", time: "Today", source: "FinEdge"
+  },
+  {
+    id: "n3", category: "COMMODITIES", categoryColor: "#f59e0b",
     headline: "Crude oil slips 2% on US inventory build amid demand concerns.",
-    summary: "Brent Crude dropped below $82/barrel in early trade.", time: "Yesterday", source: "FinEdge" },
-  { id: "n4", category: "CORPORATE", categoryColor: "#8b5cf6",
+    summary: "Brent Crude dropped below $82/barrel in early trade.", time: "Yesterday", source: "FinEdge"
+  },
+  {
+    id: "n4", category: "CORPORATE", categoryColor: "#8b5cf6",
     headline: "RIL board approves ₹5,000 Cr buyback at ₹3,000 per share.",
-    summary: "The open-market buyback will run for 12 months.", time: "Yesterday", source: "FinEdge" },
+    summary: "The open-market buyback will run for 12 months.", time: "Yesterday", source: "FinEdge"
+  },
 ]
 
 // Fallback feed items when announcements haven't loaded
@@ -96,7 +104,7 @@ export function Home() {
     async function loadDashboardData() {
       try {
         setLoading(true)
-        
+
         const [indicesData, benchmarkQuotes, refreshedData, resultsData, announcementsData, newsData] = await Promise.allSettled([
           finscreenApi.fetchMarketIndices(),
           finscreenApi.fetchMultipleQuotes([
@@ -172,15 +180,15 @@ export function Home() {
   const renderedWatchlists = (watchlists && watchlists.length > 0)
     ? watchlists
     : [
-        {
-          name: "My Watchlist",
-          items: [
-            { symbol: "RELIANCE" },
-            { symbol: "TCS" },
-            { symbol: "HDFCBANK" },
-          ],
-        },
-      ]
+      {
+        name: "My Watchlist",
+        items: [
+          { symbol: "RELIANCE" },
+          { symbol: "TCS" },
+          { symbol: "HDFCBANK" },
+        ],
+      },
+    ]
 
   const mappedWatchlists = renderedWatchlists.map((wl) => {
     let totalChange = 0
@@ -190,7 +198,7 @@ export function Home() {
       if (q) {
         const changeVal = typeof q.pct_change === 'number' ? q.pct_change
           : typeof q.change === 'number' ? q.change
-          : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
+            : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
         if (changeVal !== 0) { totalChange += changeVal; count++ }
       }
     })
@@ -209,7 +217,7 @@ export function Home() {
   const quoteList = Object.entries(quotes).map(([symbol, q]: [string, any]) => {
     const changePct = typeof q.pct_change === 'number' ? q.pct_change
       : typeof q.change === 'number' ? q.change
-      : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
+        : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
     return {
       symbol,
       price: q.current_price || q.close_price || 0,
@@ -252,7 +260,7 @@ export function Home() {
     if (q) {
       const changeVal = typeof q.pct_change === 'number' ? q.pct_change
         : typeof q.change === 'number' ? q.change
-        : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
+          : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
       if (changeVal > 0) advances++
       else if (changeVal < 0) declines++
     }
@@ -270,21 +278,21 @@ export function Home() {
   // Group results calendar by day for the next 5 days
   const upcomingResultsList = useMemo(() => {
     if (!resultsCalendar || !Array.isArray(resultsCalendar)) return []
-    
+
     const days: any[] = []
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    
+
     const today = new Date()
     for (let i = 0; i < 5; i++) {
       const d = new Date(today)
       d.setDate(today.getDate() + i)
       const dateStr = d.toISOString().split('T')[0]
-      
+
       const dayItems = resultsCalendar
         .filter((item: any) => (item.expected_result_date || item.date) === dateStr)
         .map((item: any) => item.company_name || item.name || item.symbol)
-        
+
       days.push({
         day: dayNames[d.getDay()],
         date: `${monthNames[d.getMonth()]} ${d.getDate()}`,
@@ -312,7 +320,7 @@ export function Home() {
       let icon = "file"
       let type = "document"
       const category = ann.category || "Other"
-      
+
       if (category.includes("Meeting") || category.includes("Board")) {
         icon = "file"
         type = "document"
@@ -419,22 +427,22 @@ export function Home() {
 
       {/* ── Main grid ────────────────────────────────────────────────── */}
       {/* ── Main grid (Redesigned Bottom Zone) ────────────────────────── */}
-      <div 
+      <div
         className="px-6 pb-12 flex flex-col gap-4 max-w-[1400px] mx-auto w-full select-none"
         style={{ marginTop: '24px' }}
       >
         {/* PANEL 1 — MY WATCHLISTS CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Star className="size-4 text-[var(--fs-info)]" />
@@ -485,20 +493,20 @@ export function Home() {
               const price = q.current_price || q.close_price || s.defaultPrice
               const changeVal = typeof q.pct_change === 'number' ? q.pct_change
                 : typeof q.change === 'number' ? q.change
-                : q.change ? parseFloat(String(q.change).replace('%', ''))
-                : null
+                  : q.change ? parseFloat(String(q.change).replace('%', ''))
+                    : null
               const changeText = changeVal !== null ? (changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`) : s.defaultChange
               const isPos = changeVal !== null ? changeVal >= 0 : s.defaultChange.startsWith('+')
-              
+
               return (
-                <div 
+                <div
                   key={s.symbol}
-                  style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    padding: '7px 0', 
-                    borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '7px 0',
+                    borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
                   }}
                   className="w-full"
                 >
@@ -526,17 +534,17 @@ export function Home() {
         </div>
 
         {/* PANEL 2 — TOP MOVERS CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <TrendingUp className="size-4 text-[var(--fs-info)]" />
@@ -548,19 +556,19 @@ export function Home() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-lg)' }} className="w-full">
             {/* Top Gainers */}
             <div>
-              <div 
+              <div
                 className="text-xs font-semibold text-positive uppercase tracking-wider pb-1.5"
               >
                 TOP GAINERS
               </div>
               <div className="flex flex-col w-full">
                 {displayGainers.map((g, idx, arr) => (
-                  <div 
+                  <div
                     key={g.symbol}
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      padding: '6px 0', 
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '6px 0',
                       borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
                     }}
                     className="w-full font-mono text-body font-normal"
@@ -581,19 +589,19 @@ export function Home() {
 
             {/* Top Losers */}
             <div>
-              <div 
+              <div
                 className="text-xs font-semibold text-negative uppercase tracking-wider pb-1.5"
               >
                 TOP LOSERS
               </div>
               <div className="flex flex-col w-full">
                 {displayLosers.map((l, idx, arr) => (
-                  <div 
+                  <div
                     key={l.symbol}
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      padding: '6px 0', 
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '6px 0',
                       borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
                     }}
                     className="w-full font-mono text-body font-normal"
@@ -615,24 +623,24 @@ export function Home() {
         </div>
 
         {/* PANEL 3 — MARKET PULSE CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Zap className="size-4 text-[var(--fs-info)]" />
               MARKET PULSE
             </div>
             <div className="flex items-center gap-1.5">
-              <button 
+              <button
                 onClick={() => setFeedFilter("all")}
                 style={{
                   background: feedFilter === 'all' ? '#e5e7eb' : 'transparent',
@@ -644,7 +652,7 @@ export function Home() {
               >
                 All
               </button>
-              <button 
+              <button
                 onClick={() => setFeedFilter("alerts")}
                 style={{
                   background: feedFilter === 'alerts' ? 'var(--fs-warning-soft)' : 'transparent',
@@ -663,32 +671,32 @@ export function Home() {
             {filteredFeed.map((item, idx, arr) => {
               const isPriceAlert = item.type === "price-alert";
               return (
-                <div 
+                <div
                   key={item.id}
-                  style={isPriceAlert ? { 
-                    borderLeft: '3px solid #E24B4A', 
-                    background: 'var(--fs-negative-soft)', 
-                    borderRadius: '0 8px 8px 0', 
-                    padding: '10px 12px', 
+                  style={isPriceAlert ? {
+                    borderLeft: '3px solid #E24B4A',
+                    background: 'var(--fs-negative-soft)',
+                    borderRadius: '0 8px 8px 0',
+                    padding: '10px 12px',
                     marginTop: idx > 0 ? '10px' : '0',
                     display: 'flex',
                     gap: 'var(--fs-space-md)',
                     alignItems: 'flex-start'
-                  } : { 
-                    display: 'flex', 
-                    gap: 'var(--fs-space-md)', 
-                    alignItems: 'flex-start', 
-                    padding: '12px 0', 
-                    borderBottom: idx === arr.length - 1 ? 'none' : 'var(--fs-border)' 
-                  }} 
+                  } : {
+                    display: 'flex',
+                    gap: 'var(--fs-space-md)',
+                    alignItems: 'flex-start',
+                    padding: '12px 0',
+                    borderBottom: idx === arr.length - 1 ? 'none' : 'var(--fs-border)'
+                  }}
                   className="w-full"
                 >
-                  <div style={{ 
-                    background: isPriceAlert ? 'var(--fs-surface)' : 'var(--fs-surface-muted)', 
-                    border: isPriceAlert ? '0.5px solid rgba(163,45,45,0.2)' : 'none', 
-                    borderRadius: 'var(--fs-radius-sm)', 
-                    width: '34px', 
-                    height: '34px' 
+                  <div style={{
+                    background: isPriceAlert ? 'var(--fs-surface)' : 'var(--fs-surface-muted)',
+                    border: isPriceAlert ? '0.5px solid rgba(163,45,45,0.2)' : 'none',
+                    borderRadius: 'var(--fs-radius-sm)',
+                    width: '34px',
+                    height: '34px'
                   }} className={cn("flex-shrink-0 flex items-center justify-center", isPriceAlert ? "text-[var(--fs-negative)]" : "text-[#666]")}>
                     {item.icon === "file" && <FileText className="size-4" />}
                     {item.icon === "trending-up" && <TrendingUp className="size-4 text-[var(--fs-positive)]" />}
@@ -745,17 +753,17 @@ export function Home() {
         </div>
 
         {/* PANEL 4 — FINANCIAL NEWS CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Newspaper className="size-4 text-[var(--fs-info)]" />
@@ -799,17 +807,17 @@ export function Home() {
         </div>
 
         {/* PANEL 5 — UPCOMING RESULTS CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Calendar className="size-4 text-[var(--fs-info)]" />
@@ -820,14 +828,14 @@ export function Home() {
 
           <div className="flex flex-col w-full">
             {displayResults.map((day, idx, arr) => (
-              <div 
+              <div
                 key={day.date}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 'var(--fs-space-md)', 
-                  padding: '9px 0', 
-                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)' 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--fs-space-md)',
+                  padding: '9px 0',
+                  borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
                 }}
                 className="w-full"
               >
@@ -847,13 +855,13 @@ export function Home() {
                       const label = typeof item === 'string' ? item : (item.name || item.symbol || '')
                       const itemKey = typeof item === 'string' ? item : (item.symbol || item.name || Math.random().toString())
                       return (
-                        <span 
+                        <span
                           key={itemKey}
-                          style={{ 
-                            padding: '2px 9px', 
-                            border: 'var(--fs-border)', 
-                            borderRadius: 'var(--fs-radius-xl)', 
-                            color: 'var(--fs-text-primary)' 
+                          style={{
+                            padding: '2px 9px',
+                            border: 'var(--fs-border)',
+                            borderRadius: 'var(--fs-radius-xl)',
+                            color: 'var(--fs-text-primary)'
                           }}
                           className="text-sm font-medium bg-white"
                         >
@@ -869,17 +877,17 @@ export function Home() {
         </div>
 
         {/* PANEL 6 — MARKET SENTIMENT CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3.5"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Activity className="size-4 text-[var(--fs-info)]" />
@@ -925,17 +933,17 @@ export function Home() {
         </div>
 
         {/* PANEL 7 — RECENT CUSTOM SCANS CARD */}
-        <div 
-          style={{ 
-            background: 'var(--fs-surface)', 
-            border: 'var(--fs-border)', 
-            borderRadius: 'var(--fs-radius-md)', 
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)' 
+        <div
+          style={{
+            background: 'var(--fs-surface)',
+            border: 'var(--fs-border)',
+            borderRadius: 'var(--fs-radius-md)',
+            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
           }}
           className="w-full flex flex-col gap-3.5"
         >
           <div className="flex items-center justify-between w-full">
-            <div 
+            <div
               className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
             >
               <Search className="size-4 text-[var(--fs-info)]" />

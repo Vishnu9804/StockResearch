@@ -39,7 +39,7 @@ export default function AnnualReports() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/annual-reports')
+      const res = await finscreenClient.get('/market/annual-reports')
       setReports(res.data || [])
     } catch (err: any) {
       console.error(err)

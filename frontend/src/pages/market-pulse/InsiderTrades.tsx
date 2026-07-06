@@ -40,7 +40,7 @@ export default function InsiderTrades() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/insider-trades')
+      const res = await finscreenClient.get('/market/insider-trades')
       setTrades(res.data || [])
     } catch (err: any) {
       console.error(err)

@@ -38,7 +38,7 @@ export default function BulkDeals() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/bulk-deals')
+      const res = await finscreenClient.get('/market/bulk-deals')
       setDeals(res.data || [])
     } catch (err: any) {
       console.error(err)

@@ -1,17 +1,120 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from pydantic import BaseModel
 from typing import Optional
 import logging
+import re
 
-from core.database import get_db, SavedScreen, Notification
+from core.database import get_db, SavedScreen, Notification, CompanyMetric
 from services.finedge_service import execute_proxy_request
 
 router = APIRouter(prefix="/api/screener", tags=["screener"])
 logger = logging.getLogger("screener")
 
 GUEST_USER_ID = "guest"
+
+FIELD_MAP = {
+    "marketcap": CompanyMetric.market_cap,
+    "marketcapitalization": CompanyMetric.market_cap,
+    "pe": CompanyMetric.pe,
+    "peratio": CompanyMetric.pe,
+    "pricetoearning": CompanyMetric.pe,
+    "pricetoearnings": CompanyMetric.pe,
+    "pb": CompanyMetric.pb,
+    "pbratio": CompanyMetric.pb,
+    "pricetobook": CompanyMetric.pb,
+    "divyield": CompanyMetric.dividend_yield,
+    "dividendyield": CompanyMetric.dividend_yield,
+    "dividendpayout": CompanyMetric.dividend_yield,
+    "roe": CompanyMetric.roe,
+    "returnonequity": CompanyMetric.roe,
+    "roce": CompanyMetric.roce,
+    "returnoncapitalemployed": CompanyMetric.roce,
+    "debttoequity": CompanyMetric.debt_to_equity,
+    "debtoequity": CompanyMetric.debt_to_equity,
+    "de": CompanyMetric.debt_to_equity,
+    "deratio": CompanyMetric.debt_to_equity,
+    "salesgrowth3y": CompanyMetric.sales_growth_3y,
+    "profitgrowth3y": CompanyMetric.profit_growth_3y,
+    "netprofitmargin": CompanyMetric.net_profit_margin,
+    "ebitdamargin": CompanyMetric.ebitda_margin,
+    "promoterholding": CompanyMetric.promoter_holding,
+    "fiiholding": CompanyMetric.fii_holding,
+    "currentratio": CompanyMetric.current_ratio,
+    "interestcoverage": CompanyMetric.interest_coverage,
+    "cmp": CompanyMetric.cmp,
+    "price": CompanyMetric.cmp,
+    "eps": CompanyMetric.eps,
+    "bookvalue": CompanyMetric.book_value,
+    "rsi14": CompanyMetric.rsi14,
+    "beta": CompanyMetric.beta,
+    "sector": CompanyMetric.sector,
+    "industry": CompanyMetric.industry,
+}
+
+def parse_and_build_filters(query_text: str):
+    filters = []
+    if not query_text or not query_text.strip():
+        return filters
+        
+    tokens = re.split(r"\bAND\b", query_text, flags=re.IGNORECASE)
+    
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+            
+        between_match = re.match(
+            r"^([\w\s]+)\s+between\s+([\d.]+)\s+and\s+([\d.]+)$", token, re.IGNORECASE
+        )
+        if between_match:
+            field_name = between_match.group(1).strip().lower().replace(" ", "")
+            val1 = float(between_match.group(2))
+            val2 = float(between_match.group(3))
+            col = FIELD_MAP.get(field_name)
+            if col is not None:
+                filters.append(col.between(val1, val2))
+            continue
+            
+        # Match string comparison: e.g. sector = 'Banks' or sector = "Banks" or sector = Banks
+        str_match = re.match(r"^([\w\s]+)\s*(=|!=|like)\s*['\"]?([\w\s&,()\-//]+)['\"]?$", token, re.IGNORECASE)
+        if str_match:
+            field_name = str_match.group(1).strip().lower().replace(" ", "")
+            op = str_match.group(2).lower()
+            val = str_match.group(3).strip()
+            col = FIELD_MAP.get(field_name)
+            if col is not None and field_name in ["sector", "industry"]:
+                if op == "=":
+                    filters.append(col == val)
+                elif op == "!=":
+                    filters.append(col != val)
+                elif op == "like":
+                    filters.append(col.ilike(f"%{val}%"))
+                continue
+            
+        op_match = re.match(r"^([\w\s]+)\s*(>=|<=|>|<|=|!=)\s*([\d.]+)$", token, re.IGNORECASE)
+        if op_match:
+            field_name = op_match.group(1).strip().lower().replace(" ", "")
+            op = op_match.group(2)
+            val = float(op_match.group(3))
+            col = FIELD_MAP.get(field_name)
+            if col is not None:
+                if op == ">":
+                    filters.append(col > val)
+                elif op == ">=":
+                    filters.append(col >= val)
+                elif op == "<":
+                    filters.append(col < val)
+                elif op == "<=":
+                    filters.append(col <= val)
+                elif op == "=":
+                    filters.append(col == val)
+                elif op == "!=":
+                    filters.append(col != val)
+            continue
+            
+    return filters
 
 class RunScreenerBody(BaseModel):
     query: str
@@ -40,13 +143,51 @@ def _notif_dict(n: Notification) -> dict:
     }
 
 @router.post("/run")
-async def run_screener(body: RunScreenerBody, request: Request):
-    rid = request.headers.get("x-request-id", "screener")
+async def run_screener(body: RunScreenerBody, db: AsyncSession = Depends(get_db)):
     try:
-        return await execute_proxy_request("POST", "screener/run", {}, {"query": body.query}, rid)
+        stmt = select(CompanyMetric)
+        filters = parse_and_build_filters(body.query)
+        if filters:
+            stmt = stmt.where(and_(*filters))
+            
+        result = await db.execute(stmt)
+        companies = result.scalars().all()
+        
+        results = []
+        for c in companies:
+            results.append({
+                "symbol": c.symbol,
+                "name": c.name,
+                "sector": c.sector,
+                "marketCap": c.market_cap,
+                "pe": c.pe,
+                "pb": c.pb,
+                "dividendYield": c.dividend_yield,
+                "roe": c.roe,
+                "roce": c.roce,
+                "debtToEquity": c.debt_to_equity,
+                "salesGrowth3Y": c.sales_growth_3y,
+                "profitGrowth3Y": c.profit_growth_3y,
+                "netProfitMargin": c.net_profit_margin,
+                "ebitdaMargin": c.ebitda_margin,
+                "promoterHolding": c.promoter_holding,
+                "fiiHolding": c.fii_holding,
+                "currentRatio": c.current_ratio,
+                "interestCoverage": c.interest_coverage,
+                "cmp": c.cmp,
+                "changePct": c.change_pct,
+                "high52w": c.high_52w,
+                "low52w": c.low_52w,
+                "eps": c.eps,
+                "bookValue": c.book_value,
+                "rsi14": c.rsi14,
+                "beta": c.beta
+            })
+            
+        return {"success": True, "results": results, "data": results}
     except Exception as e:
-        logger.warning(f"[Screener] FinEdge screener failed: {e}")
-        raise HTTPException(502, "Screener service temporarily unavailable.")
+        logger.error(f"[Screener] Local screener query failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": True, "message": f"Failed to run screener query: {str(e)}"})
 
 @router.get("/saved")
 async def get_saved_screens(db: AsyncSession = Depends(get_db)):

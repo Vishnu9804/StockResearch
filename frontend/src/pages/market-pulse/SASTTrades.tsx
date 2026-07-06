@@ -38,7 +38,7 @@ export default function SASTTrades() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/sast-trades')
+      const res = await finscreenClient.get('/market/sast-trades')
       setTrades(res.data || [])
     } catch (err: any) {
       console.error(err)

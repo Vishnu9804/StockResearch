@@ -38,7 +38,7 @@ export default function BlockDeals() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/block-deals')
+      const res = await finscreenClient.get('/market/block-deals')
       setDeals(res.data || [])
     } catch (err: any) {
       console.error(err)

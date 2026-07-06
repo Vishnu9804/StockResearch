@@ -21,22 +21,36 @@ roe > 15 AND
 debt_to_equity < 1`
   )
   const [onlyLatest, setOnlyLatest] = useState(false)
+  const [screenName, setScreenName] = useState('Custom Screen')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const urlQuery = params.get('query')
+    const urlName = params.get('name')
+    if (urlName) {
+      setScreenName(urlName)
+    } else {
+      setScreenName('Custom Screen')
+    }
+
     if (urlQuery) {
+      // URL has explicit query param — use it
       setQuery(urlQuery)
       dispatch(setReduxQuery(urlQuery))
-      dispatch(runScreenerStart())
+      dispatch(runScreenerStart({ query: urlQuery }))
+    } else if (status === 'loading') {
+      // Already in flight from the screener page — do nothing, saga is running
+      return
     } else if (queryText) {
+      // Use existing query text from Redux state
       setQuery(queryText)
-      dispatch(runScreenerStart())
+      dispatch(runScreenerStart({ query: queryText }))
     } else {
+      // Fallback: run with default query
       dispatch(setReduxQuery(query))
-      dispatch(runScreenerStart())
+      dispatch(runScreenerStart({ query }))
     }
-  }, [dispatch])
+  }, [dispatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-background font-sans select-none">
@@ -50,7 +64,7 @@ debt_to_equity < 1`
           <ChevronRight style={{ width: '13px', height: '13px', opacity: 0.5 }} />
           <Link to="/screener" className="hover:underline hover:text-accent transition-colors">Screeners</Link>
           <ChevronRight style={{ width: '13px', height: '13px', opacity: 0.5 }} />
-          <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>High Growth Multi-Cap</span>
+          <span style={{ color: 'var(--fs-brand)', fontWeight: 500 }}>{screenName}</span>
         </div>
 
         {/* ── Main Content Card (title + table) ── */}
@@ -75,11 +89,10 @@ debt_to_equity < 1`
               {/* Left: Title + description + meta */}
               <div style={{ flex: 1, minWidth: '280px' }}>
                 <h1 style={{ fontSize: 'var(--fs-size-3xl)', fontWeight: 600, color: 'var(--fs-text-primary)', margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
-                  High Growth Multi-Cap
+                  {screenName}
                 </h1>
-                <p style={{ fontSize: 'var(--fs-size-body)', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                  Companies with high revenue growth, strong return ratios and low debt across market caps.
-                  Screens for consistent compounders with improving fundamentals.
+                <p style={{ fontSize: 'var(--fs-size-body)', color: 'var(--fs-text-secondary)', margin: '6px 0 0', lineHeight: 1.6, fontFamily: 'var(--font-mono, monospace)', background: 'var(--fs-background)', padding: '6px 10px', borderRadius: '6px', display: 'inline-block', maxWidth: '100%', wordBreak: 'break-word' }}>
+                  {queryText || query}
                 </p>
                 <p style={{ fontSize: 'var(--fs-size-sm)', color: 'var(--fs-text-muted)', margin: '8px 0 0' }}>
                   by{' '}
@@ -264,7 +277,7 @@ debt_to_equity < 1`
                   <button
                     onClick={() => {
                       dispatch(setReduxQuery(query))
-                      dispatch(runScreenerStart())
+                      dispatch(runScreenerStart({ query }))
                       toast.success('Query executed — results updated')
                     }}
                     style={{

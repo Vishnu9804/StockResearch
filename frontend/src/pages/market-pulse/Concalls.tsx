@@ -37,7 +37,7 @@ export function Concalls() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/finscreen/market/concalls')
+      const res = await finscreenClient.get('/market/concalls')
       setConcallsList(res.data || [])
     } catch (err: any) {
       console.error(err)

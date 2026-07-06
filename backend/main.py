@@ -22,6 +22,13 @@ logger = logging.getLogger("main")
 async def lifespan(app: FastAPI):
     logger.info("⚡ [FinScreen FastAPI] Starting up…")
     await init_db()
+    
+    # Seed initial company metrics
+    from core.database import AsyncSessionLocal
+    from core.seed import seed_metrics
+    async with AsyncSessionLocal() as session:
+        await seed_metrics(session)
+
     start_scheduler()
     logger.info(f"✅ Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield

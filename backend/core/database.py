@@ -7,7 +7,14 @@ import uuid
 
 from core.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+db_url = settings.DATABASE_URL
+if "postgresql" in db_url:
+    if "?" in db_url:
+        db_url = db_url.split("?")[0]
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+engine = create_async_engine(db_url, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -174,6 +181,39 @@ class PortfolioHolding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     portfolio: Mapped["Portfolio"] = relationship(back_populates="holdings")
+
+
+class CompanyMetric(Base):
+    __tablename__ = "company_metrics"
+
+    symbol: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    sector: Mapped[str] = mapped_column(String, default="Other")
+    industry: Mapped[str] = mapped_column(String, default="Other")
+    cmp: Mapped[float] = mapped_column(Float, default=0.0)
+    change_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    market_cap: Mapped[float] = mapped_column(Float, default=0.0)
+    pe: Mapped[float] = mapped_column(Float, default=0.0)
+    pb: Mapped[float] = mapped_column(Float, default=0.0)
+    dividend_yield: Mapped[float] = mapped_column(Float, default=0.0)
+    roe: Mapped[float] = mapped_column(Float, default=0.0)
+    roce: Mapped[float] = mapped_column(Float, default=0.0)
+    debt_to_equity: Mapped[float] = mapped_column(Float, default=0.0)
+    sales_growth_3y: Mapped[float] = mapped_column(Float, default=0.0)
+    profit_growth_3y: Mapped[float] = mapped_column(Float, default=0.0)
+    net_profit_margin: Mapped[float] = mapped_column(Float, default=0.0)
+    ebitda_margin: Mapped[float] = mapped_column(Float, default=0.0)
+    promoter_holding: Mapped[float] = mapped_column(Float, default=0.0)
+    fii_holding: Mapped[float] = mapped_column(Float, default=0.0)
+    current_ratio: Mapped[float] = mapped_column(Float, default=0.0)
+    interest_coverage: Mapped[float] = mapped_column(Float, default=0.0)
+    high_52w: Mapped[float] = mapped_column(Float, default=0.0)
+    low_52w: Mapped[float] = mapped_column(Float, default=0.0)
+    eps: Mapped[float] = mapped_column(Float, default=0.0)
+    book_value: Mapped[float] = mapped_column(Float, default=0.0)
+    rsi14: Mapped[float] = mapped_column(Float, default=0.0)
+    beta: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
 
 # ── DB Session Dependency ──────────────────────────────────────────────────────

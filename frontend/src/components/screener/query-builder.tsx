@@ -4,12 +4,13 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Plus, X, Play, Save, Sparkles, Code2, LayoutList, HelpCircle, BookOpen, Keyboard, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
-import { useAppSelector } from '@/store/hooks'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Variable } from './variables-sidebar'
+import { runScreenerStart } from '@/store/slices/screenerSlice'
 
 type Operator = '>' | '>=' | '<' | '<=' | '=' | '!=' | 'between'
 
@@ -235,12 +236,14 @@ function ConnectorSelect({
 // ─── QueryBuilder ─────────────────────────────────────────────────────────────
 export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariables }: QueryBuilderProps) {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const screenerState = useAppSelector((state) => state.screener)
   const [mode, setMode] = useState<'visual' | 'sql'>('visual')
   const [filters, setFilters] = useState<FilterRow[]>(DEFAULT_FILTERS)
   const [sqlValue, setSqlValue] = useState(DEFAULT_SQL)
   const [sqlValidation, setSqlValidation] = useState(() => validateSQL(DEFAULT_SQL))
-  const [isRunning, setIsRunning] = useState(false)
+  const isRunning = screenerState?.status === 'loading'
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lineNumbersRef = useRef<HTMLDivElement>(null)
 
@@ -296,7 +299,27 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   const updateFilter = (id: string, patch: Partial<FilterRow>) =>
     setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)))
 
-  const handleRun = () => { setIsRunning(true); setTimeout(() => setIsRunning(false), 1200) }
+  const handleRun = () => {
+    // Build query string from active filters
+    const query = filters
+      .filter((f) => f.variable && f.value)
+      .map((f) => {
+        if (f.operator === 'between' && f.valueTo) {
+          return `${f.variableLabel || f.variable} between ${f.value} and ${f.valueTo}`
+        }
+        return `${f.variableLabel || f.variable} ${f.operator} ${f.value}`
+      })
+      .join(' AND ')
+
+    if (!query.trim()) {
+      toast.error('Please add at least one filter with a value.')
+      return
+    }
+
+    dispatch(runScreenerStart({ query }))
+    // Navigate to results page so user can see the results table
+    navigate('/screener/results')
+  }
 
   return (
     <div className="flex flex-col h-full bg-surface">

@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import { runScreenerStart } from '@/store/slices/screenerSlice'
 
-import { finscreenClient } from '@/services/finscreenApi'
+import { finscreenClient, screenerApiClient } from '@/services/finscreenApi'
 
 export function Screener() {
   const navigate = useNavigate()
@@ -32,7 +32,15 @@ export function Screener() {
   // Fix: was a <Link> that only navigated — never dispatched runScreenerStart.
   // Results page would always show stale/empty data.
   const handleRunScreener = () => {
-    dispatch(runScreenerStart())
+    // Build query from Redux filters or raw queryText
+    const query = queryText.trim() || filters.map((f: any) => {
+      if (f.operator === 'between' && f.value2 !== undefined) {
+        return `${f.variableId} between ${f.value} and ${f.value2}`
+      }
+      return `${f.variableId} ${f.operator} ${f.value}`
+    }).join(' AND ')
+
+    dispatch(runScreenerStart(query ? { query } : undefined))
     navigate('/screener/results')
   }
 
@@ -65,7 +73,7 @@ export function Screener() {
 
     try {
       setSaving(false)
-      const savePromise = finscreenClient.post('/screener/saved', {
+      const savePromise = screenerApiClient.post('/saved', {
         name: name.trim(),
         description: `Custom query filter: ${query}`,
         queryText: query,

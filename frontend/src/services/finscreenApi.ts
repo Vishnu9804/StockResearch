@@ -31,6 +31,24 @@ finscreenClient.interceptors.request.use((config) => {
   return config
 })
 
+const SCREENER_BASE_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  ? '/api/screener'
+  : `${BASE_API.replace(/\/$/, '')}/screener`
+
+export const screenerApiClient: AxiosInstance = axios.create({
+  baseURL: SCREENER_BASE_URL,
+  timeout: 15000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+screenerApiClient.interceptors.request.use((config) => {
+  config.headers['X-Request-ID'] = generateRequestId()
+  return config
+})
+
 export interface CompanyProfile extends Company {}
 
 export interface SegmentItem {

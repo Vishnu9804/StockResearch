@@ -45,12 +45,7 @@ type SortDir = 'asc' | 'desc'
 
 // ─── Columns & Defaults ────────────────────────────────────────────────────────
 
-const DEFAULT_ACTIVE_FILTERS: ActiveFilter[] = [
-  { id: 'f1', label: 'Market Cap ≥ 500 Cr' },
-  { id: 'f2', label: 'ROE > 15%' },
-  { id: 'f3', label: 'D/E Ratio < 1' },
-  { id: 'f4', label: 'Profit Growth 3Y > 10%' },
-]
+// No more hardcoded filters — chips are derived from Redux queryText below
 
 const ALL_COLUMNS = [
   { key: 'name', label: 'Company Name', required: true },
@@ -87,18 +82,30 @@ const getFilterChipColors = (label: string) => {
 export function ScreenerResultsTable() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const { results, status } = useAppSelector((state) => state.screener)
-  
+  const { results, status, queryText } = useAppSelector((state) => state.screener)
+
+  // Derive filter chips dynamically from the actual query text
+  const derivedFilters: ActiveFilter[] = useMemo(() => {
+    if (!queryText) return []
+    return queryText
+      .split(/\bAND\b/i)
+      .map((part, i) => ({ id: `f${i}`, label: part.trim() }))
+      .filter((f) => f.label)
+  }, [queryText])
+
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(1)
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(DEFAULT_ACTIVE_FILTERS)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([])
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(['name', 'cmp', 'change', 'pe', 'marketCap', 'divYield', 'netProfit', 'roce'])
   )
   const [columnsDialogOpen, setColumnsDialogOpen] = useState(false)
   const [tempColumns, setTempColumns] = useState<Set<string>>(new Set(visibleColumns))
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+
+  // Sync chips whenever the query changes
+  useMemo(() => { setActiveFilters(derivedFilters) }, [derivedFilters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mappedResults: StockResult[] = useMemo(() => {
     return results.map((r, index) => ({

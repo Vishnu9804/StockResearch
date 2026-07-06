@@ -168,7 +168,7 @@ export function CompanyDetail() {
     if (symbol) {
       dispatch(fetchCompanyStart(symbol))
       // Fetch corporate events from API
-      finscreenClient.get(`/finscreen/company/${symbol.toUpperCase()}/corporate-actions`)
+      finscreenClient.get(`/company/${symbol.toUpperCase()}/corporate-actions`)
         .then(res => {
           const d = res.data || {}
           setUpcomingEvents(d.upcomingEvents || [])
