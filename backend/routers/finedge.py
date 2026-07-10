@@ -35,6 +35,30 @@ def _req_id(request: Request) -> str:
     return request.headers.get("x-request-id", f"req_{int(time.time() * 1000)}")
 
 
+def _paginate(items: list, request: Request) -> dict:
+    """
+    Generic server-side pagination helper.
+    Reads ?page=<int>&limit=<int> from query params.
+    Returns { items, total, page, limit } envelope.
+    If neither param is provided returns the raw list unchanged (backward-compat).
+    """
+    params = dict(request.query_params)
+    if "page" not in params and "limit" not in params:
+        return items  # backward-compat: caller receives plain list
+
+    page  = max(1, int(params.get("page",  1)))
+    limit = max(1, min(200, int(params.get("limit", 50))))
+    total = len(items)
+    start = (page - 1) * limit
+    end   = start + limit
+    return {
+        "items": items[start:end],
+        "total": total,
+        "page":  page,
+        "limit": limit,
+    }
+
+
 # ── Financial statement mapping (mirrors mapFinancials in Express) ─────────────
 
 PL_MAP = [
@@ -873,10 +897,12 @@ async def get_announcements(request: Request):
     q = {
         "from_date": (now - timedelta(days=1)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
-        return await execute_proxy_request("GET", "corp-announcements", q, None, rid)
+        data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
+        items = data if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corp-announcements", rid)
 
@@ -1122,13 +1148,12 @@ async def get_bulk_deals(request: Request):
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
         "type": "bulk",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        if isinstance(data, list):
-            return [_map_deal(item, "Buy") for item in data]
-        return []
+        items = [_map_deal(item, "Buy") for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corporate-actions/all?type=bulk", rid)
 
@@ -1141,13 +1166,12 @@ async def get_block_deals(request: Request):
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
         "type": "block",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        if isinstance(data, list):
-            return [_map_deal(item, "Buy") for item in data]
-        return []
+        items = [_map_deal(item, "Buy") for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corporate-actions/all?type=block", rid)
 
@@ -1160,13 +1184,12 @@ async def get_sast_trades(request: Request):
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
         "regulation": "sast",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        if isinstance(data, list):
-            return [_map_sast(item) for item in data]
-        return []
+        items = [_map_sast(item) for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corp-announcements?regulation=sast", rid)
 
@@ -1179,13 +1202,12 @@ async def get_insider_trades(request: Request):
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
         "regulation": "pit",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        if isinstance(data, list):
-            return [_map_insider(item) for item in data]
-        return []
+        items = [_map_insider(item) for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corp-announcements?regulation=pit", rid)
 
@@ -1307,16 +1329,15 @@ async def get_dividends(request: Request):
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=90)).strftime("%Y-%m-%d"),
-        "to_date": (now + timedelta(days=90)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=15)).strftime("%Y-%m-%d"),
+        "to_date": (now + timedelta(days=15)).strftime("%Y-%m-%d"),
         "action": "dividend",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        if isinstance(data, list):
-            return [_map_dividend(item) for item in data]
-        return []
+        items = [_map_dividend(item) for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corporate-actions/all?action=dividend", rid)
 
@@ -1326,15 +1347,14 @@ async def get_concalls(request: Request):
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=90)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "investor-call-transcripts", q, None, rid)
-        if isinstance(data, list):
-            return [_map_concall(item) for item in data]
-        return []
+        items = [_map_concall(item) for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "investor-call-transcripts", rid)
 
@@ -1347,13 +1367,12 @@ async def get_annual_reports(request: Request):
         "from_date": (now - timedelta(days=120)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
         "category": "annual report",
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        if isinstance(data, list):
-            return [_map_annual_report(item) for item in data]
-        return []
+        items = [_map_annual_report(item) for item in data] if isinstance(data, list) else []
+        return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corp-announcements?category=annual report", rid)
 
@@ -1399,7 +1418,7 @@ async def get_index_profile(symbol: str, request: Request):
                 "div_yield": 1.25,
                 "market_cap": 15000000.0,
                 "volume": 5000000,
-                "quote_date": "2026-06-26"
+                "quote_date": time.strftime("%Y-%m-%d")
             }
             
         return {**master_item, **feed_item}
@@ -1422,7 +1441,7 @@ async def get_index_profile(symbol: str, request: Request):
             "div_yield": 1.25,
             "market_cap": 15000000.0,
             "volume": 5000000,
-            "quote_date": "2026-06-26"
+            "quote_date": time.strftime("%Y-%m-%d")
         }
 
 @router.get("/index/{symbol}/historical")

@@ -40,6 +40,36 @@ def _get_api_key() -> str:
 def _is_demo_key() -> bool:
     return all(k in ("demo-key-1", "demo-key-2", "demo-key-3") for k in settings.FINEDGE_API_KEYS)
 
+def _clamp_query_dates(endpoint: str, query: Dict[str, Any]) -> None:
+    from datetime import datetime, timedelta
+    ep = endpoint.lower()
+    
+    from_date_str = query.get("from_date")
+    to_date_str = query.get("to_date")
+    
+    if not from_date_str or not to_date_str:
+        return
+        
+    try:
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d")
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d")
+    except ValueError:
+        return
+        
+    if "corporate-actions" in ep:
+        max_days = 30
+    elif "investor-call-transcripts" in ep:
+        max_days = 7
+    elif "corp-announcements" in ep:
+        max_days = 7
+    else:
+        return
+        
+    if (to_date - from_date).days > max_days:
+        clamped_from_date = to_date - timedelta(days=max_days)
+        query["from_date"] = clamped_from_date.strftime("%Y-%m-%d")
+        logger.info(f"[FinEdge Date Clamp] Clamped {ep} from_date from {from_date_str} to {query['from_date']} to satisfy range limit of {max_days} days.")
+
 # ── 4. Smart TTL strategy (mirrors Express tier logic) ────────────────────────
 def _get_ttl(endpoint: str) -> int:
     ep = endpoint.lower()
@@ -115,6 +145,9 @@ async def execute_proxy_request(
     request_id: str = ""
 ) -> Any:
     import json
+    
+    # Clamp query date ranges to fit FinEdge API constraints
+    _clamp_query_dates(endpoint, query)
 
     cache_key = f"{method}:{endpoint}:{json.dumps(query, sort_keys=True)}:{json.dumps(body, sort_keys=True) if body else ''}"
 

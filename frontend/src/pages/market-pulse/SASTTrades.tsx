@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
@@ -7,7 +8,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
-import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { fetchSastTradesStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 const YEARS = ['2026', '2025', '2024']
 
@@ -25,36 +28,21 @@ interface SASTrade {
 }
 
 export default function SASTTrades() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const year = searchParams.get('year') ?? '2026'
-  const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
+  const year      = searchParams.get('year')      ?? '2026'
+  const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
-  const [trades, setTrades] = useState<SASTrade[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchTrades = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await finscreenClient.get('/market/sast-trades')
-      setTrades(res.data || [])
-    } catch (err: any) {
-      console.error(err)
-      setError('Failed to fetch SAST trades data. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { items: trades, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.sastTrades)
+  const loading = status === 'loading'
 
   useEffect(() => {
-    fetchTrades()
-  }, [])
+    dispatch(fetchSastTradesStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    fetchTrades()
-  }
+  const handleRetry = () => dispatch(fetchSastTradesStart({ page, limit }))
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
@@ -214,11 +202,12 @@ export default function SASTTrades() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedData.map((d, i) => {
+                    {sortedData.map((d: any, i: number) => {
                       const isAcquisition = d.changePercent >= 0
+                      const rowNum = (page - 1) * limit + i + 1
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
-                          <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
+                          <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
                             <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
@@ -249,6 +238,18 @@ export default function SASTTrades() {
                 </Table>
               )}
             </div>
+
+            {/* Pagination bar */}
+            {!loading && total > 0 && (
+              <PaginationBar
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={(p) => dispatch(fetchSastTradesStart({ page: p, limit }))}
+                onLimitChange={(l) => dispatch(fetchSastTradesStart({ page: 1, limit: l }))}
+                limitOptions={[10, 15, 25, 50]}
+              />
+            )}
           </div>
         )}
       </div>

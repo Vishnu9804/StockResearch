@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
@@ -7,7 +8,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
-import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { fetchInsiderTradesStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 const TRADE_FILTERS = ['All', 'Buy', 'Sell'] as const
 type TradeFilter = typeof TRADE_FILTERS[number]
@@ -27,36 +30,21 @@ interface InsiderTrade {
 }
 
 export default function InsiderTrades() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
   const tradeType = (searchParams.get('tradeType') ?? 'All') as TradeFilter
-  const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
+  const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
-  const [trades, setTrades] = useState<InsiderTrade[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchTrades = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await finscreenClient.get('/market/insider-trades')
-      setTrades(res.data || [])
-    } catch (err: any) {
-      console.error(err)
-      setError('Failed to fetch insider trades data. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { items: trades, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.insiderTrades)
+  const loading = status === 'loading'
 
   useEffect(() => {
-    fetchTrades()
-  }, [])
+    dispatch(fetchInsiderTradesStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    fetchTrades()
-  }
+  const handleRetry = () => dispatch(fetchInsiderTradesStart({ page, limit }))
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
@@ -225,11 +213,12 @@ export default function InsiderTrades() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedData.map((d, i) => {
+                    {sortedData.map((d: any, i: number) => {
                       const isBuy = d.tradeType === 'Buy'
+                      const rowNum = (page - 1) * limit + i + 1
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
-                          <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
+                          <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
                             <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
@@ -261,6 +250,18 @@ export default function InsiderTrades() {
                 </Table>
               )}
             </div>
+
+            {/* Pagination bar */}
+            {!loading && total > 0 && (
+              <PaginationBar
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={(p) => dispatch(fetchInsiderTradesStart({ page: p, limit }))}
+                onLimitChange={(l) => dispatch(fetchInsiderTradesStart({ page: 1, limit: l }))}
+                limitOptions={[10, 15, 25, 50]}
+              />
+            )}
           </div>
         )}
       </div>

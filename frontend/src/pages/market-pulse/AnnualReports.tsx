@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, BookOpen, Inbox, ArrowUp, ArrowDown } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
@@ -7,7 +8,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
-import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { fetchAnnualReportsStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 const FY_OPTIONS = ['FY26', 'FY25', 'FY24']
 
@@ -26,36 +29,21 @@ interface AnnualReport {
 }
 
 export default function AnnualReports() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const fy = searchParams.get('fy') ?? 'FY26'
-  const sortBy = (searchParams.get('sortBy') ?? 'revenue') as SortField
-  const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as SortOrder
+  const fy        = searchParams.get('fy')        ?? 'FY26'
+  const sortBy    = (searchParams.get('sortBy')    ?? 'revenue') as SortField
+  const sortOrder = (searchParams.get('sortOrder') ?? 'desc')    as SortOrder
 
-  const [reports, setReports] = useState<AnnualReport[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchReports = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await finscreenClient.get('/market/annual-reports')
-      setReports(res.data || [])
-    } catch (err: any) {
-      console.error(err)
-      setError('Failed to load annual reports. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { items: reports, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.annualReports)
+  const loading = status === 'loading'
 
   useEffect(() => {
-    fetchReports()
-  }, [])
+    dispatch(fetchAnnualReportsStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    fetchReports()
-  }
+  const handleRetry = () => dispatch(fetchAnnualReportsStart({ page, limit }))
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
@@ -253,6 +241,18 @@ export default function AnnualReports() {
                   </Table>
                 )}
               </div>
+
+              {/* Pagination bar */}
+              {!loading && total > 0 && (
+                <PaginationBar
+                  total={total}
+                  page={page}
+                  limit={limit}
+                  onPageChange={(p) => dispatch(fetchAnnualReportsStart({ page: p, limit }))}
+                  onLimitChange={(l) => dispatch(fetchAnnualReportsStart({ page: 1, limit: l }))}
+                  limitOptions={[10, 15, 25, 50]}
+                />
+              )}
             </div>
 
             {/* RIGHT: Filter sidebar */}

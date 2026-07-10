@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
 
 import { AppFooter } from '@/components/shared/AppFooter'
@@ -10,7 +11,9 @@ import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { toast } from 'react-hot-toast'
-import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { fetchConcallsStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 type SortField = 'company' | 'date'
 
@@ -25,35 +28,20 @@ interface Concall {
 }
 
 export function Concalls() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
+  const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
-  const [concallsList, setConcallsList] = useState<Concall[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchConcalls = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await finscreenClient.get('/market/concalls')
-      setConcallsList(res.data || [])
-    } catch (err: any) {
-      console.error(err)
-      setError('Failed to fetch concalls data. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { items: concallsList, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.concalls)
+  const loading = status === 'loading'
 
   useEffect(() => {
-    fetchConcalls()
-  }, [])
+    dispatch(fetchConcallsStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    fetchConcalls()
-  }
+  const handleRetry = () => dispatch(fetchConcallsStart({ page, limit }))
 
   const handleSort = (field: SortField) => {
     const newParams = new URLSearchParams(searchParams)
@@ -196,6 +184,18 @@ export function Concalls() {
                 </Table>
               )}
             </div>
+
+            {/* Pagination bar */}
+            {!loading && total > 0 && (
+              <PaginationBar
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={(p) => dispatch(fetchConcallsStart({ page: p, limit }))}
+                onLimitChange={(l) => dispatch(fetchConcallsStart({ page: 1, limit: l }))}
+                limitOptions={[10, 15, 25, 50]}
+              />
+            )}
           </div>
         )}
       </div>
@@ -314,7 +314,7 @@ export function UpcomingConcalls() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedUpcoming.map((d, i) => (
+                    {sortedUpcoming.map((d: any, i: number) => (
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                         <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
                         <TableCell className="text-sm px-4 py-3">

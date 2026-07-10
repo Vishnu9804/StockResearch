@@ -13,6 +13,7 @@ import { uiReducer } from './slices/uiSlice'
 import searchReducer from './slices/searchSlice'
 import authReducer from './slices/authSlice'
 import { portfolioReducer } from './slices/portfolioSlice'
+import { marketPulseReducer } from './slices/marketPulseSlice'
 import { rootSaga } from './rootSaga'
 
 const sagaMiddleware = createSagaMiddleware()
@@ -27,6 +28,7 @@ export const store = configureStore({
     search: searchReducer,
     auth: authReducer,
     portfolio: portfolioReducer,
+    marketPulse: marketPulseReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

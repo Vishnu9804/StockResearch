@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, Search, Inbox } from 'lucide-react'
 import type { Announcement } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
@@ -9,8 +10,10 @@ import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { AnnouncementItem } from '@/components/shared/AnnouncementItem'
-import finscreenApi from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
 import { companies } from '@/lib/data/companies'
+import { fetchAnnouncementsStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 const CATEGORIES = ['All', 'Board Meeting', 'Concall', 'Annual Report', 'Dividend', 'Merger', 'Capacity', 'Resignation', 'Award', 'Results', 'Other']
 
@@ -26,52 +29,24 @@ function extractCompanyName(ann: any): string {
 }
 
 export default function Announcements() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
   const category = searchParams.get('category') ?? 'All'
-  const search = searchParams.get('q') ?? ''
+  const search   = searchParams.get('q') ?? ''
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [liveAnnouncements, setLiveAnnouncements] = useState<any[]>([])
-  
   // Local storage persisted density state
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
 
-  async function loadAnnouncements() {
-    try {
-      setLoading(true)
-      setError(null)
-      const now = new Date()
-      const pastDate = new Date(now)
-      pastDate.setDate(pastDate.getDate() - 14)
-      const data = await finscreenApi.fetchMarketAnnouncements({
-        from_date: pastDate.toISOString().split('T')[0],
-        to_date: now.toISOString().split('T')[0]
-      })
-      setLiveAnnouncements(data || [])
-    } catch (err: any) {
-      setError('Failed to load announcements. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { items: liveAnnouncements, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.announcements)
+
+  const loading = status === 'loading' || status === 'idle'
 
   useEffect(() => {
-    const mockError = searchParams.get('error') === 'true'
-    if (mockError) {
-      setError('Failed to load announcements. Please retry.')
-      setLoading(false)
-    } else {
-      loadAnnouncements()
-    }
-  }, [])
+    dispatch(fetchAnnouncementsStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.delete('error')
-    setSearchParams(newParams)
-    loadAnnouncements()
-  }
+  const handleRetry = () => dispatch(fetchAnnouncementsStart({ page, limit }))
 
   const handleSearchChange = (val: string) => {
     const newParams = new URLSearchParams(searchParams)
@@ -238,11 +213,16 @@ export default function Announcements() {
                 </div>
               )}
 
-              {/* Count */}
+              {/* Count / PaginationBar */}
               {!loading && (
-                <div className="px-4 py-3 text-xs text-textMuted border-t border-border/40 bg-surfaceMuted/10">
-                  Showing {filtered.length} announcements
-                </div>
+                <PaginationBar
+                  total={total}
+                  page={page}
+                  limit={limit}
+                  onPageChange={(p) => dispatch(fetchAnnouncementsStart({ page: p, limit }))}
+                  onLimitChange={(l) => dispatch(fetchAnnouncementsStart({ page: 1, limit: l }))}
+                  limitOptions={[25, 50, 100]}
+                />
               )}
             </div>
 

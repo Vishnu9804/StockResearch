@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
@@ -7,98 +8,68 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
-import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { fetchBlockDealsStart } from '@/store/slices/marketPulseSlice'
+import type { RootState, AppDispatch } from '@/store'
 
 const YEARS = ['2026', '2025', '2024']
 
 type SortField = 'company' | 'client' | 'quantity' | 'price' | 'valueCr' | 'date'
 
-interface Deal {
-  date: string
-  company: string
-  symbol: string
-  client: string
-  tradeType: 'Buy' | 'Sell'
-  quantity: number
-  price: number
-  valueCr: number
-}
-
 export default function BlockDeals() {
+  const dispatch = useDispatch<AppDispatch>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const year = searchParams.get('year') ?? '2026'
-  const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
+
+  const year      = searchParams.get('year')      ?? '2026'
+  const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
-  const [deals, setDeals] = useState<Deal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { items: deals, total, page, limit, status, error } =
+    useSelector((s: RootState) => s.marketPulse.blockDeals)
 
-  const fetchDeals = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await finscreenClient.get('/market/block-deals')
-      setDeals(res.data || [])
-    } catch (err: any) {
-      console.error(err)
-      setError('Failed to fetch block deals data. Please retry.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const loading = status === 'loading'
 
   useEffect(() => {
-    fetchDeals()
-  }, [])
+    dispatch(fetchBlockDealsStart({ page, limit }))
+  }, [dispatch, page, limit])
 
-  const handleRetry = () => {
-    fetchDeals()
-  }
+  const handleRetry = () => dispatch(fetchBlockDealsStart({ page, limit }))
 
   const handleSort = (field: SortField) => {
-    const newParams = new URLSearchParams(searchParams)
+    const p = new URLSearchParams(searchParams)
     if (sortBy === field) {
-      newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
+      p.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
     } else {
-      newParams.set('sortBy', field)
-      newParams.set('sortOrder', 'desc')
+      p.set('sortBy', field)
+      p.set('sortOrder', 'desc')
     }
-    setSearchParams(newParams)
+    setSearchParams(p)
   }
 
   const handleYearChange = (y: string) => {
-    const newParams = new URLSearchParams(searchParams)
-    newParams.set('year', y)
-    setSearchParams(newParams)
+    const p = new URLSearchParams(searchParams)
+    p.set('year', y)
+    setSearchParams(p)
   }
 
   const sortedData = useMemo(() => {
-    const filtered = deals.filter((d) => !d.date || d.date.startsWith(year))
-    const displayData = filtered.length > 0 ? filtered : deals
-
-    return [...displayData].sort((a, b) => {
-      let valA: any = a[sortBy]
-      let valB: any = b[sortBy]
-
-      if (typeof valA === 'string') {
-        valA = valA.toLowerCase()
-        valB = valB.toLowerCase()
-      }
-
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+    const filtered = deals.filter((d: any) => !d.date || d.date.startsWith(year))
+    const base = filtered.length > 0 ? filtered : deals
+    return [...base].sort((a: any, b: any) => {
+      let vA: any = a[sortBy]
+      let vB: any = b[sortBy]
+      if (typeof vA === 'string') { vA = vA.toLowerCase(); vB = vB.toLowerCase() }
+      if (vA < vB) return sortOrder === 'asc' ? -1 : 1
+      if (vA > vB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
   }, [deals, year, sortBy, sortOrder])
 
   const renderSortIcon = (field: SortField) => {
     if (sortBy !== field) return null
-    return sortOrder === 'asc' ? (
-      <ArrowUp className="size-3 ml-1 text-accent inline shrink-0" />
-    ) : (
-      <ArrowDown className="size-3 ml-1 text-accent inline shrink-0" />
-    )
+    return sortOrder === 'asc'
+      ? <ArrowUp className="size-3 ml-1 text-accent inline shrink-0" />
+      : <ArrowDown className="size-3 ml-1 text-accent inline shrink-0" />
   }
 
   return (
@@ -113,7 +84,6 @@ export default function BlockDeals() {
           <span className="text-accent font-medium">Block Deals</span>
         </div>
 
-        {/* Heading */}
         <Heading level={1} variant="pageTitle" className="text-textPrimary mb-4">
           Block Deals
         </Heading>
@@ -138,22 +108,17 @@ export default function BlockDeals() {
         {error ? (
           <InlineError message={error} onRetry={handleRetry} className="mb-8" />
         ) : (
-          /* Table card */
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="p-5">
-                  <TableRowsSkeleton rows={6} cols={8} />
-                </div>
+                <div className="p-5"><TableRowsSkeleton rows={limit} cols={8} /></div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <Inbox className="size-6 text-textMuted" />
-                    </EmptyMedia>
+                    <EmptyMedia variant="icon"><Inbox className="size-6 text-textMuted" /></EmptyMedia>
                     <EmptyTitle className="text-textPrimary font-semibold">No block deals found</EmptyTitle>
                     <EmptyDescription className="text-textSecondary">
-                      Try selecting a different year chip or filter.
+                      Try selecting a different year or page.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -162,86 +127,49 @@ export default function BlockDeals() {
                   <TableHeader className="bg-surfaceMuted/20">
                     <TableRow className="border-b border-border/40">
                       <TableHead className="w-12 text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">#</TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('date')}
-                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center">
-                          Date {renderSortIcon('date')}
-                        </div>
+                      <TableHead onClick={() => handleSort('date')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center">Date {renderSortIcon('date')}</div>
                       </TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('company')}
-                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center">
-                          Company {renderSortIcon('company')}
-                        </div>
+                      <TableHead onClick={() => handleSort('company')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center">Company {renderSortIcon('company')}</div>
                       </TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('client')}
-                        className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center">
-                          Client / Entity {renderSortIcon('client')}
-                        </div>
+                      <TableHead onClick={() => handleSort('client')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center">Client / Entity {renderSortIcon('client')}</div>
                       </TableHead>
                       <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Trade Type</TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('quantity')}
-                        className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center justify-end">
-                          Quantity {renderSortIcon('quantity')}
-                        </div>
+                      <TableHead onClick={() => handleSort('quantity')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center justify-end">Quantity {renderSortIcon('quantity')}</div>
                       </TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('price')}
-                        className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center justify-end">
-                          Price (₹) {renderSortIcon('price')}
-                        </div>
+                      <TableHead onClick={() => handleSort('price')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center justify-end">Price (₹) {renderSortIcon('price')}</div>
                       </TableHead>
-                      <TableHead 
-                        onClick={() => handleSort('valueCr')}
-                        className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none"
-                      >
-                        <div className="flex items-center justify-end">
-                          Value (Cr) {renderSortIcon('valueCr')}
-                        </div>
+                      <TableHead onClick={() => handleSort('valueCr')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center justify-end">Value (Cr) {renderSortIcon('valueCr')}</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedData.map((d, i) => {
+                    {sortedData.map((d: any, i: number) => {
                       const isBuy = d.tradeType === 'Buy'
+                      const rowNum = (page - 1) * limit + i + 1
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
-                          <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
+                          <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                            <Link to={`/company/${d.symbol?.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
                               {d.company}
                             </Link>
                           </TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3">{d.client}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                              isBuy ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'
-                            }`}>
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${isBuy ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}>
                               {d.tradeType}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {d.quantity?.toLocaleString('en-IN') || '—'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {d.price ? `₹${d.price.toLocaleString('en-IN')}` : '—'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">
-                            {d.valueCr ? `₹${Number(d.valueCr).toFixed(2)}` : '—'}
-                          </TableCell>
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.quantity?.toLocaleString('en-IN') || '—'}</TableCell>
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.price ? `₹${d.price.toLocaleString('en-IN')}` : '—'}</TableCell>
+                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.valueCr ? `₹${Number(d.valueCr).toFixed(2)}` : '—'}</TableCell>
                         </TableRow>
                       )
                     })}
@@ -249,6 +177,18 @@ export default function BlockDeals() {
                 </Table>
               )}
             </div>
+
+            {/* Pagination bar */}
+            {!loading && total > 0 && (
+              <PaginationBar
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={(p) => dispatch(fetchBlockDealsStart({ page: p, limit }))}
+                onLimitChange={(l) => dispatch(fetchBlockDealsStart({ page: 1, limit: l }))}
+                limitOptions={[10, 15, 25, 50]}
+              />
+            )}
           </div>
         )}
       </div>

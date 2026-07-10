@@ -7,10 +7,8 @@
 import axios, { type AxiosInstance } from 'axios'
 import type { Company } from '@/lib/data/companies'
 
-const BASE_API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-const BASE_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-  ? '/api/finscreen'
-  : `${BASE_API.replace(/\/$/, '')}/finscreen`
+const BASE_API = import.meta.env.VITE_API_URL || '/api'
+const BASE_URL = `${BASE_API.replace(/\/$/, '')}/finscreen`
 
 function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -31,9 +29,7 @@ finscreenClient.interceptors.request.use((config) => {
   return config
 })
 
-const SCREENER_BASE_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-  ? '/api/screener'
-  : `${BASE_API.replace(/\/$/, '')}/screener`
+const SCREENER_BASE_URL = `${BASE_API.replace(/\/$/, '')}/screener`
 
 export const screenerApiClient: AxiosInstance = axios.create({
   baseURL: SCREENER_BASE_URL,

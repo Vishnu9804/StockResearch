@@ -13,6 +13,7 @@ import { screenerSaga } from './sagas/screenerSaga'
 import { watchlistSaga } from './sagas/watchlistSaga'
 import { notificationSaga } from './sagas/notificationSaga'
 import { authSaga } from './sagas/authSaga'
+import { marketPulseSaga } from './sagas/marketPulseSaga'
 
 export function* rootSaga() {
   yield all([
@@ -21,5 +22,6 @@ export function* rootSaga() {
     screenerSaga(),
     watchlistSaga(),
     notificationSaga(),
+    marketPulseSaga(),
   ])
 }
