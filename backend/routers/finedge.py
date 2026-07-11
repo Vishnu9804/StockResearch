@@ -829,7 +829,8 @@ async def get_sector_performance(request: Request):
                     func.count(CompanyMetric.symbol).label("stock_count"),
                     func.avg(CompanyMetric.pe).label("avg_pe"),
                 )
-                .where(CompanyMetric.sector.notin_(["Other", "other", "", None]))
+                .where(CompanyMetric.sector.isnot(None))
+                .where(CompanyMetric.sector.notin_(["Other", "other", ""]))
                 .where(CompanyMetric.market_cap > 0)
                 .group_by(CompanyMetric.sector)
                 .order_by(func.avg(CompanyMetric.change_pct).desc())
