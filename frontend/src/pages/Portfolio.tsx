@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
-import { companies } from '@/lib/data/companies'
+import { fetchStockSymbols } from '@/store/slices/searchSlice'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   fetchPortfolios,
@@ -51,22 +51,24 @@ function formatPrice(n: number): string {
 export function Portfolio() {
   const dispatch = useAppDispatch()
   const { portfolios, holdings, status, error, activePortfolioId } = useAppSelector((state) => state.portfolio)
+  const stockSymbols = useAppSelector((state) => (state as any).search?.symbols ?? [])
 
   const [period, setPeriod] = useState<SparklinePeriod>('Today')
   const [showAddModal, setShowAddModal] = useState(false)
   const [addSearch, setAddSearch] = useState('')
   const [addQty, setAddQty] = useState('')
   const [addCost, setAddCost] = useState('')
-  const [addSelected, setAddSelected] = useState<typeof companies[0] | null>(null)
+  const [addSelected, setAddSelected] = useState<any | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [quotes, setQuotes] = useState<Record<string, any>>({})
   const [buyingPower, setBuyingPower] = useState(142800)
   const [editingBuyingPower, setEditingBuyingPower] = useState(false)
   const [buyingPowerInput, setBuyingPowerInput] = useState('')
 
-  // Load portfolios on mount
+  // Load portfolios + stock symbols on mount
   useEffect(() => {
     fetchPortfolios()(dispatch)
+    dispatch(fetchStockSymbols() as any) // cache symbols for search (no-op if already loaded)
   }, [dispatch])
 
   // Automatically initialize a default portfolio if none exist
@@ -112,9 +114,8 @@ export function Portfolio() {
       const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
       const dayPnl = h.quantity * cmp * (dayChange / 100)
 
-      // Resolve sector locally from static list if possible
-      const localComp = companies.find(c => c.symbol === h.symbol)
-      const sector = localComp?.sector || 'Other'
+      // Resolve sector from live quote (enriched by backend) or fallback to 'Other'
+      const sector = quotes[h.symbol]?.sector || 'Other'
 
       return {
         ...h,
@@ -166,10 +167,10 @@ export function Portfolio() {
   const searchResults = useMemo(() => {
     if (!addSearch.trim()) return []
     const q = addSearch.toLowerCase()
-    return companies
-      .filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q))
-      .slice(0, 5)
-  }, [addSearch])
+    return stockSymbols
+      .filter((c: any) => (c.symbol || '').toLowerCase().includes(q) || (c.name || c.company_name || '').toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [addSearch, stockSymbols])
 
   const handleAddHolding = () => {
     if (!addSelected || !addQty || !addCost || !activePortfolioId) return
@@ -563,14 +564,16 @@ export function Portfolio() {
                 </div>
                 {searchResults.length > 0 && !addSelected && (
                   <div className="border border-border rounded-lg bg-surface shadow-sm max-h-36 overflow-y-auto">
-                    {searchResults.map(c => (
-                      <button key={c.symbol} onClick={() => { setAddSelected(c); setAddSearch(''); setAddCost(c.price.toFixed(2)) }}
+                    {searchResults.map((c: any) => (
+                      <button key={c.symbol} onClick={() => { setAddSelected(c); setAddSearch(''); setAddCost((c.price || c.cmp || 0).toFixed(2)) }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-surfaceMuted transition-colors flex items-center justify-between border-b last:border-0 border-border/50">
                         <div>
                           <span className="font-medium text-textPrimary font-mono">{c.symbol}</span>
                           <span className="text-textMuted ml-2 text-xs">{c.name}</span>
                         </div>
-                        <span className="text-xs text-accent font-medium">₹{c.price.toFixed(2)}</span>
+                        <span className="text-xs text-accent font-medium">
+                          {(c.price || c.cmp) ? `₹${(c.price || c.cmp).toFixed(2)}` : '—'}
+                        </span>
                       </button>
                     ))}
                   </div>

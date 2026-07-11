@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
-import { iposRecent, type UpcomingIPO, type RecentIPO } from '@/lib/data/market-pulse'
+import type { UpcomingIPO, RecentIPO } from '@/lib/data/market-pulse'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
@@ -168,19 +168,15 @@ export function NewIssues() {
     return ipoList
       .filter(item => item.ipo_status === 'Listed')
       .map(item => {
-        const seed = iposRecent.find(
-          s => s.symbol?.toUpperCase() === item.symbol?.toUpperCase() ||
-               s.company.toLowerCase().includes(item.company_name.toLowerCase())
-        )
-        const ipoPrice = seed ? seed.ipoPrice : getIpoPrice(item.price_range)
-        const currentPrice = seed ? seed.currentPrice : ipoPrice
-        const changePercent = seed ? seed.changePercent : 0
-        const ipoMarketCapCr = seed ? seed.ipoMarketCapCr : Math.round(parseIssueSize(item.issue_size) / 10000000) || 1000
-        const currentMarketCapCr = seed ? seed.currentMarketCapCr : ipoMarketCapCr
+        const ipoPrice = getIpoPrice(item.price_range)
+        const currentPrice = item.listing_price ? parseFloat(item.listing_price) : ipoPrice
+        const changePercent = ipoPrice > 0 ? ((currentPrice - ipoPrice) / ipoPrice) * 100 : 0
+        const ipoMarketCapCr = Math.round(parseIssueSize(item.issue_size) / 10000000) || 1000
+        const currentMarketCapCr = ipoMarketCapCr
         return {
           company: item.company_name,
           symbol: item.symbol || '',
-          listingDate: seed ? seed.listingDate : item.end_date,
+          listingDate: item.end_date,
           ipoPrice,
           currentPrice,
           changePercent,

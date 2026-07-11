@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { quarterlyResults, quarters, type FinancialRow } from '@/lib/data/financials'
+import type { FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/utils/csv'
@@ -30,8 +30,9 @@ export function QuarterlyResultsTable() {
     }
   }, [symbol, dispatch])
 
-  const columnsList = storeQuarterly?.columns || quarters
-  const rowsList = storeQuarterly?.rows || quarterlyResults
+  // Data mapping — show empty arrays while API loads
+  const columnsList = storeQuarterly?.columns || []
+  const rowsList = storeQuarterly?.rows || []
 
   const toggleRow = (label: string) => {
     setExpandedRows((prev) => ({ ...prev, [label]: !prev[label] }))

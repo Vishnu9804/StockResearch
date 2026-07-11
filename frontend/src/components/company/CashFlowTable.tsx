@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cashFlow, ratios, fiscalYears, type FinancialRow } from '@/lib/data/financials'
+import type { FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/utils/csv'
@@ -51,10 +51,12 @@ export function CashFlowTable() {
   const period = useAppSelector((state) => state.company?.period || 'annual')
   const financialsStatus = useAppSelector((state) => state.company?.financialsStatus)
   const storeCashFlow = useAppSelector((state) => state.company?.cashFlow)
+  const storeRatios = useAppSelector((state) => state.company?.ratios)
 
-  // Data mapping
-  const activeCashFlow = storeCashFlow?.rows || cashFlow
-  const columns = storeCashFlow?.columns || fiscalYears
+  // Data mapping — show empty arrays while API loads (triggers existing loading/isEmpty states)
+  const activeCashFlow = storeCashFlow?.rows || []
+  const activeRatios = storeRatios?.rows || []
+  const columns = storeCashFlow?.columns || []
   const visibleYears = isPro ? columns : columns.slice(-5)
   const isEmpty = !activeCashFlow || activeCashFlow.length === 0
 
@@ -171,16 +173,16 @@ export function CashFlowTable() {
     const headers = ['Ratio Metric', ...visibleYears]
     const csvRows: (string | number | null)[][] = []
 
-    const addRow = (row: FinancialRow, depth = 0) => {
+    const addRow = (row: any, depth: number) => {
       const label = '  '.repeat(depth) + row.label
       const values = isPro ? row.values : row.values.slice(-5)
       csvRows.push([label, ...values])
       if (row.children) {
-        row.children.forEach((c) => addRow(c, depth + 1))
+        row.children.forEach((c: any) => addRow(c, depth + 1))
       }
     }
 
-    ratios.forEach((row) => addRow(row, 0))
+    activeRatios.forEach((row: any) => addRow(row, 0))
     exportToCSV(`${symbol.toLowerCase()}_efficiency_ratios.csv`, headers, csvRows)
   }
 
@@ -526,7 +528,7 @@ export function CashFlowTable() {
                   ))}
                 </TableRow>
               </TableHeader>
-              <TableBody>{ratios.map((row: FinancialRow) => renderRow(row, 0, 'ratio'))}</TableBody>
+              <TableBody>{activeRatios.map((row: FinancialRow) => renderRow(row, 0, 'ratio'))}</TableBody>
             </Table>
           </div>
         </div>

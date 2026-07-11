@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
 import { Label } from '@/components/ui/label'
-import { companies } from '@/lib/data/companies'
+import { fetchStockSymbols } from '@/store/slices/searchSlice'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   createWatchlist,
@@ -46,6 +46,7 @@ function formatPrice(n: number): string {
 export function Watchlists() {
   const dispatch = useAppDispatch()
   const { watchlists, activeWatchlistId } = useAppSelector((state) => state.watchlist)
+  const stockSymbols = useAppSelector((state) => (state as any).search?.symbols ?? [])
   
   const [isEditing, setIsEditing] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -167,8 +168,13 @@ export function Watchlists() {
     dispatch(deleteWatchlist(id))
   }
 
+  // Load stock symbols on mount (cached in Redux after first call)
+  useEffect(() => {
+    dispatch(fetchStockSymbols() as any)
+  }, [dispatch])
+
   // Add stock to current watchlist
-  const addStockToWatchlist = (comp: typeof companies[0]) => {
+  const addStockToWatchlist = (comp: any) => {
     dispatch(addToWatchlist({
       item: {
         symbol: comp.symbol,
@@ -184,15 +190,15 @@ export function Watchlists() {
     dispatch(removeFromWatchlist({ symbol: stockId }))
   }
 
-  // Search filter
+  // Search filter — uses full symbol list from Redux (5000+ companies)
   const filteredSearchStocks = useMemo(() => {
     if (!stockSearchQuery.trim()) return []
     const query = stockSearchQuery.toLowerCase()
-    return companies.filter(c =>
-      c.symbol.toLowerCase().includes(query) ||
-      c.name.toLowerCase().includes(query)
-    ).slice(0, 5)
-  }, [stockSearchQuery])
+    return stockSymbols.filter((c: any) =>
+      (c.symbol || '').toLowerCase().includes(query) ||
+      (c.name || c.company_name || '').toLowerCase().includes(query)
+    ).slice(0, 8)
+  }, [stockSearchQuery, stockSymbols])
 
   // Update target price
   const updateTarget = (stockId: string, value: string) => {
@@ -322,7 +328,7 @@ export function Watchlists() {
                 {/* Search suggestions */}
                 {stockSearchQuery && filteredSearchStocks.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                    {filteredSearchStocks.map((comp) => (
+                    {filteredSearchStocks.map((comp: any) => (
                       <button
                         key={comp.symbol}
                         onClick={() => addStockToWatchlist(comp)}

@@ -318,7 +318,71 @@ async def sync_all_company_metrics():
         await asyncio.sleep(0.5)
 
 
+async def seed_sectors_from_finedge():
+    logger.info("[Scheduler] Seeding sectors from FinEdge stock-search...")
+    sectors_map = {
+        "Information Technology": "IT",
+        "Financial Services": "Finance",
+        "Fast Moving Consumer Goods": "FMCG",
+        "Healthcare & Pharma": "Healthcare",
+        "Consumer Discretionary": "Consumer Discretionary",
+        "Energy & Oil": "Energy",
+        "Telecom": "Telecom",
+        "Industrials & Engineering": "Capital Goods",
+        "Utilities & Power": "Power",
+        "Automobile & Components": "Automobile",
+        "Metals & Mining": "Metal",
+        "Chemicals": "Chemicals",
+        "Real Estate": "Realty",
+        "Media & Entertainment": "Media",
+    }
+    for display_name, api_name in sectors_map.items():
+        try:
+            logger.info(f"[Scheduler] Fetching symbols for sector: {display_name} ({api_name})")
+            res = await execute_proxy_request("GET", "stock-search", {"group": "sector", "value": api_name}, None, "sector_seeder")
+            symbols = []
+            if isinstance(res, dict):
+                symbols = res.get("symbols", [])
+            elif isinstance(res, list):
+                symbols = res
+            
+            if symbols:
+                async with AsyncSessionLocal() as session:
+                    for sym_item in symbols:
+                        sym = sym_item.upper() if isinstance(sym_item, str) else sym_item.get("symbol", "").upper()
+                        if not sym:
+                            continue
+                        
+                        metric_result = await session.execute(
+                            select(CompanyMetric).where(CompanyMetric.symbol == sym)
+                        )
+                        metric = metric_result.scalar_one_or_none()
+                        if metric:
+                            if metric.sector == "Other" or not metric.sector:
+                                metric.sector = display_name
+                                metric.industry = display_name
+                        else:
+                            name = sym_item.get("name", sym) if isinstance(sym_item, dict) else sym
+                            session.add(CompanyMetric(
+                                symbol=sym,
+                                name=name,
+                                sector=display_name,
+                                industry=display_name
+                            ))
+                    await session.commit()
+                logger.info(f"[Scheduler] Successfully seeded {len(symbols)} stocks for sector {display_name}")
+            await asyncio.sleep(1) # delay to avoid hitting rate limit
+        except Exception as e:
+            logger.error(f"[Scheduler] Failed seeding sector {display_name}: {e}")
+
+
 async def sync_all_company_metrics_loop():
+    # Run sector seeder on startup once
+    try:
+        await seed_sectors_from_finedge()
+    except Exception as e:
+        logger.error(f"[Scheduler] Error seeding sectors on startup: {e}")
+
     while True:
         try:
             await sync_all_company_metrics()

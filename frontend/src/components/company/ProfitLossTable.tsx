@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
-import { profitLoss, fiscalYears, type FinancialRow } from '@/lib/data/financials'
+import type { FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/utils/csv'
@@ -74,9 +74,9 @@ export function ProfitLossTable() {
   const storeProfitLoss = useAppSelector((state) => state.company?.profitLoss)
   const storeSegments = useAppSelector((state) => state.company?.segments)
 
-  // Data mapping
-  const activeProfitLoss = storeProfitLoss?.rows || profitLoss
-  const columns = storeProfitLoss?.columns || fiscalYears
+  // Data mapping — show empty arrays while API loads (triggers existing loading/isEmpty states)
+  const activeProfitLoss = storeProfitLoss?.rows || []
+  const columns = storeProfitLoss?.columns || []
   const visibleYears = isPro ? columns : columns.slice(-5)
   const isEmpty = !activeProfitLoss || activeProfitLoss.length === 0
 

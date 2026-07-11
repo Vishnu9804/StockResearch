@@ -32,6 +32,7 @@ export function CorporateActionsTable() {
   const itemsPerPage = 6
 
   const storeActions = useAppSelector((state) => state.company?.corporateActions)
+  const companyData = useAppSelector((state) => state.company?.data)
   const activeActions = storeActions?.corporateActions || corporateActions
   const activeUpcoming = storeActions?.upcomingEvents || upcomingEvents
   const activeDividends = storeActions?.dividendHistory || dividendHistory
@@ -69,6 +70,20 @@ export function CorporateActionsTable() {
   const bonuses = activeActions.filter((a: CorporateAction) => a.type === 'Bonus')
   const maxBar = Math.max(...activeDividends.map((d: any) => d.amount))
 
+  // Dynamic stat values derived from real data
+  const dividendYield = typeof companyData?.dividendYield === 'number'
+    ? companyData.dividendYield.toFixed(2) + '%'
+    : '—'
+  // Parse dividend amount from details string like "₹15 per share" or use amount field
+  const lastDivAmount = lastDividend
+    ? (lastDividend as any).amount
+      ? `₹${(lastDividend as any).amount}`
+      : (lastDividend.details?.match(/₹?([\.\d]+)/)?.[0] ?? '—')
+    : '—'
+  const bonusRatio = bonuses[0]
+    ? (bonuses[0].details || (bonuses[0] as any).ratio || '—')
+    : '—'
+
   return (
     <div className="space-y-5 select-none">
 
@@ -76,17 +91,17 @@ export function CorporateActionsTable() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
           <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Dividend Yield</p>
-          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">0.82%</p>
-          <p className="text-xs text-positive font-medium mt-0.5">Sector Avg: 0.65%</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">{dividendYield}</p>
+          <p className="text-xs text-positive font-medium mt-0.5">From company profile</p>
         </div>
         <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
           <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Last Dividend</p>
-          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">₹15.00</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">{lastDivAmount}</p>
           <p className="text-xs text-textMuted font-mono mt-0.5">{lastDividend ? formatDate(lastDividend.exDate) : '—'}</p>
         </div>
         <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">
           <p className="text-xs font-medium uppercase tracking-widest text-textMuted mb-1">Bonus Ratio</p>
-          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">1:1</p>
+          <p className="text-2xl font-medium font-mono text-textPrimary tabular-nums">{bonusRatio}</p>
           <p className="text-xs text-textMuted font-mono mt-0.5">Last: {bonuses[0] ? formatDate(bonuses[0].exDate) : '—'}</p>
         </div>
         <div className="bg-surface border border-border/40 rounded-xl px-5 py-4 shadow-xs hover:shadow-sm transition-all duration-200">

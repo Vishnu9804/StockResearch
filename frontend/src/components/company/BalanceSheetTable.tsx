@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { balanceSheet, fiscalYears, type FinancialRow } from '@/lib/data/financials'
+import type { FinancialRow } from '@/lib/data/financials'
 import { formatIndian, formatNumber } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import { exportToCSV } from '@/utils/csv'
@@ -51,9 +51,9 @@ export function BalanceSheetTable() {
   const financialsStatus = useAppSelector((state) => state.company?.financialsStatus)
   const storeBalanceSheet = useAppSelector((state) => state.company?.balanceSheet)
 
-  // Data mapping
-  const activeBalanceSheet = storeBalanceSheet?.rows || balanceSheet
-  const columns = storeBalanceSheet?.columns || fiscalYears
+  // Data mapping — show empty arrays while API loads (triggers existing loading/isEmpty states)
+  const activeBalanceSheet = storeBalanceSheet?.rows || []
+  const columns = storeBalanceSheet?.columns || []
   const visibleYears = isPro ? columns : columns.slice(-5)
   const isEmpty = !activeBalanceSheet || activeBalanceSheet.length === 0
 
