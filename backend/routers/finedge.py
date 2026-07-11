@@ -398,7 +398,7 @@ async def get_basic_financials(symbol: str, request: Request):
 @router.get("/company/{symbol}/financial-metrics")
 async def get_financial_metrics(symbol: str, request: Request):
     rid = _req_id(request)
-    q = {"statement_type": "s", "period": "annual", "ratio_type": "valuation", **dict(request.query_params)}
+    q = {"statement_type": "s", "period": "annual", "ratio_type": "cu", **dict(request.query_params)}
     try:
         return await execute_proxy_request("GET", f"financial-metrics/{symbol}", q, None, rid)
     except Exception:
@@ -443,8 +443,9 @@ async def get_cash_flow(symbol: str, request: Request):
 @router.get("/company/{symbol}/notes")
 async def get_notes(symbol: str, request: Request):
     rid = _req_id(request)
+    q = {"statement_type": "s", "period": "annual", **dict(request.query_params)}
     try:
-        return await execute_proxy_request("GET", f"notes/{symbol}", dict(request.query_params), None, rid)
+        return await execute_proxy_request("GET", f"notes/{symbol}", q, None, rid)
     except Exception as e:
         _api_error(e, f"notes/{symbol}", rid)
 
@@ -617,7 +618,8 @@ async def get_shareholding(symbol: str, request: Request):
 async def get_beneficial_owners(symbol: str, request: Request):
     rid = _req_id(request)
     try:
-        return await execute_proxy_request("GET", f"shareholdings/beneficial-owners/{symbol}", dict(request.query_params), None, rid)
+        q = {"period": "quarterly", **dict(request.query_params)}  # period required by FinEdge
+        return await execute_proxy_request("GET", f"shareholdings/beneficial-owners/{symbol}", q, None, rid)
     except Exception as e:
         _api_error(e, f"shareholdings/beneficial-owners/{symbol}", rid)
 
@@ -625,7 +627,8 @@ async def get_beneficial_owners(symbol: str, request: Request):
 async def get_shareholding_declaration(symbol: str, request: Request):
     rid = _req_id(request)
     try:
-        return await execute_proxy_request("GET", f"shareholdings/declaration/{symbol}", dict(request.query_params), None, rid)
+        q = {"period": "quarterly", **dict(request.query_params)}  # period required by FinEdge
+        return await execute_proxy_request("GET", f"shareholdings/declaration/{symbol}", q, None, rid)
     except Exception as e:
         _api_error(e, f"shareholdings/declaration/{symbol}", rid)
 
@@ -641,7 +644,8 @@ async def get_ownership_current(symbol: str, request: Request):
 async def get_ownership_history(symbol: str, request: Request):
     rid = _req_id(request)
     try:
-        return await execute_proxy_request("GET", f"shareholdings/ownership-history/{symbol}", dict(request.query_params), None, rid)
+        q = {"period": "quarterly", **dict(request.query_params)}  # period required by FinEdge
+        return await execute_proxy_request("GET", f"shareholdings/ownership-history/{symbol}", q, None, rid)
     except Exception as e:
         _api_error(e, f"shareholdings/ownership-history/{symbol}", rid)
 

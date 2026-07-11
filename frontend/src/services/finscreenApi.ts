@@ -14,13 +14,54 @@ function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
+// ── Retry helper ─────────────────────────────────────────────────────────────
+const MAX_RETRIES = 3
+const RETRYABLE_STATUSES = new Set([502, 503, 504, 429])
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms))
+}
+
+function isRetryable(err: any): boolean {
+  if (!err) return false
+  // Network / timeout with no response
+  if (!err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.message?.includes('timeout'))) return true
+  // Retryable HTTP status
+  if (err.response && RETRYABLE_STATUSES.has(err.response.status)) return true
+  return false
+}
+
+function addRetryInterceptor(client: AxiosInstance) {
+  client.interceptors.response.use(
+    (res) => res,
+    async (err) => {
+      const config = err.config
+      if (!config) return Promise.reject(err)
+
+      config.__retryCount = (config.__retryCount ?? 0)
+
+      if (config.__retryCount >= MAX_RETRIES || !isRetryable(err)) {
+        return Promise.reject(err)
+      }
+
+      config.__retryCount += 1
+      const delay = Math.min(1000 * 2 ** (config.__retryCount - 1), 8000) // 1s, 2s, 4s
+      console.warn(
+        `[FinScreen] Retry ${config.__retryCount}/${MAX_RETRIES} in ${delay}ms →`,
+        config.url,
+        err.message
+      )
+      await sleep(delay)
+      return client.request(config)
+    }
+  )
+}
+
 export const finscreenClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 60000, // 60s — backend heavy endpoints (insider trades etc.) can take up to 45s
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 })
 
 // Request interceptor: attach request ID
@@ -28,22 +69,23 @@ finscreenClient.interceptors.request.use((config) => {
   config.headers['X-Request-ID'] = generateRequestId()
   return config
 })
+// Auto-retry on network/5xx errors
+addRetryInterceptor(finscreenClient)
 
 const SCREENER_BASE_URL = `${BASE_API.replace(/\/$/, '')}/screener`
 
 export const screenerApiClient: AxiosInstance = axios.create({
   baseURL: SCREENER_BASE_URL,
-  timeout: 15000,
+  timeout: 60000,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 })
 
 screenerApiClient.interceptors.request.use((config) => {
   config.headers['X-Request-ID'] = generateRequestId()
   return config
 })
+addRetryInterceptor(screenerApiClient)
 
 export interface CompanyProfile extends Company {}
 
