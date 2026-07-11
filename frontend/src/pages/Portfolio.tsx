@@ -8,6 +8,7 @@ import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
 import { fetchStockSymbols } from '@/store/slices/searchSlice'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 import {
   fetchPortfolios,
   createPortfolio,
@@ -50,6 +51,7 @@ function formatPrice(n: number): string {
 
 export function Portfolio() {
   const dispatch = useAppDispatch()
+  const resolveName = useCompanyNameResolver()
   const { portfolios, holdings, status, error, activePortfolioId } = useAppSelector((state) => state.portfolio)
   const stockSymbols = useAppSelector((state) => (state as any).search?.symbols ?? [])
 
@@ -383,8 +385,10 @@ export function Portfolio() {
                       <tr key={h.id} className="hover:bg-tableRowHover transition-colors group">
                         <td className="px-4 py-2.5">
                           <Link to={`/company/${h.symbol.toLowerCase()}`}>
-                            <Text variant="body" className="font-medium text-textPrimary hover:text-accent transition-colors">{h.symbol}</Text>
-                            <Text variant="caption" className="text-textMuted text-xs">{h.companyName}</Text>
+                            <Text variant="body" className="font-semibold text-textPrimary hover:text-accent transition-colors">{h.companyName || resolveName(h.symbol)}</Text>
+                            {h.symbol && !/^\d+$/.test(h.symbol) && (
+                              <Text variant="caption" className="text-textMuted text-xs font-mono">{h.symbol}</Text>
+                            )}
                           </Link>
                         </td>
                         <td className="px-4 py-2.5 text-right"><Text variant="numeric" className="text-textSecondary">{h.quantity}</Text></td>
@@ -519,7 +523,12 @@ export function Portfolio() {
                     <tr key={i} className="hover:bg-tableRowHover transition-colors">
                       <td className="px-4 py-2.5 font-mono text-textMuted">{tx.date}</td>
                       <td className="px-4 py-2.5">
-                        <Link to={`/company/${tx.symbol.toLowerCase()}`} className="font-medium text-accent hover:underline font-mono">{tx.symbol}</Link>
+                        <div className="flex flex-col">
+                          <Link to={`/company/${tx.symbol.toLowerCase()}`} className="font-semibold text-accent hover:underline text-xs line-clamp-1" title={resolveName(tx.symbol)}>{resolveName(tx.symbol)}</Link>
+                          {tx.symbol && !/^\d+$/.test(tx.symbol) && (
+                            <span className="text-[10px] text-textSecondary font-mono">{tx.symbol}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${tx.type === 'BUY' ? 'bg-positive-soft text-positive' : 'bg-negative-soft text-negative'}`}>

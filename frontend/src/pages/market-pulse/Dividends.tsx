@@ -11,6 +11,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/
 import { PaginationBar } from '@/components/ui/PaginationBar'
 import { fetchDividendsStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 
 const YEARS = ['2026', '2025', '2024']
@@ -30,6 +31,7 @@ interface DividendRow {
 
 export default function Dividends() {
   const dispatch = useDispatch<AppDispatch>()
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const year      = searchParams.get('year')      ?? '2026'
   const divType   = searchParams.get('divType')   ?? 'All'
@@ -246,19 +248,19 @@ export default function Dividends() {
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            {d.symbol && !/^\d+$/.test(d.symbol) ? (
-                              <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                                {d.company}
-                              </Link>
-                            ) : (
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-textPrimary text-sm">{d.company && d.company !== d.symbol ? d.company : `BSE: ${d.symbol}`}</span>
-                                {d.symbol && /^\d+$/.test(d.symbol) && (
-                                  <span className="text-[10px] text-textMuted mt-0.5">BSE code — name pending</span>
-                                )}
-                              </div>
-                            )}
-                          </TableCell>
+                             <div className="flex flex-col">
+                               <Link
+                                 to={`/company/${(d.symbol || '').toLowerCase()}`}
+                                 className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1"
+                                 title={resolveName(d.symbol)}
+                               >
+                                 {resolveName(d.symbol)}
+                               </Link>
+                               {d.symbol && !/^\d+$/.test(d.symbol) && (
+                                 <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{d.symbol}</span>
+                               )}
+                             </div>
+                           </TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.exDate || '—'}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.recordDate || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">

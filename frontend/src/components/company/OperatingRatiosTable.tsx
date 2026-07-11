@@ -1,5 +1,5 @@
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAppSelector } from '@/store/hooks'
 import { ratios, fiscalYears } from '@/lib/data/financials'
 import { cn } from '@/lib/utils'
@@ -54,8 +54,34 @@ function TrendLine({ values, positive }: { values: number[]; positive: boolean }
 }
 
 export function OperatingRatiosTable() {
-  const storeRatios = useAppSelector((state) => state.company?.operatingRatios)
-  const activeRatios = storeRatios || ratios
+  const storeRatios = useAppSelector((state) => state.company?.ratios)
+
+  // Determine standard ratios list dynamically from state if present, otherwise fall back to static mock ratios
+  const activeRatios = useMemo(() => {
+    if (storeRatios && Array.isArray(storeRatios.sections)) {
+      const flatRows: any[] = []
+      storeRatios.sections.forEach((sec: any) => {
+        if (Array.isArray(sec.rows)) {
+          flatRows.push(...sec.rows)
+        }
+      })
+      if (flatRows.length > 0) return flatRows
+    }
+    return ratios
+  }, [storeRatios])
+
+  // Extract columns dynamically from state if present, otherwise fall back to static mock columns
+  const columns = useMemo(() => {
+    if (storeRatios && Array.isArray(storeRatios.sections) && storeRatios.sections[0]?.columns) {
+      return storeRatios.sections[0].columns
+    }
+    return fiscalYears.slice(2, 10)
+  }, [storeRatios])
+
+  const isLive = useMemo(() => {
+    if (!storeRatios || !Array.isArray(storeRatios.sections)) return false
+    return storeRatios.sections.some((sec: any) => Array.isArray(sec.rows) && sec.rows.length > 0)
+  }, [storeRatios])
 
   // Map label → data array
   const ratioMap: Record<string, number[]> = {}
@@ -130,7 +156,7 @@ export function OperatingRatiosTable() {
                   <th className="text-left px-5 py-3 text-xs font-medium uppercase tracking-wider text-textMuted w-48 sticky left-0 bg-surfaceMuted">
                     Metric Name
                   </th>
-                  {COLUMNS.map((yr) => (
+                  {columns.map((yr: string) => (
                     <th key={yr} className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-textMuted whitespace-nowrap">
                       {yr}
                     </th>
@@ -138,28 +164,45 @@ export function OperatingRatiosTable() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {OPERATING_ROWS.map((rowLabel) => {
-                  const row = activeRatios.find((r: any) => r.label === rowLabel)
-                  if (!row) return null
-                  const isPercent = row.isPercent
-                  // Map COLUMNS to actual value indices in fiscalYears
-                  const displayValues = COLUMNS.map((yr) => {
-                    const idx = fiscalYears.indexOf(yr)
-                    return idx >= 0 ? (row.values[idx] ?? null) : null
-                  })
-                  return (
-                    <tr key={rowLabel} className="hover:bg-surfaceMuted/40 transition-colors">
-                      <td className="px-5 py-3 font-medium text-textPrimary sticky left-0 bg-surface group-hover:bg-surfaceMuted/40 whitespace-nowrap">
-                        {rowLabel.replace(' %', '')}
-                      </td>
-                      {displayValues.map((val, i) => (
-                        <td key={i} className="text-right px-4 py-3 font-mono tabular-nums text-textSecondary">
-                          {val !== null ? `${Number(val).toFixed(1)}${isPercent ? '%' : ''}` : '—'}
+                {isLive ? (
+                  activeRatios.map((row: any) => {
+                    const isPercent = row.isPercent
+                    return (
+                      <tr key={row.label} className="hover:bg-surfaceMuted/40 transition-colors">
+                        <td className="px-5 py-3 font-medium text-textPrimary sticky left-0 bg-surface group-hover:bg-surfaceMuted/40 whitespace-nowrap">
+                          {row.label.replace(' %', '')}
                         </td>
-                      ))}
-                    </tr>
-                  )
-                })}
+                        {(row.values || []).map((val: any, i: number) => (
+                          <td key={i} className="text-right px-4 py-3 font-mono tabular-nums text-textSecondary">
+                            {val !== null ? `${Number(val).toFixed(isPercent ? 1 : 2)}${isPercent ? '%' : ''}` : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })
+                ) : (
+                  OPERATING_ROWS.map((rowLabel) => {
+                    const row = activeRatios.find((r: any) => r.label === rowLabel)
+                    if (!row) return null
+                    const isPercent = row.isPercent
+                    const displayValues = COLUMNS.map((yr) => {
+                      const idx = fiscalYears.indexOf(yr)
+                      return idx >= 0 ? (row.values[idx] ?? null) : null
+                    })
+                    return (
+                      <tr key={rowLabel} className="hover:bg-surfaceMuted/40 transition-colors">
+                        <td className="px-5 py-3 font-medium text-textPrimary sticky left-0 bg-surface group-hover:bg-surfaceMuted/40 whitespace-nowrap">
+                          {rowLabel.replace(' %', '')}
+                        </td>
+                        {displayValues.map((val, i) => (
+                          <td key={i} className="text-right px-4 py-3 font-mono tabular-nums text-textSecondary">
+                            {val !== null ? `${Number(val).toFixed(1)}${isPercent ? '%' : ''}` : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -174,11 +217,12 @@ export function OperatingRatiosTable() {
               <span className="text-xs font-medium text-textPrimary uppercase tracking-wider">Trend Analysis</span>
             </div>
             <div className="p-4 space-y-4">
-              {['Debtor Days', 'Inventory Days', 'Return on Capital Employed %'].map((rowLabel) => {
+              {(isLive ? ['ROCE (%)', 'Asset Turnover', 'Debt to Equity'] : ['Debtor Days', 'Inventory Days', 'Return on Capital Employed %']).map((rowLabel) => {
                 const row = activeRatios.find((r: any) => r.label === rowLabel)
                 if (!row) return null
-                const vals = (row.values as number[]).slice(0, 9)
-                const isPositiveGood = row.isPositiveGood
+                const vals = (row.values as number[]).filter((v): v is number => v !== null && v !== undefined).slice(-5)
+                if (vals.length === 0) return null
+                const isPositiveGood = rowLabel !== 'Debt to Equity'
                 return (
                   <div key={rowLabel}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -191,11 +235,9 @@ export function OperatingRatiosTable() {
                       <TrendLine values={vals} positive={!!isPositiveGood} />
                     </div>
                     <div className="flex items-center justify-between text-xs font-mono text-textMuted mt-0.5">
-                      <span>2020</span>
-                      <span>2021</span>
-                      <span>2022</span>
-                      <span>2023</span>
-                      <span>2024</span>
+                      {columns.slice(-5).map((col: string) => (
+                        <span key={col}>{col.replace(/Mar['\s]?/i, '')}</span>
+                      ))}
                     </div>
                   </div>
                 )

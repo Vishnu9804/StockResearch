@@ -19,6 +19,7 @@ import { Heading } from '@/components/ui/Heading'
 import { SCREENER_TEMPLATES } from '@/lib/data/screener'
 import { finscreenClient } from '@/services/finscreenApi'
 import { markAllAsRead, markAsRead } from '@/store/slices/notificationsSlice'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -272,6 +273,7 @@ function SavedScreensTab() {
 }
 
 function WatchlistsTab() {
+  const resolveName = useCompanyNameResolver()
   const { watchlists } = useAppSelector((state) => state.watchlist)
   return (
     <div className="space-y-4">
@@ -300,9 +302,9 @@ function WatchlistsTab() {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {firstFew.map((item) => (
-                      <Link key={item.symbol} to={`/company/${item.symbol.toLowerCase()}`}>
-                        <Badge variant="outline" className="font-mono text-xs font-medium bg-surfaceMuted border-0 text-textSecondary rounded-md hover:bg-accentSoft hover:text-accent transition-colors">
-                          {item.symbol}
+                      <Link key={item.symbol} to={`/company/${item.symbol.toLowerCase()}`} title={resolveName(item.symbol)}>
+                        <Badge variant="outline" className="text-xs font-medium bg-surfaceMuted border-0 text-textSecondary rounded-md hover:bg-accentSoft hover:text-accent transition-colors max-w-[120px] truncate">
+                          {resolveName(item.symbol)}
                         </Badge>
                       </Link>
                     ))}
@@ -330,6 +332,7 @@ function WatchlistsTab() {
 
 function NotificationsTab() {
   const dispatch = useAppDispatch()
+  const resolveName = useCompanyNameResolver()
   const { items, unreadCount } = useAppSelector((state) => state.notifications)
 
   return (
@@ -378,9 +381,9 @@ function NotificationsTab() {
                         {new Date(alert.timestamp).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
                       </span>
                       {alert.symbol && (
-                        <Link to={`/company/${alert.symbol.toLowerCase()}`} onClick={(e) => e.stopPropagation()}>
-                          <Badge variant="outline" className="font-mono text-xs font-medium bg-surfaceMuted border-0 text-textSecondary hover:bg-accentSoft hover:text-accent transition-colors rounded-md">
-                            {alert.symbol}
+                        <Link to={`/company/${alert.symbol.toLowerCase()}`} onClick={(e) => e.stopPropagation()} title={resolveName(alert.symbol)}>
+                          <Badge variant="outline" className="text-xs font-medium bg-surfaceMuted border-0 text-textSecondary hover:bg-accentSoft hover:text-accent transition-colors rounded-md max-w-[120px] truncate">
+                            {resolveName(alert.symbol)}
                           </Badge>
                         </Link>
                       )}

@@ -15,6 +15,7 @@ import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { finscreenClient } from '@/services/finscreenApi'
 import { PaginationBar } from '@/components/ui/PaginationBar'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 const TABS = ['Upcoming IPOs', 'Recent IPOs', 'Below IPO Price', 'Upcoming Rights'] as const
 type Tab = typeof TABS[number]
@@ -86,6 +87,7 @@ function SortableHeader({
 }
 
 export function NewIssues() {
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTabParam = searchParams.get('tab') ?? 'upcoming-ipos'
   const activeTab = TAB_MAPPING[activeTabParam] ?? 'Upcoming IPOs'
@@ -515,13 +517,18 @@ export function NewIssues() {
                             <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                               <TableCell className="text-sm text-textMuted px-4 py-2.5 text-left">{globalIdx}</TableCell>
                               <TableCell className="text-sm px-4 py-2.5 text-left">
-                                {ipo.symbol ? (
-                                  <Link to={`/company/${ipo.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
-                                    {ipo.company}
-                                  </Link>
-                                ) : (
-                                  <span className="font-semibold text-textPrimary">{ipo.company}</span>
-                                )}
+                                 {ipo.symbol ? (
+                                   <div className="flex flex-col">
+                                     <Link to={`/company/${ipo.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1" title={ipo.company && ipo.company !== ipo.symbol ? ipo.company : resolveName(ipo.symbol)}>
+                                       {ipo.company && ipo.company !== ipo.symbol ? ipo.company : resolveName(ipo.symbol)}
+                                     </Link>
+                                     {ipo.symbol && !/^\d+$/.test(ipo.symbol) && (
+                                       <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{ipo.symbol}</span>
+                                     )}
+                                   </div>
+                                 ) : (
+                                   <span className="font-semibold text-textPrimary">{ipo.company}</span>
+                                 )}
                               </TableCell>
                               <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{ipo.listingDate}</TableCell>
                               <TableCell className="text-right text-sm text-textSecondary px-4 py-2.5 tabular">₹{ipo.ipoPrice.toLocaleString('en-IN')}</TableCell>
@@ -545,9 +552,14 @@ export function NewIssues() {
                           <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                             <TableCell className="text-sm text-textMuted px-4 py-2.5 text-left">{globalIdx}</TableCell>
                             <TableCell className="text-sm px-4 py-2.5 text-left">
-                              <Link to={`/company/${right.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
-                                {right.company}
-                              </Link>
+                               <div className="flex flex-col">
+                                 <Link to={`/company/${right.symbol}`} className="font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1" title={right.company && right.company !== right.symbol ? right.company : resolveName(right.symbol)}>
+                                   {right.company && right.company !== right.symbol ? right.company : resolveName(right.symbol)}
+                                 </Link>
+                                 {right.symbol && !/^\d+$/.test(right.symbol) && (
+                                   <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{right.symbol}</span>
+                                 )}
+                               </div>
                             </TableCell>
                             <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{right.exDate}</TableCell>
                             <TableCell className="text-sm text-textPrimary px-4 py-2.5 font-medium text-center">{right.ratio}</TableCell>
@@ -597,13 +609,18 @@ export function NewIssues() {
                       return (
                         <div key={i} className="p-4 space-y-2.5 min-h-[44px]">
                           <div className="flex justify-between items-start">
-                            {ipo.symbol ? (
-                              <Link to={`/company/${ipo.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none">
-                                {ipo.company}
-                              </Link>
-                            ) : (
-                              <span className="text-sm font-bold text-textPrimary">{ipo.company}</span>
-                            )}
+                             {ipo.symbol ? (
+                               <div className="flex flex-col">
+                                 <Link to={`/company/${ipo.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none" title={ipo.company && ipo.company !== ipo.symbol ? ipo.company : resolveName(ipo.symbol)}>
+                                   {ipo.company && ipo.company !== ipo.symbol ? ipo.company : resolveName(ipo.symbol)}
+                                 </Link>
+                                 {ipo.symbol && !/^\d+$/.test(ipo.symbol) && (
+                                   <span className="text-[10px] text-textSecondary font-mono mt-0.5">{ipo.symbol}</span>
+                                 )}
+                               </div>
+                             ) : (
+                               <span className="text-sm font-bold text-textPrimary">{ipo.company}</span>
+                             )}
                             <span className="text-[11px] text-textSecondary font-medium">List: {ipo.listingDate}</span>
                           </div>
                           <div className="text-xs text-textSecondary flex justify-between">
@@ -633,9 +650,14 @@ export function NewIssues() {
                     return (
                       <div key={i} className="p-4 space-y-2.5 min-h-[44px]">
                         <div className="flex justify-between items-start">
-                          <Link to={`/company/${right.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none">
-                            {right.company}
-                          </Link>
+                           <div className="flex flex-col">
+                             <Link to={`/company/${right.symbol}`} className="text-sm font-bold text-accent hover:underline outline-ring/45 focus-visible:outline decoration-none" title={right.company && right.company !== right.symbol ? right.company : resolveName(right.symbol)}>
+                               {right.company && right.company !== right.symbol ? right.company : resolveName(right.symbol)}
+                             </Link>
+                             {right.symbol && !/^\d+$/.test(right.symbol) && (
+                               <span className="text-[10px] text-textSecondary font-mono mt-0.5">{right.symbol}</span>
+                             )}
+                           </div>
                           <span className="text-[11px] text-textSecondary font-medium">Ex-Date: {right.exDate}</span>
                         </div>
                         <div className="text-xs text-textSecondary">

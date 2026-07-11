@@ -11,12 +11,14 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/
 import { PaginationBar } from '@/components/ui/PaginationBar'
 import { fetchSastTradesStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 const YEARS = ['2026', '2025', '2024']
 type SortField = 'company' | 'category' | 'date'
 
 export default function SASTTrades() {
   const dispatch = useDispatch<AppDispatch>()
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const year      = searchParams.get('year')      ?? '2026'
   const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
@@ -164,12 +166,13 @@ export default function SASTTrades() {
                             <div className="flex flex-col">
                               <Link
                                 to={`/company/${(d.symbol || '').toLowerCase()}`}
-                                className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-sm"
+                                className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1"
+                                title={resolveName(d.symbol)}
                               >
-                                {d.symbol}
+                                {resolveName(d.symbol)}
                               </Link>
-                              {d.company && d.company !== d.symbol && (
-                                <span className="text-xs text-textSecondary mt-0.5 line-clamp-1">{d.company}</span>
+                              {d.symbol && !/^\d+$/.test(d.symbol) && (
+                                <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{d.symbol}</span>
                               )}
                             </div>
                           </TableCell>

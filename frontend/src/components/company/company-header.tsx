@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Company } from '@/lib/data/companies'
-import { formatNumber } from '@/lib/formatters'
+import { formatNumber, formatExternalUrl } from '@/lib/formatters'
 import {
   Bookmark,
   Share2,
@@ -124,7 +124,7 @@ export function CompanyHeader({ company }: { company: Company }) {
                 </span>
                 <span className="text-border mx-1">·</span>
                 <a
-                  href={company.website}
+                  href={formatExternalUrl(company.website)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent hover:text-accent/80 inline-flex items-center gap-0.5 transition-colors"

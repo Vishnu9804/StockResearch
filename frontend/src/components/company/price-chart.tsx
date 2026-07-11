@@ -20,6 +20,13 @@ const ranges = [
   { label: "5Y", value: "5Y" },
 ]
 
+function formatLocalDate(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function getFromDate(range: string): string {
   const d = new Date()
   if (range === "5D") {
@@ -31,7 +38,7 @@ function getFromDate(range: string): string {
   } else if (range === "5Y") {
     d.setFullYear(d.getFullYear() - 5)
   }
-  return d.toISOString().split("T")[0]
+  return formatLocalDate(d)
 }
 
 export function PriceChart({
@@ -55,7 +62,7 @@ export function PriceChart({
       setLoading(true)
       setError(false)
       const fromDate = getFromDate(ranges[rangeIdx].value)
-      const todayStr = new Date().toISOString().split("T")[0]
+      const todayStr = formatLocalDate(new Date())
       const res = await finscreenClient.get(`/company/${symbol}/price-history`, {
         params: {
           from_date: fromDate,
@@ -92,6 +99,24 @@ export function PriceChart({
   const endPrice = data[data.length - 1]?.close ?? basePrice
   const periodChange = startPrice > 0 ? ((endPrice - startPrice) / startPrice) * 100 : 0
   const positive = periodChange >= 0
+
+  const formatXAxis = (tickVal: string) => {
+    try {
+      const date = new Date(tickVal + "T00:00:00")
+      const range = ranges[rangeIdx].value
+      if (range === "5D" || range === "1M") {
+        return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+      } else if (range === "1Y") {
+        const month = date.toLocaleDateString("en-IN", { month: "short" })
+        const year = date.getFullYear().toString().slice(-2)
+        return `${month} '${year}`
+      } else {
+        return date.getFullYear().toString()
+      }
+    } catch (e) {
+      return tickVal
+    }
+  }
 
   return (
     <Card className="border-border/40 shadow-xs bg-surface rounded-2xl">
@@ -161,9 +186,7 @@ export function PriceChart({
                   tickLine={false}
                   axisLine={false}
                   minTickGap={40}
-                  tickFormatter={(d) =>
-                    new Date(d).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
-                  }
+                  tickFormatter={formatXAxis}
                 />
                 <YAxis
                   domain={["auto", "auto"]}
@@ -180,38 +203,48 @@ export function PriceChart({
                     fontSize: 12,
                   }}
                   formatter={(value: number) => [`₹${formatNumber(value, 2)}`, symbol]}
-                  labelFormatter={(d) =>
-                    new Date(d).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  }
-                />
-                <ReferenceLine
-                  y={high52}
-                  stroke="var(--color-chart-2)"
-                  strokeDasharray="2 4"
-                  strokeWidth={1}
-                  label={{
-                    value: `52W High ${formatNumber(high52, 0)}`,
-                    fill: "var(--color-chart-2)",
-                    fontSize: 11,
-                    position: "insideTopRight",
+                  labelFormatter={(d) => {
+                    try {
+                      return new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    } catch (e) {
+                      return d
+                    }
                   }}
                 />
-                <ReferenceLine
-                  y={low52}
-                  stroke="var(--color-chart-3)"
-                  strokeDasharray="2 4"
-                  strokeWidth={1}
-                  label={{
-                    value: `52W Low ${formatNumber(low52, 0)}`,
-                    fill: "var(--color-chart-3)",
-                    fontSize: 11,
-                    position: "insideBottomRight",
-                  }}
-                />
+                {["1Y", "5Y"].includes(ranges[rangeIdx].value) && (
+                  <ReferenceLine
+                    y={high52}
+                    stroke="var(--color-chart-2)"
+                    strokeDasharray="2 4"
+                    strokeWidth={1}
+                    ifOverflow="discard"
+                    label={{
+                      value: `52W High ${formatNumber(high52, 0)}`,
+                      fill: "var(--color-chart-2)",
+                      fontSize: 11,
+                      position: "insideTopRight",
+                    }}
+                  />
+                )}
+                {["1Y", "5Y"].includes(ranges[rangeIdx].value) && (
+                  <ReferenceLine
+                    y={low52}
+                    stroke="var(--color-chart-3)"
+                    strokeDasharray="2 4"
+                    strokeWidth={1}
+                    ifOverflow="discard"
+                    label={{
+                      value: `52W Low ${formatNumber(low52, 0)}`,
+                      fill: "var(--color-chart-3)",
+                      fontSize: 11,
+                      position: "insideBottomRight",
+                    }}
+                  />
+                )}
                 <Area
                   type="monotone"
                   dataKey="close"

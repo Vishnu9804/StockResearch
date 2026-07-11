@@ -8,12 +8,20 @@ import { NotificationCenter } from '@/components/layout/NotificationCenter'
 import { CommandPalette } from '@/components/shared/CommandPalette'
 import { pageVariants } from '@/lib/motion'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useDispatch } from 'react-redux'
+import { fetchStockSymbols } from '@/store/slices/searchSlice'
 
 export function DashboardLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const location = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   const prefersReduced = useReducedMotion()
+  const dispatch = useDispatch()
+
+  // Load global stock symbols cache on startup
+  useEffect(() => {
+    dispatch(fetchStockSymbols() as any)
+  }, [dispatch])
 
   // Scroll to top on route change
   useEffect(() => {

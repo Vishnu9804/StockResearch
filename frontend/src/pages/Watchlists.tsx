@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/Text'
 import { Label } from '@/components/ui/label'
 import { fetchStockSymbols } from '@/store/slices/searchSlice'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 import {
   createWatchlist,
   deleteWatchlist,
@@ -45,6 +46,7 @@ function formatPrice(n: number): string {
 
 export function Watchlists() {
   const dispatch = useAppDispatch()
+  const resolveName = useCompanyNameResolver()
   const { watchlists, activeWatchlistId } = useAppSelector((state) => state.watchlist)
   const stockSymbols = useAppSelector((state) => (state as any).search?.symbols ?? [])
   
@@ -392,10 +394,12 @@ export function Watchlists() {
                       >
                         <td className="px-4 py-3">
                           <Link to={`/company/${stock.symbol}`} className="block">
-                            <Text variant="body" className="font-medium hover:text-accent transition-colors text-xs text-textPrimary">
-                              {stock.name}
+                            <Text variant="body" className="font-semibold hover:text-accent transition-colors text-xs text-textPrimary">
+                              {stock.name && stock.name !== stock.symbol ? stock.name : resolveName(stock.symbol)}
                             </Text>
-                            <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-xs">{stock.symbol}</Text>
+                            {stock.symbol && !/^\d+$/.test(stock.symbol) && (
+                              <Text variant="caption" className="font-mono text-textMuted mt-0.5 text-[10px]">{stock.symbol}</Text>
+                            )}
                           </Link>
                         </td>
                         <td className="px-4 py-3 text-right">

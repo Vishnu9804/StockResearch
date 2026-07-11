@@ -7,6 +7,7 @@ import { useAppSelector } from "@/store/hooks"
 import finscreenApi, { finscreenClient } from "@/services/finscreenApi"
 import axios from "axios"
 import { companies } from "@/lib/data/companies"
+import { useCompanyNameResolver } from "@/hooks/useCompanyNameResolver"
 import {
   BarChart2, Bell, Bookmark, Calendar, ChevronRight, ExternalLink,
   FileText, Plus, RefreshCw, Star, TrendingUp, TrendingDown,
@@ -23,7 +24,7 @@ const FALLBACK_NEWS = [
   {
     id: "n2", category: "MARKETS", categoryColor: "var(--fs-positive)",
     headline: "NSE Nifty closes above 22,500 for the third consecutive session.",
-    summary: "FII buying in banking and IT lifted the broader indices.", time: "Today", source: "FinEdge"
+    summary: "The benchmark Index has gained 1.2% in the last 3 days.", time: "Today", source: "FinEdge"
   },
   {
     id: "n3", category: "COMMODITIES", categoryColor: "#f59e0b",
@@ -85,6 +86,7 @@ function FeedIcon({ type, icon }: { type: string; icon: string }) {
 
 export function Home() {
   const marketStatus = useMarketStatus()
+  const resolveName = useCompanyNameResolver()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
   const { watchlists } = useAppSelector((state) => state.watchlist)
   const [feedFilter, setFeedFilter] = useState<"all" | "alerts">("all")
@@ -524,8 +526,8 @@ export function Home() {
                   className="w-full"
                 >
                   <div className="flex items-center gap-3">
-                    <Link to={`/company/${s.symbol}`} className="text-body font-normal text-accent hover:underline font-mono">
-                      {s.symbol}
+                    <Link to={`/company/${s.symbol}`} className="text-body font-semibold text-accent hover:underline truncate max-w-[150px] block" title={resolveName(s.symbol)}>
+                      {resolveName(s.symbol)}
                     </Link>
                     <span className="text-sm color-textSecondary font-normal">14s ago</span>
                   </div>
@@ -586,8 +588,8 @@ export function Home() {
                     }}
                     className="w-full font-mono text-body font-normal"
                   >
-                    <Link to={`/company/${g.symbol}`} className="font-medium text-accent hover:underline">
-                      {g.symbol}
+                    <Link to={`/company/${g.symbol}`} className="font-medium text-accent hover:underline truncate max-w-[130px] block" title={resolveName(g.symbol)}>
+                      {resolveName(g.symbol)}
                     </Link>
                     <span style={{ color: 'var(--fs-text-secondary)' }}>
                       {typeof g.price === 'number' ? g.price.toFixed(2) : g.price}
@@ -619,8 +621,8 @@ export function Home() {
                     }}
                     className="w-full font-mono text-body font-normal"
                   >
-                    <Link to={`/company/${l.symbol}`} className="font-medium text-accent hover:underline">
-                      {l.symbol}
+                    <Link to={`/company/${l.symbol}`} className="font-medium text-accent hover:underline truncate max-w-[130px] block" title={resolveName(l.symbol)}>
+                      {resolveName(l.symbol)}
                     </Link>
                     <span style={{ color: 'var(--fs-text-secondary)' }}>
                       {typeof l.price === 'number' ? l.price.toFixed(2) : l.price}
@@ -718,8 +720,10 @@ export function Home() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className={cn("text-body font-semibold", isPriceAlert ? "text-negative" : "text-textPrimary")}>{item.name}</span>
-                      <span className={cn("px-1.5 py-0.5 rounded text-xs font-mono font-medium", isPriceAlert ? "bg-negative-soft text-negative border border-negative/25" : "bg-accentSoft text-accent")}>{item.symbol}</span>
+                      <span className={cn("text-body font-semibold", isPriceAlert ? "text-negative" : "text-textPrimary")}>{resolveName(item.symbol)}</span>
+                      {item.symbol && !/^\d+$/.test(item.symbol) && (
+                        <span className={cn("px-1.5 py-0.5 rounded text-xs font-mono font-medium", isPriceAlert ? "bg-negative-soft text-negative border border-negative/25" : "bg-accentSoft text-accent")}>{item.symbol}</span>
+                      )}
                       <span className={cn("text-sm ml-auto", isPriceAlert ? "text-negative opacity-80" : "text-textSecondary")}>{item.time}</span>
                     </div>
                     <p className={cn("text-body font-normal leading-normal", isPriceAlert ? "text-negative" : "text-textPrimary")}>

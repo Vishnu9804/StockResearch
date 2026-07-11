@@ -65,8 +65,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const q = debouncedQuery.trim().toLowerCase()
     if (!q) return []
     const filtered = symbols.filter(c =>
-      c.symbol.toLowerCase().includes(q) ||
-      c.name.toLowerCase().includes(q)
+      (c.symbol || '').toLowerCase().includes(q) ||
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.nse_code || '').toLowerCase().includes(q) ||
+      (c.bse_code || '').toLowerCase().includes(q)
     ).slice(0, 7)
 
     return filtered.map(item => {
@@ -234,8 +236,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                             <Hash className="size-3.5 text-textMuted" />
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-textPrimary font-mono">{company.symbol}</p>
-                            <p className="text-xs text-textMuted truncate max-w-[300px]">{company.name}</p>
+                            <p className="text-xs font-medium text-textPrimary">{company.name || company.symbol}</p>
+                            {company.name && (
+                              <p className="text-[10px] text-textMuted font-mono">{company.symbol}</p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -318,8 +322,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                             <span className="text-xs font-medium text-textSecondary font-mono">{company.symbol.slice(0, 3)}</span>
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-textPrimary font-mono">{company.symbol}</p>
-                            <p className="text-xs text-textMuted truncate max-w-[300px]">{company.name} · {company.sector}</p>
+                            <p className="text-xs font-medium text-textPrimary">{company.name || company.symbol}</p>
+                            {company.name && (
+                              <p className="text-[10px] text-textMuted font-mono">{company.symbol} · {company.sector}</p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex items-center gap-2">

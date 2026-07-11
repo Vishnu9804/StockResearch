@@ -18,6 +18,7 @@ import { finscreenClient } from '@/services/finscreenApi'
 import { cn } from '@/lib/utils'
 import { AppFooter } from '@/components/shared/AppFooter'
 import type { Company } from '@/lib/data/companies'
+import { formatExternalUrl } from '@/lib/formatters'
 
 // Lazy Load heavy/below-the-fold child components to maximize network & initial rendering performance
 const PriceChart = React.lazy(() =>
@@ -311,7 +312,7 @@ export function CompanyDetail() {
                         <Globe className="size-3.5 text-accent" /> Website
                       </dt>
                       <dd>
-                        <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        <a href={formatExternalUrl(company.website)} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
                           {company.website.replace('https://', '')}
                         </a>
                       </dd>

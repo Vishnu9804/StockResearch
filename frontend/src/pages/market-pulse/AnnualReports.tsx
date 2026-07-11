@@ -11,6 +11,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/
 import { PaginationBar } from '@/components/ui/PaginationBar'
 import { fetchAnnualReportsStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 const FY_OPTIONS = ['FY26', 'FY25', 'FY24']
 
@@ -30,6 +31,7 @@ interface AnnualReport {
 
 export default function AnnualReports() {
   const dispatch = useDispatch<AppDispatch>()
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const fy        = searchParams.get('fy')        ?? 'FY26'
   const sortBy    = (searchParams.get('sortBy')    ?? 'revenue') as SortField
@@ -209,14 +211,20 @@ export default function AnnualReports() {
                       {sortedData.map(report => (
                         <TableRow key={report.symbol} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <BookOpen className="size-3.5 text-textSecondary" />
-                              <Link
-                                to={`/company/${report.symbol.toLowerCase()}`}
-                                className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline"
-                              >
-                                {report.company}
-                              </Link>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <BookOpen className="size-3.5 text-textSecondary" />
+                                <Link
+                                  to={`/company/${report.symbol.toLowerCase()}`}
+                                  className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1"
+                                  title={report.company && report.company !== report.symbol ? report.company : resolveName(report.symbol)}
+                                >
+                                  {report.company && report.company !== report.symbol ? report.company : resolveName(report.symbol)}
+                                </Link>
+                              </div>
+                              {report.symbol && !/^\d+$/.test(report.symbol) && (
+                                <span className="text-[10px] text-textSecondary mt-0.5 font-mono ml-5.5">{report.symbol}</span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3">{report.fy}</TableCell>

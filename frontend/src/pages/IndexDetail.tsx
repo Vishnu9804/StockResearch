@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { companies } from '@/lib/data/companies'
 import { formatNumber } from '@/lib/formatters'
 import { finscreenClient } from '@/services/finscreenApi'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 import { marketIndices } from '@/lib/data/market'
 
 // ─── Static symbol → display name map ────────────────────────────────────────
@@ -153,6 +154,7 @@ function filterHistoricalByRange(data: IndexHistoricalEntry[], range: string): I
 // ─── Component ────────────────────────────────────────────────────────────────
 export function IndexDetail() {
   const navigate = useNavigate()
+  const resolveName = useCompanyNameResolver()
   const { symbol = 'NIFTY50' } = useParams<{ symbol: string }>()
 
   const [range, setRange] = useState<string>('1M')
@@ -514,8 +516,10 @@ export function IndexDetail() {
                           <td className="px-4 py-2.5 text-textMuted font-mono">{idx + 1}</td>
                           <td className="px-4 py-2.5">
                             <Link to={`/company/${c.symbol}`} className="flex flex-col">
-                              <span className="font-medium text-accent group-hover:underline font-mono">{c.symbol}</span>
-                              <span className="text-xs text-textMuted truncate max-w-[180px]">{c.name}</span>
+                              <span className="font-medium text-accent group-hover:underline text-sm">{c.name || resolveName(c.symbol)}</span>
+                              {c.symbol && !/^\d+$/.test(c.symbol) && (
+                                <span className="text-[10px] text-textMuted font-mono">{c.symbol}</span>
+                              )}
                             </Link>
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono tabular-nums text-textPrimary font-medium">
@@ -546,7 +550,10 @@ export function IndexDetail() {
                           <td className="px-4 py-2.5 text-textMuted font-mono">{idx + 1}</td>
                           <td className="px-4 py-2.5">
                             <Link to={`/company/${sym}`} className="flex flex-col">
-                              <span className="font-medium text-accent group-hover:underline font-mono">{sym}</span>
+                              <span className="font-medium text-accent group-hover:underline text-sm">{resolveName(sym)}</span>
+                              {sym && !/^\d+$/.test(sym) && (
+                                <span className="text-[10px] text-textMuted font-mono">{sym}</span>
+                              )}
                             </Link>
                           </td>
                           <td colSpan={4} className="px-4 py-2.5 text-right text-textMuted text-xs">—</td>

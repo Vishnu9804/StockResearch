@@ -32,7 +32,7 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      thunk: false, // strictly saga-based side effects
+      thunk: true, // support thunks (e.g. searchSlice.ts) alongside sagas
       serializableCheck: false, // standard for complex financial series
     }).concat(sagaMiddleware),
 })

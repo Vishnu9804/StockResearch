@@ -164,11 +164,39 @@ def _map_financials(financials: list, map_spec: list, period: str) -> dict:
 
 # ── Company Discovery ─────────────────────────────────────────────────────────
 
+_symbols_cache = None
+
+async def _get_symbols_list(rid: str) -> list:
+    global _symbols_cache
+    if _symbols_cache is None:
+        try:
+            _symbols_cache = await execute_proxy_request("GET", "stock-symbols", {}, None, rid)
+        except Exception as e:
+            logger.error(f"Failed to fetch stock symbols upstream: {e}")
+            return []
+    return _symbols_cache or []
+
 @router.get("/stock-symbols")
 async def get_stock_symbols(request: Request):
     rid = _req_id(request)
+    params = dict(request.query_params)
+    q = params.get("query") or params.get("q") or ""
     try:
-        return await execute_proxy_request("GET", "stock-symbols", dict(request.query_params), None, rid)
+        symbols_list = await _get_symbols_list(rid)
+        if q:
+            q_lower = q.lower()
+            matched = []
+            for c in symbols_list:
+                symbol = str(c.get("symbol") or "").lower()
+                name = str(c.get("name") or "").lower()
+                nse = str(c.get("nse_code") or "").lower()
+                bse = str(c.get("bse_code") or "").lower()
+                if q_lower in symbol or q_lower in name or q_lower in nse or q_lower in bse:
+                    matched.append(c)
+                    if len(matched) >= 15:
+                        break
+            return matched
+        return symbols_list
     except Exception as e:
         _api_error(e, "stock-symbols", rid)
 
@@ -514,8 +542,31 @@ async def get_quote(symbol: str, request: Request):
 @router.get("/company/{symbol}/price-history")
 async def get_price_history(symbol: str, request: Request):
     rid = _req_id(request)
+    from_date = request.query_params.get("from_date")
+    to_date = request.query_params.get("to_date")
     try:
-        return await execute_proxy_request("GET", f"daily-quotes/{symbol}", dict(request.query_params), None, rid)
+        # Request daily quotes without parameters to maximize cached results
+        res = await execute_proxy_request("GET", f"daily-quotes/{symbol}", {}, None, rid)
+        if not res or not isinstance(res, dict) or "price" not in res:
+            return res
+        
+        prices = res["price"]
+        if from_date or to_date:
+            filtered = []
+            for p in prices:
+                qdate = p.get("quote_date")
+                if not qdate:
+                    continue
+                if from_date and qdate < from_date:
+                    continue
+                if to_date and qdate > to_date:
+                    continue
+                filtered.append(p)
+            return {
+                "symbol": res.get("symbol", symbol),
+                "price": filtered
+            }
+        return res
     except Exception as e:
         _api_error(e, f"daily-quotes/{symbol}", rid)
 
@@ -684,7 +735,13 @@ async def get_documents(symbol: str, request: Request):
             elif any(x in text for x in ["credit rating", "crisil", "icra"]): cat = "credit-rating"
             else: cat = "announcement"
 
-            doc = {"id": f"doc-{item.get('timestamp_unix', i)}", "title": title, "date": date, "category": cat}
+            doc = {
+                "id": f"doc-{item.get('timestamp_unix', i)}",
+                "title": title,
+                "date": date,
+                "category": cat,
+                "fileUrl": item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
+            }
             doc["duration" if cat == "concall" else "size"] = "45:00" if cat == "concall" else "1.5 MB"
             documents.append(doc)
 

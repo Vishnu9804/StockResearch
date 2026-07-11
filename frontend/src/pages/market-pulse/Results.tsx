@@ -9,10 +9,12 @@ import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { finscreenClient } from '@/services/finscreenApi'
 import { companies } from '@/lib/data/companies'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 type SortField = 'company' | 'resultDate' | 'revenue' | 'revenueChange' | 'pat' | 'patChange' | 'ebitdaMargin'
 
 export default function Results() {
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const sector = searchParams.get('sector') ?? 'All'
   const sortBy = (searchParams.get('sortBy') ?? 'resultDate') as SortField
@@ -234,11 +236,16 @@ export default function Results() {
                             <TableCell className="text-sm text-textMuted px-4 py-3">{idx + 1}</TableCell>
                             <TableCell className="text-sm px-4 py-3">
                               {r.symbol ? (
-                                <Link to={`/company/${r.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                                  {r.company}
-                                </Link>
+                                <div className="flex flex-col">
+                                  <Link to={`/company/${r.symbol}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1" title={r.company && r.company !== r.symbol ? r.company : resolveName(r.symbol)}>
+                                    {r.company && r.company !== r.symbol ? r.company : resolveName(r.symbol)}
+                                  </Link>
+                                  {r.symbol && !/^\d+$/.test(r.symbol) && (
+                                    <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{r.symbol}</span>
+                                  )}
+                                </div>
                               ) : (
-                                <span className="font-semibold text-textPrimary">{r.company}</span>
+                                <span className="font-semibold text-textPrimary">{r.company && r.company !== r.symbol ? r.company : resolveName(r.symbol)}</span>
                               )}
                             </TableCell>
                             <TableCell className="text-sm text-textPrimary px-4 py-3">{r.quarter}</TableCell>

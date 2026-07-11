@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAppSelector } from '@/store/hooks'
+import { finscreenClient } from '@/services/finscreenApi'
 
 export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
   const navigate = useNavigate()
@@ -51,24 +52,58 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
     { name: 'NIFTY MIDCAP 100', slug: 'NIFTYMIDCAP', exchange: 'NSE', value: 51234.80, changePct: 0.61 },
   ]
 
-  // Filter companies based on query
-  const stockSuggestions = searchQuery.trim()
-    ? companies
-        .filter(
-          (c) =>
-            c.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            c.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .slice(0, 6)
-    : []
+  const stockSymbols = useAppSelector((state) => (state as any).search?.symbols ?? [])
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
 
+  // Debounced API-based fetch for stock symbols to handle instantaneous load
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setDynamicSuggestions([])
+      return
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const response = await finscreenClient.get<any[]>(`/stock-symbols?query=${searchQuery}`)
+        if (Array.isArray(response.data)) {
+          setDynamicSuggestions(response.data)
+        }
+      } catch (err) {
+        console.error('Failed to search symbols:', err)
+      } finally {
+        setSearching(false)
+      }
+    }, 150)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchQuery])
+
+  // Filter companies based on query, showing dynamicSuggestions if available, or fallback to client-side filter
+  const stockSuggestions = searchQuery.trim()
+    ? (dynamicSuggestions.length > 0
+        ? dynamicSuggestions.slice(0, 12)
+        : stockSymbols
+            .filter(
+              (c: any) =>
+                (c.symbol || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (c.nse_code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (c.bse_code || '').toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .slice(0, 12)
+      )
+    : stockSymbols.slice(0, 15)
+
+  // Filter indices based on query, showing first 3 indices by default when empty
   const indexSuggestions = searchQuery.trim()
     ? INDEX_SEARCH.filter(
         (idx) =>
           idx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           idx.slug.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 3)
-    : []
+    : INDEX_SEARCH.slice(0, 3)
 
   // Merged flat list for unified keyboard navigation
   // Indices come first (indices 0..indexSuggestions.length-1), then stocks
@@ -244,7 +279,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                   <div className="px-3 py-1.5 text-xs font-medium text-textMuted uppercase tracking-wider bg-surfaceMuted">
                     Stocks
                   </div>
-                  {stockSuggestions.map((company, i) => {
+                  {stockSuggestions.map((company: any, i: number) => {
                     // Offset index by number of index suggestions for unified keyboard nav
                     const flatIndex = indexSuggestions.length + i
                     return (
@@ -257,20 +292,30 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         )}
                       >
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-textPrimary">{company.symbol}</span>
-                          <span className="text-xs text-textSecondary truncate max-w-[280px]">{company.name}</span>
+                          <span className="text-xs font-medium text-textPrimary">{company.name || company.symbol}</span>
+                          {company.name && (
+                            <span className="text-[10px] text-textSecondary font-mono">{company.symbol}</span>
+                          )}
                         </div>
                         <div className="flex flex-col items-end shrink-0">
-                          <span className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</span>
-                          <span
-                            className={cn(
-                              'text-xs font-mono font-medium flex items-center gap-0.5',
-                              company.change >= 0 ? 'text-positive' : 'text-negative'
-                            )}
-                          >
-                            {company.change >= 0 ? '+' : ''}
-                            {company.changePct.toFixed(2)}%
-                          </span>
+                          {typeof company.price === 'number' ? (
+                            <>
+                              <span className="text-xs font-mono font-medium text-textPrimary">₹{company.price.toFixed(2)}</span>
+                              {typeof company.changePct === 'number' && (
+                                <span
+                                  className={cn(
+                                    'text-xs font-mono font-medium flex items-center gap-0.5',
+                                    company.changePct >= 0 ? 'text-positive' : 'text-negative'
+                                  )}
+                                >
+                                  {company.changePct >= 0 ? '+' : ''}
+                                  {company.changePct.toFixed(2)}%
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-textMuted/65 text-[10px] uppercase font-mono tracking-wider font-semibold">Select ↗</span>
+                          )}
                         </div>
                       </div>
                     )

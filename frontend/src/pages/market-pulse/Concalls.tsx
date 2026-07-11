@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast'
 import { PaginationBar } from '@/components/ui/PaginationBar'
 import { fetchConcallsStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 type SortField = 'company' | 'date'
 
@@ -29,6 +30,7 @@ interface Concall {
 
 export function Concalls() {
   const dispatch = useDispatch<AppDispatch>()
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const sortBy    = (searchParams.get('sortBy')    ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
@@ -140,20 +142,20 @@ export function Concalls() {
                       <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Summary</TableHead>
                     </TableRow>
                   </TableHeader>
-                   <TableBody>
+                  <TableBody>
                     {sortedData.map((d: any, i: number) => (
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                         <TableCell className="text-sm text-textMuted px-4 py-3">{(page - 1) * limit + i + 1}</TableCell>
-                        <TableCell className="text-sm px-4 py-3">
-                          <div className="flex flex-col">
-                            <Link to={`/company/${(d.symbol || '').toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-sm">
-                              {d.symbol}
-                            </Link>
-                            {d.company && d.company !== d.symbol && (
-                              <span className="text-xs text-textSecondary mt-0.5 line-clamp-1">{d.company}</span>
-                            )}
-                          </div>
-                        </TableCell>
+                         <TableCell className="text-sm px-4 py-3">
+                           <div className="flex flex-col">
+                             <Link to={`/company/${(d.symbol || '').toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1" title={d.company && d.company !== d.symbol ? d.company : resolveName(d.symbol)}>
+                               {d.company && d.company !== d.symbol ? d.company : resolveName(d.symbol)}
+                             </Link>
+                             {d.symbol && !/^\d+$/.test(d.symbol) && (
+                               <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{d.symbol}</span>
+                             )}
+                           </div>
+                         </TableCell>
                         <TableCell className="text-sm text-textPrimary px-4 py-3 font-mono">
                           <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-accentSoft text-accent">
                             {d.quarter || 'Recent'}
@@ -204,6 +206,7 @@ export function Concalls() {
 }
 
 export function UpcomingConcalls() {
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const sortBy = (searchParams.get('sortBy') ?? 'date') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'asc') as 'asc' | 'desc'
@@ -316,11 +319,16 @@ export function UpcomingConcalls() {
                     {sortedUpcoming.map((d: any, i: number) => (
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                         <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
-                        <TableCell className="text-sm px-4 py-3">
-                          <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                            {d.company}
-                          </Link>
-                        </TableCell>
+                         <TableCell className="text-sm px-4 py-3">
+                           <div className="flex flex-col">
+                             <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1" title={d.company && d.company !== d.symbol ? d.company : resolveName(d.symbol)}>
+                               {d.company && d.company !== d.symbol ? d.company : resolveName(d.symbol)}
+                             </Link>
+                             {d.symbol && !/^\d+$/.test(d.symbol) && (
+                               <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{d.symbol}</span>
+                             )}
+                           </div>
+                         </TableCell>
                         <TableCell className="text-sm text-textPrimary px-4 py-3">{d.quarter}</TableCell>
                         <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date}</TableCell>
                         <TableCell className="text-sm px-4 py-3">

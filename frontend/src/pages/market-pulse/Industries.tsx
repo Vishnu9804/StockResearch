@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { finscreenClient } from '@/services/finscreenApi'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 type SortField = 'name' | 'stocks' | 'marketCapCr' | 'peRatio' | 'pbRatio' | 'roePercent' | 'rocePct' | 'changePercent'
 
@@ -24,6 +25,7 @@ interface IndustryItem {
 }
 
 export default function Industries() {
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
   const sortBy = (searchParams.get('sortBy') ?? 'marketCapCr') as SortField
   const sortOrder = (searchParams.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
@@ -331,7 +333,12 @@ export default function Industries() {
                         to={`/company/${symbol}`}
                         className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 hover:border-accentSoft hover:bg-accentSoft/10 transition-all group"
                       >
-                        <span className="text-xs font-bold text-textPrimary font-mono group-hover:text-accent transition-colors">{symbol}</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-textPrimary group-hover:text-accent transition-colors">{resolveName(symbol)}</span>
+                          {symbol && !/^\d+$/.test(symbol) && (
+                            <span className="text-[10px] text-textSecondary font-mono mt-0.5">{symbol}</span>
+                          )}
+                        </div>
                         <ChevronRight className="size-3 text-textMuted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
                       </Link>
                     ))}

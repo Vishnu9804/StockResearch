@@ -185,3 +185,15 @@ export function formatVolume(volume: number): string {
   }
   return volume.toString()
 }
+
+/**
+ * Format a website URL to ensure it has a protocol (http:// or https://)
+ */
+export function formatExternalUrl(url?: string): string {
+  if (!url) return '#'
+  const trimmed = url.trim()
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  return `https://${trimmed}`
+}

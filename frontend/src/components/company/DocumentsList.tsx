@@ -8,6 +8,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { formatExternalUrl } from '@/lib/formatters'
 
 interface DocumentItem {
   id: string
@@ -16,6 +17,7 @@ interface DocumentItem {
   category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating'
   size?: string
   duration?: string
+  fileUrl?: string
 }
 
 const DOCUMENTS: DocumentItem[] = [
@@ -124,6 +126,12 @@ export function DocumentsList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 5
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery])
 
   const showToast = (msg: string) => {
     setToastMsg(msg)
@@ -146,6 +154,13 @@ export function DocumentsList() {
       return matchesTab && matchesSearch
     })
   }, [activeTab, searchQuery, activeDocuments])
+
+  const paginatedDocuments = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return filteredDocuments.slice(start, start + PAGE_SIZE)
+  }, [filteredDocuments, currentPage])
+
+  const totalPages = Math.ceil(filteredDocuments.length / PAGE_SIZE)
 
   return (
     <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden select-none">
@@ -204,7 +219,7 @@ export function DocumentsList() {
             <p className="text-xs text-textMuted mt-0.5">Try widening your search terms.</p>
           </div>
         ) : (
-          filteredDocuments.map((doc: any) => {
+          paginatedDocuments.map((doc: any) => {
             const isConcall = doc.category === 'concall'
             const isPlaying = playingId === doc.id
 
@@ -251,18 +266,40 @@ export function DocumentsList() {
                         {isPlaying ? <><Pause className="size-3" /> Pause</> : <><Play className="size-3" /> Listen</>}
                       </Button>
                     ) : doc.category === 'announcement' ? (
-                      <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent">
-                        <ExternalLink className="size-3" /> View Link
-                      </Button>
+                      doc.fileUrl ? (
+                        <a
+                          href={formatExternalUrl(doc.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-border text-textSecondary hover:border-accent hover:text-accent h-8 px-3 gap-1.5 transition-colors"
+                        >
+                          <ExternalLink className="size-3" /> View Link
+                        </a>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent">
+                          <ExternalLink className="size-3" /> View Link
+                        </Button>
+                      )
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => showToast(`✓ Downloading: ${doc.title}`)}
-                        className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
-                      >
-                        <Download className="size-3" /> Download PDF
-                      </Button>
+                      doc.fileUrl ? (
+                        <a
+                          href={formatExternalUrl(doc.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-border text-textSecondary hover:border-accent hover:text-accent h-8 px-3 gap-1.5 transition-colors"
+                        >
+                          <Download className="size-3" /> Download PDF
+                        </a>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => showToast(`✓ Downloading: ${doc.title}`)}
+                          className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
+                        >
+                          <Download className="size-3" /> Download PDF
+                        </Button>
+                      )
                     )}
                     <button className="size-8 rounded-lg border border-border flex items-center justify-center text-textMuted hover:border-accent hover:text-accent transition-colors">
                       <Bookmark className="size-3.5" />
@@ -278,17 +315,29 @@ export function DocumentsList() {
       {/* Pagination footer */}
       <div className="px-5 py-3 border-t border-border/40 flex items-center justify-between bg-surfaceMuted/5">
         <span className="text-xs text-textMuted font-medium">
-          Showing 1 to {filteredDocuments.length} of {filteredDocuments.length} entries
+          Showing {filteredDocuments.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, filteredDocuments.length)} of {filteredDocuments.length} entries
         </span>
-        <div className="flex items-center gap-1">
-          {[1, 2, 3].map((p) => (
-            <button key={p} className={cn("size-7 rounded-md text-xs font-medium transition-all", p === 1 ? "bg-accent text-white" : "border border-border text-textSecondary hover:border-accent")}>
-              {p}
-            </button>
-          ))}
-          <span className="text-textMuted text-xs px-1">…</span>
-          <button className="size-7 rounded-md border border-border text-xs font-medium text-textSecondary hover:border-accent">250</button>
-        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }).map((_, idx) => {
+              const p = idx + 1
+              return (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={cn(
+                    "size-7 rounded-md text-xs font-medium transition-all",
+                    p === currentPage
+                      ? "bg-accent text-white"
+                      : "border border-border text-textSecondary hover:border-accent"
+                  )}
+                >
+                  {p}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Toast */}

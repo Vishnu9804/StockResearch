@@ -11,6 +11,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/
 import { PaginationBar } from '@/components/ui/PaginationBar'
 import { fetchBlockDealsStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
+import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
 const YEARS = ['2026', '2025', '2024']
 type SortField = 'company' | 'action' | 'subject' | 'date'
@@ -25,6 +26,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function BlockDeals() {
   const dispatch = useDispatch<AppDispatch>()
+  const resolveName = useCompanyNameResolver()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const year      = searchParams.get('year')      ?? '2026'
@@ -153,20 +155,24 @@ export default function BlockDeals() {
                     {sortedData.map((d: any, i: number) => {
                       const rowNum = (page - 1) * limit + i + 1
                       const actionColor = ACTION_COLORS[d.action] ?? 'bg-surfaceMuted/50 text-textSecondary'
-                      const displaySymbol = d.symbol && /^\d+$/.test(d.symbol) ? `BSE:${d.symbol}` : d.symbol
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            {d.symbol && !/^\d+$/.test(d.symbol) ? (
-                              <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                                {d.company || d.symbol}
-                              </Link>
-                            ) : (
-                              <span className="font-semibold text-textPrimary">{displaySymbol}</span>
-                            )}
-                          </TableCell>
+                             <div className="flex flex-col">
+                               <Link
+                                 to={`/company/${(d.symbol || '').toLowerCase()}`}
+                                 className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-xs line-clamp-1"
+                                 title={resolveName(d.symbol)}
+                               >
+                                 {resolveName(d.symbol)}
+                               </Link>
+                               {d.symbol && !/^\d+$/.test(d.symbol) && (
+                                 <span className="text-[10px] text-textSecondary mt-0.5 font-mono">{d.symbol}</span>
+                               )}
+                             </div>
+                           </TableCell>
                           <TableCell className="text-sm px-4 py-3">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${actionColor}`}>
                               {d.action || '—'}
