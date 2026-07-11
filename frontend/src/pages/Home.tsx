@@ -105,14 +105,9 @@ export function Home() {
       try {
         setLoading(true)
 
-        const [indicesData, benchmarkQuotes, refreshedData, resultsData, announcementsData, newsData] = await Promise.allSettled([
+        const [indicesData, moversQuotes, refreshedData, resultsData, announcementsData, newsData] = await Promise.allSettled([
           finscreenApi.fetchMarketIndices(),
-          finscreenApi.fetchMultipleQuotes([
-            'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
-            'HINDUNILVR', 'BAJFINANCE', 'SBIN', 'BHARTIARTL', 'KOTAKBANK',
-            'LT', 'WIPRO', 'ASIANPAINT', 'AXISBANK', 'MARUTI',
-            'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 'NESTLEIND'
-          ]),
+          finscreenApi.fetchMarketMovers(),
           finscreenApi.fetchRefreshedStocks(),
           finscreenApi.fetchResultsCalendar(),
           finscreenApi.fetchMarketAnnouncements(),
@@ -122,8 +117,8 @@ export function Home() {
         if (indicesData.status === 'fulfilled') {
           setIndices(indicesData.value)
         }
-        if (benchmarkQuotes.status === 'fulfilled') {
-          setQuotes(benchmarkQuotes.value)
+        if (moversQuotes.status === 'fulfilled') {
+          setQuotes(moversQuotes.value)
         }
         if (refreshedData.status === 'fulfilled') {
           const rData = refreshedData.value
@@ -213,6 +208,17 @@ export function Home() {
     }
   })
 
+  // Calculate dynamic watchlist total value (assuming 1000 shares of each)
+  const totalWatchlistValue = useMemo(() => {
+    let sum = 0
+    renderedWatchlists[0]?.items.forEach((item) => {
+      const q = quotes[item.symbol]
+      const price = q?.current_price || q?.close_price || (item.symbol === 'RELIANCE' ? 1396.50 : item.symbol === 'TCS' ? 2162.60 : 777.45)
+      sum += price * 1000
+    })
+    return sum
+  }, [quotes, renderedWatchlists])
+
   // Compute live Top Gainers & Losers from batch quotes
   const quoteList = Object.entries(quotes).map(([symbol, q]: [string, any]) => {
     const changePct = typeof q.pct_change === 'number' ? q.pct_change
@@ -227,12 +233,12 @@ export function Home() {
   })
 
   const liveTopGainers = [...quoteList]
-    .filter((q) => q.changePct > 0)
+    .filter((q) => q.changePct > 0 && q.price >= 10 && q.volume >= 5000)
     .sort((a, b) => b.changePct - a.changePct)
     .slice(0, 4)
 
   const liveTopLosers = [...quoteList]
-    .filter((q) => q.changePct < 0)
+    .filter((q) => q.changePct < 0 && q.price >= 10 && q.volume >= 5000)
     .sort((a, b) => a.changePct - b.changePct)
     .slice(0, 4)
 
@@ -465,13 +471,20 @@ export function Home() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full">
-            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5">
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
               <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">TOTAL VALUE</span>
-              <span className="text-lg font-semibold text-textPrimary">₹42,85,900</span>
+              <span className="text-lg font-semibold text-textPrimary font-mono">
+                ₹{totalWatchlistValue.toLocaleString('en-IN')}
+              </span>
             </div>
-            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5">
+            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
               <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DAILY CHANGE</span>
-              <span className="text-lg font-semibold text-positive">+1.24%</span>
+              <span className={cn(
+                "text-lg font-semibold font-mono",
+                (mappedWatchlists[0]?.positive ?? true) ? "text-positive" : "text-negative"
+              )}>
+                {mappedWatchlists[0]?.change ?? "+1.24%"}
+              </span>
             </div>
           </div>
 

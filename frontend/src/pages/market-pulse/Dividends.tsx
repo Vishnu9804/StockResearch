@@ -81,12 +81,16 @@ export default function Dividends() {
     const displayData = filtered.length > 0 ? filtered : list
 
     return [...displayData].sort((a, b) => {
-      let valA: any = a[sortBy]
-      let valB: any = b[sortBy]
+      let valA: any = a[sortBy] ?? ''
+      let valB: any = b[sortBy] ?? ''
 
-      if (typeof valA === 'string') {
+      // Numeric fields: coerce to number for proper comparison
+      if (sortBy === 'dividendPerShare') {
+        valA = Number(valA) || 0
+        valB = Number(valB) || 0
+      } else if (typeof valA === 'string') {
         valA = valA.toLowerCase()
-        valB = valB.toLowerCase()
+        valB = String(valB).toLowerCase()
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1
@@ -242,9 +246,18 @@ export default function Dividends() {
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                              {d.company}
-                            </Link>
+                            {d.symbol && !/^\d+$/.test(d.symbol) ? (
+                              <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                                {d.company}
+                              </Link>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-textPrimary text-sm">{d.company && d.company !== d.symbol ? d.company : `BSE: ${d.symbol}`}</span>
+                                {d.symbol && /^\d+$/.test(d.symbol) && (
+                                  <span className="text-[10px] text-textMuted mt-0.5">BSE code — name pending</span>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.exDate || '—'}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.recordDate || '—'}</TableCell>

@@ -13,8 +13,15 @@ import { fetchBlockDealsStart } from '@/store/slices/marketPulseSlice'
 import type { RootState, AppDispatch } from '@/store'
 
 const YEARS = ['2026', '2025', '2024']
+type SortField = 'company' | 'action' | 'subject' | 'date'
 
-type SortField = 'company' | 'client' | 'quantity' | 'price' | 'valueCr' | 'date'
+const ACTION_COLORS: Record<string, string> = {
+  Dividend: 'bg-amber-500/15 text-amber-500',
+  Bonus: 'bg-green-500/15 text-green-500',
+  Split: 'bg-blue-500/15 text-blue-500',
+  Buyback: 'bg-purple-500/15 text-purple-500',
+  'Rights Issue': 'bg-cyan-500/15 text-cyan-500',
+}
 
 export default function BlockDeals() {
   const dispatch = useDispatch<AppDispatch>()
@@ -56,9 +63,9 @@ export default function BlockDeals() {
     const filtered = deals.filter((d: any) => !d.date || d.date.startsWith(year))
     const base = filtered.length > 0 ? filtered : deals
     return [...base].sort((a: any, b: any) => {
-      let vA: any = a[sortBy]
-      let vB: any = b[sortBy]
-      if (typeof vA === 'string') { vA = vA.toLowerCase(); vB = vB.toLowerCase() }
+      let vA: any = a[sortBy] ?? ''
+      let vB: any = b[sortBy] ?? ''
+      if (typeof vA === 'string') { vA = vA.toLowerCase(); vB = String(vB).toLowerCase() }
       if (vA < vB) return sortOrder === 'asc' ? -1 : 1
       if (vA > vB) return sortOrder === 'asc' ? 1 : -1
       return 0
@@ -81,12 +88,13 @@ export default function BlockDeals() {
           <ChevronRight className="size-3" />
           <Link to="/market-pulse" className="hover:text-accent transition-colors">Market Pulse</Link>
           <ChevronRight className="size-3" />
-          <span className="text-accent font-medium">Block Deals</span>
+          <span className="text-accent font-medium">Corporate Actions</span>
         </div>
 
-        <Heading level={1} variant="pageTitle" className="text-textPrimary mb-4">
-          Block Deals
+        <Heading level={1} variant="pageTitle" className="text-textPrimary mb-1">
+          Corporate Actions
         </Heading>
+        <p className="text-sm text-textSecondary mb-4">Dividends, bonus issues, splits & buybacks from NSE/BSE</p>
 
         {/* Year chips */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -111,19 +119,19 @@ export default function BlockDeals() {
           <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="p-5"><TableRowsSkeleton rows={limit} cols={8} /></div>
+                <div className="p-5"><TableRowsSkeleton rows={limit} cols={5} /></div>
               ) : sortedData.length === 0 ? (
                 <Empty className="py-12 border-0">
                   <EmptyHeader>
                     <EmptyMedia variant="icon"><Inbox className="size-6 text-textMuted" /></EmptyMedia>
-                    <EmptyTitle className="text-textPrimary font-semibold">No block deals found</EmptyTitle>
+                    <EmptyTitle className="text-textPrimary font-semibold">No corporate actions found</EmptyTitle>
                     <EmptyDescription className="text-textSecondary">
                       Try selecting a different year or page.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               ) : (
-                <Table className="min-w-[800px] animate-[fadeInUp_0.18s_ease-out]">
+                <Table className="min-w-[700px] animate-[fadeInUp_0.18s_ease-out]">
                   <TableHeader className="bg-surfaceMuted/20">
                     <TableRow className="border-b border-border/40">
                       <TableHead className="w-12 text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">#</TableHead>
@@ -131,45 +139,40 @@ export default function BlockDeals() {
                         <div className="flex items-center">Date {renderSortIcon('date')}</div>
                       </TableHead>
                       <TableHead onClick={() => handleSort('company')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
-                        <div className="flex items-center">Company {renderSortIcon('company')}</div>
+                        <div className="flex items-center">Company / Symbol {renderSortIcon('company')}</div>
                       </TableHead>
-                      <TableHead onClick={() => handleSort('client')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
-                        <div className="flex items-center">Client / Entity {renderSortIcon('client')}</div>
+                      <TableHead onClick={() => handleSort('action')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center">Action {renderSortIcon('action')}</div>
                       </TableHead>
-                      <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Trade Type</TableHead>
-                      <TableHead onClick={() => handleSort('quantity')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
-                        <div className="flex items-center justify-end">Quantity {renderSortIcon('quantity')}</div>
-                      </TableHead>
-                      <TableHead onClick={() => handleSort('price')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
-                        <div className="flex items-center justify-end">Price (₹) {renderSortIcon('price')}</div>
-                      </TableHead>
-                      <TableHead onClick={() => handleSort('valueCr')} className="text-right text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
-                        <div className="flex items-center justify-end">Value (Cr) {renderSortIcon('valueCr')}</div>
+                      <TableHead onClick={() => handleSort('subject')} className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3 hover:text-accent cursor-pointer transition-colors select-none">
+                        <div className="flex items-center">Details {renderSortIcon('subject')}</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedData.map((d: any, i: number) => {
-                      const isBuy = d.tradeType === 'Buy'
                       const rowNum = (page - 1) * limit + i + 1
+                      const actionColor = ACTION_COLORS[d.action] ?? 'bg-surfaceMuted/50 text-textSecondary'
+                      const displaySymbol = d.symbol && /^\d+$/.test(d.symbol) ? `BSE:${d.symbol}` : d.symbol
                       return (
                         <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                           <TableCell className="text-sm text-textMuted px-4 py-3">{rowNum}</TableCell>
                           <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <Link to={`/company/${d.symbol?.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                              {d.company}
-                            </Link>
+                            {d.symbol && !/^\d+$/.test(d.symbol) ? (
+                              <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
+                                {d.company || d.symbol}
+                              </Link>
+                            ) : (
+                              <span className="font-semibold text-textPrimary">{displaySymbol}</span>
+                            )}
                           </TableCell>
-                          <TableCell className="text-sm text-textPrimary px-4 py-3">{d.client}</TableCell>
                           <TableCell className="text-sm px-4 py-3">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${isBuy ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}>
-                              {d.tradeType}
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${actionColor}`}>
+                              {d.action || '—'}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.quantity?.toLocaleString('en-IN') || '—'}</TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.price ? `₹${d.price.toLocaleString('en-IN')}` : '—'}</TableCell>
-                          <TableCell className="text-right text-sm text-textPrimary px-4 py-3 tabular">{d.valueCr ? `₹${Number(d.valueCr).toFixed(2)}` : '—'}</TableCell>
+                          <TableCell className="text-sm text-textSecondary px-4 py-3 max-w-xs truncate" title={d.subject}>{d.subject || '—'}</TableCell>
                         </TableRow>
                       )
                     })}
@@ -178,7 +181,6 @@ export default function BlockDeals() {
               )}
             </div>
 
-            {/* Pagination bar */}
             {!loading && total > 0 && (
               <PaginationBar
                 total={total}

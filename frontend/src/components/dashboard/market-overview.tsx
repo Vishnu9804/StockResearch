@@ -130,7 +130,7 @@ export function MarketOverview({ loading, indices }: MarketOverviewProps) {
       <div className="flex items-center gap-2">
         <span className={`size-1.5 rounded-full ${hasLiveData ? 'bg-positive animate-pulse' : 'bg-amber-400'}`} />
         <span className="text-xs text-textMuted font-medium">
-          {hasLiveData ? `Live data · ${indices.length} indices loaded` : 'Using cached data'}
+          {hasLiveData ? `Live data · ${indices.length} indices loaded` : 'Delayed data'}
         </span>
       </div>
 
@@ -164,9 +164,6 @@ export function MarketOverview({ loading, indices }: MarketOverviewProps) {
                     </CardTitle>
                     <p className="text-xs text-textMuted font-medium mt-0.5">
                       {idx.exchange} Index
-                      {!idx.isLive && (
-                        <span className="ml-1 text-amber-500/70">· cached</span>
-                      )}
                     </p>
                   </div>
                   <span

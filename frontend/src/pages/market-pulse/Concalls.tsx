@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { ChevronRight, ArrowUp, ArrowDown, Inbox } from 'lucide-react'
+import { ChevronRight, ArrowUp, ArrowDown, Inbox, FileText } from 'lucide-react'
 
 import { AppFooter } from '@/components/shared/AppFooter'
 import { Heading } from '@/components/ui/Heading'
@@ -140,44 +140,43 @@ export function Concalls() {
                       <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-3">Summary</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    {sortedData.map((d, i) => (
+                   <TableBody>
+                    {sortedData.map((d: any, i: number) => (
                       <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
-                        <TableCell className="text-sm text-textMuted px-4 py-3">{i + 1}</TableCell>
+                        <TableCell className="text-sm text-textMuted px-4 py-3">{(page - 1) * limit + i + 1}</TableCell>
                         <TableCell className="text-sm px-4 py-3">
-                          <Link to={`/company/${d.symbol.toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline">
-                            {d.company}
-                          </Link>
+                          <div className="flex flex-col">
+                            <Link to={`/company/${(d.symbol || '').toLowerCase()}`} className="text-accent hover:underline font-semibold decoration-none outline-ring/45 focus-visible:outline text-sm">
+                              {d.symbol}
+                            </Link>
+                            {d.company && d.company !== d.symbol && (
+                              <span className="text-xs text-textSecondary mt-0.5 line-clamp-1">{d.company}</span>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm text-textPrimary px-4 py-3">{d.quarter}</TableCell>
+                        <TableCell className="text-sm text-textPrimary px-4 py-3 font-mono">
+                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-accentSoft text-accent">
+                            {d.quarter || 'Recent'}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-sm text-textPrimary px-4 py-3 whitespace-nowrap">{d.date || '—'}</TableCell>
+                        <TableCell className="text-sm px-4 py-3 text-textMuted">—</TableCell>
                         <TableCell className="text-sm px-4 py-3">
-                          {d.hasRecording ? (
-                            <a href="#" onClick={(e) => { e.preventDefault(); toast.success('Opening recording...') }} className="text-xs font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
+                          {d.pdfLink ? (
+                            <a
+                              href={d.pdfLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline"
+                            >
+                              <FileText className="size-3.5" />
                               View
                             </a>
                           ) : (
                             <span className="text-textMuted">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm px-4 py-3">
-                          {d.hasTranscript ? (
-                            <a href="#" onClick={(e) => { e.preventDefault(); toast.success('Opening transcript...') }} className="text-xs font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
-                              View
-                            </a>
-                          ) : (
-                            <span className="text-textMuted">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm px-4 py-3">
-                          {d.hasSummary ? (
-                            <a href="#" onClick={(e) => { e.preventDefault(); toast.success('Opening summary...') }} className="text-xs font-semibold text-accent hover:underline decoration-none outline-ring/45 focus-visible:outline">
-                              View
-                            </a>
-                          ) : (
-                            <span className="text-textMuted">—</span>
-                          )}
-                        </TableCell>
+                        <TableCell className="text-sm px-4 py-3 text-textMuted">—</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

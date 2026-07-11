@@ -769,8 +769,18 @@ async def get_index_returns(request: Request):
 @router.get("/market/movers")
 async def get_market_movers(request: Request):
     rid = _req_id(request)
+    # Build query dict, keeping duplicate keys (like multiple 'symbol' params) as a list
+    q = {}
+    for k, v in request.query_params.multi_items():
+        if k in q:
+            if isinstance(q[k], list):
+                q[k].append(v)
+            else:
+                q[k] = [q[k], v]
+        else:
+            q[k] = v
     try:
-        return await execute_proxy_request("GET", "quote", dict(request.query_params), None, rid)
+        return await execute_proxy_request("GET", "quote", q, None, rid)
     except Exception as e:
         _api_error(e, "quote", rid)
 
@@ -1012,131 +1022,125 @@ async def get_commodity_list(request: Request):
         _api_error(e, "commodity-list", rid)
 
 
-def _map_deal(item: dict, default_type: str = "Buy") -> dict:
-    symbol = item.get("symbol") or item.get("stock_symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
-    date = item.get("date") or item.get("ex_date") or item.get("announcement_date") or ""
+def _map_corporate_action(item: dict, bse_map: dict = None) -> dict:
+    """Maps a corporate-actions/all item to a clean display record.
+    bse_map: optional dict mapping BSE code strings to {symbol, name}."""
+    raw_symbol = item.get("symbol") or item.get("stock_symbol") or "STOCK"
+    bse_map = bse_map or {}
+
+    # Resolve BSE numeric code → real NSE symbol/name
+    if raw_symbol.isdigit() and raw_symbol in bse_map:
+        symbol = bse_map[raw_symbol].get("symbol", raw_symbol)
+        company = bse_map[raw_symbol].get("name", symbol)
+    else:
+        symbol = raw_symbol
+        company = item.get("company_name") or item.get("company") or symbol
+
+    # Normalise date from DD-Mon-YYYY to YYYY-MM-DD
+    date = item.get("ex_date") or item.get("date") or item.get("announcement_date") or ""
     if date and "-" in date:
         parts = date.split(" ")[0].split("-")
-        if len(parts) == 3 and len(parts[2]) == 4:
+        if len(parts) == 3 and len(parts[2]) == 4:  # DD-Mon-YYYY
             months = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun":"06",
                       "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"}
             date = f"{parts[2]}-{months.get(parts[1][:3].title(), '01')}-{parts[0].zfill(2)}"
     elif date and " " in date:
         date = date.split(" ")[0]
 
-    client = item.get("client") or item.get("client_name") or item.get("acquirer") or item.get("subject") or "N/A"
-    trade_type = item.get("tradeType") or item.get("trade_type") or item.get("action") or default_type
-    trade_type = "Buy" if "buy" in str(trade_type).lower() else "Sell"
-
-    try:
-        qty = float(item.get("quantity") or item.get("qty") or item.get("amount") or 100000)
-    except Exception:
-        qty = 100000.0
-
-    try:
-        price = float(item.get("price") or item.get("avg_price") or item.get("amount") or 100.0)
-    except Exception:
-        price = 100.0
-
-    try:
-        val_cr = float(item.get("valueCr") or item.get("value_cr") or item.get("amount_cr") or ((qty * price) / 10000000.0))
-    except Exception:
-        val_cr = (qty * price) / 10000000.0
+    action = str(item.get("action") or "corporate action").title()
+    subject = item.get("subject") or ""
 
     return {
         "date": date,
         "company": company,
         "symbol": symbol,
-        "client": client,
-        "tradeType": trade_type,
-        "quantity": qty,
-        "price": price,
-        "valueCr": val_cr
+        "action": action,
+        "subject": subject,
     }
 
 def _map_sast(item: dict) -> dict:
-    symbol = item.get("stock_symbol") or item.get("symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
+    """Maps corp-announcements item for SAST display."""
+    symbol = item.get("stock_symbol") or item.get("nse_code") or item.get("symbol") or "STOCK"
+    desc = item.get("description") or ""
+
+    # Extract company name from description: "<Company Name> has informed..."
+    company = symbol
+    import re
+    m = re.match(r'^([A-Za-z0-9][A-Za-z0-9\s&()\',.\-]{2,80}?)\s+has\b', desc)
+    if m:
+        company = m.group(1).strip()
+
     date = item.get("announcement_date") or item.get("date") or ""
     if date:
         date = date.split(" ")[0]
 
-    desc = item.get("description") or ""
-    acquirer = item.get("acquirer") or item.get("acquirer_name") or desc[:60] or "N/A"
+    category = item.get("category") or "SAST"
+    pdf_link = item.get("pdf_file_link") or ""
+    bse_code = item.get("bse_code") or ""
 
-    try:
-        pre = float(item.get("preHolding") or item.get("pre_holding") or 15.0)
-    except Exception:
-        pre = 15.0
-
-    try:
-        post = float(item.get("postHolding") or item.get("post_holding") or 16.5)
-    except Exception:
-        post = 16.5
-
-    try:
-        change = float(item.get("changePercent") or item.get("change_percent") or (post - pre))
-    except Exception:
-        change = post - pre
-
-    mode = item.get("mode") or "Open Market"
-    if "off-market" in desc.lower():
-        mode = "Off-Market"
-    elif "preferential" in desc.lower():
-        mode = "Preferential Allotment"
+    # Extract acquirer from description text
+    acquirer = "N/A"
+    for kw in ["acquirer", "promoter", "proposed to acquire", "purchased"]:
+        idx = desc.lower().find(kw)
+        if idx != -1:
+            acquirer = desc[max(0, idx-10):idx+60].strip()[:80]
+            break
 
     return {
         "date": date,
         "company": company,
         "symbol": symbol,
+        "bseCode": bse_code,
+        "category": category,
+        "description": desc[:200],
         "acquirer": acquirer,
-        "preHolding": pre,
-        "postHolding": post,
-        "changePercent": change,
-        "mode": mode
+        "pdfLink": pdf_link,
     }
 
 def _map_insider(item: dict) -> dict:
-    symbol = item.get("stock_symbol") or item.get("symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
+    """Maps corp-announcements item for Insider Trades display."""
+    symbol = item.get("stock_symbol") or item.get("nse_code") or item.get("symbol") or "STOCK"
+    desc = item.get("description") or ""
+
+    # Extract company name from description
+    company = symbol
+    import re
+    m = re.match(r'^([A-Za-z0-9][A-Za-z0-9\s&()\',.\-]{2,80}?)\s+has\b', desc)
+    if m:
+        company = m.group(1).strip()
+
     date = item.get("announcement_date") or item.get("date") or ""
     if date:
         date = date.split(" ")[0]
 
-    desc = item.get("description") or ""
-    insider = item.get("insider") or item.get("insider_name") or desc[:40] or "N/A"
-    designation = item.get("designation") or "Promoter"
+    category = item.get("category") or "Insider Trading"
+    pdf_link = item.get("pdf_file_link") or ""
+    bse_code = item.get("bse_code") or ""
 
+    # Derive trade type from description keywords
     trade_type = "Buy"
-    if "sell" in desc.lower() or "disposal" in desc.lower():
+    desc_lower = desc.lower()
+    if any(kw in desc_lower for kw in ["sell", "disposal", "sold", "dispose"]):
         trade_type = "Sell"
 
-    try:
-        qty = float(item.get("quantity") or item.get("qty") or 10000)
-    except Exception:
-        qty = 10000.0
-
-    try:
-        price = float(item.get("price") or item.get("avg_price") or 150.0)
-    except Exception:
-        price = 150.0
-
-    try:
-        val_cr = float(item.get("valueCr") or item.get("value_cr") or ((qty * price) / 10000000.0))
-    except Exception:
-        val_cr = (qty * price) / 10000000.0
+    # Try to extract insider name from description
+    insider = "N/A"
+    for pattern in [r'by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})', r'([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:has|purchased|sold)']:
+        mi = re.search(pattern, desc)
+        if mi:
+            insider = mi.group(1)[:60]
+            break
 
     return {
         "date": date,
         "company": company,
         "symbol": symbol,
+        "bseCode": bse_code,
+        "category": category,
+        "description": desc[:200],
         "insider": insider,
-        "designation": designation,
         "tradeType": trade_type,
-        "quantity": qty,
-        "price": price,
-        "valueCr": val_cr
+        "pdfLink": pdf_link,
     }
 
 @router.get("/market/bulk-deals")
@@ -1147,15 +1151,15 @@ async def get_bulk_deals(request: Request):
     q = {
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        "type": "bulk",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        items = [_map_deal(item, "Buy") for item in data] if isinstance(data, list) else []
+        bse_map = await _build_bse_map(rid)
+        items = [_map_corporate_action(item, bse_map) for item in data] if isinstance(data, list) else []
         return _paginate(items, request)
     except Exception as e:
-        _api_error(e, "corporate-actions/all?type=bulk", rid)
+        _api_error(e, "corporate-actions/all (bulk)", rid)
 
 @router.get("/market/block-deals")
 async def get_block_deals(request: Request):
@@ -1165,15 +1169,15 @@ async def get_block_deals(request: Request):
     q = {
         "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        "type": "block",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        items = [_map_deal(item, "Buy") for item in data] if isinstance(data, list) else []
+        bse_map = await _build_bse_map(rid)
+        items = [_map_corporate_action(item, bse_map) for item in data] if isinstance(data, list) else []
         return _paginate(items, request)
     except Exception as e:
-        _api_error(e, "corporate-actions/all?type=block", rid)
+        _api_error(e, "corporate-actions/all (block)", rid)
 
 @router.get("/market/sast-trades")
 async def get_sast_trades(request: Request):
@@ -1217,9 +1221,41 @@ def _deterministic_val(symbol: str, salt: str, min_val: int, max_val: int) -> fl
     val = int(h, 16) % (max_val - min_val) + min_val
     return round(float(val), 2)
 
-def _map_dividend(item: dict) -> dict:
-    symbol = item.get("symbol") or item.get("stock_symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
+async def _build_bse_map(request_id: str = "") -> dict:
+    """Build a BSE code → {symbol, name} map from corp-announcements which
+    contain both nse_code and bse_code.  Returns {} on failure (non-blocking)."""
+    try:
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        q = {
+            "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
+            "to_date": now.strftime("%Y-%m-%d"),
+        }
+        ann_data = await execute_proxy_request("GET", "corp-announcements", q, None, request_id)
+        bse_map: dict = {}
+        if isinstance(ann_data, list):
+            for ann in ann_data:
+                bse = str(ann.get("bse_code") or "").strip()
+                nse = str(ann.get("nse_code") or ann.get("stock_symbol") or "").strip()
+                if bse and nse and bse.isdigit():
+                    if bse not in bse_map:
+                        bse_map[bse] = {"symbol": nse, "name": nse}  # name = symbol for now
+        return bse_map
+    except Exception:
+        return {}
+
+
+def _map_dividend(item: dict, bse_map: dict = None) -> dict:
+    bse_map = bse_map or {}
+    raw_symbol = item.get("symbol") or item.get("stock_symbol") or "STOCK"
+
+    # Resolve BSE numeric code → real NSE symbol
+    if raw_symbol.isdigit() and raw_symbol in bse_map:
+        symbol = bse_map[raw_symbol].get("symbol", raw_symbol)
+        company = bse_map[raw_symbol].get("name", symbol)
+    else:
+        symbol = raw_symbol
+        company = item.get("company_name") or item.get("company") or symbol
     
     ex_date = item.get("ex_date") or item.get("date") or ""
     if ex_date and "-" in ex_date:
@@ -1270,26 +1306,60 @@ def _map_dividend(item: dict) -> dict:
     }
 
 def _map_concall(item: dict) -> dict:
-    symbol = item.get("stock_symbol") or item.get("symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
-    
+    """Maps investor-call-transcripts / corp-announcements item for Concalls."""
+    symbol = item.get("stock_symbol") or item.get("nse_code") or item.get("symbol") or "STOCK"
+    desc = item.get("description") or ""
+
+    # Extract company name from description
+    company = symbol
+    import re
+    m = re.match(r'^([A-Za-z0-9][A-Za-z0-9\s&()\',.\-]{2,80}?)\s+has\b', desc)
+    if m:
+        company = m.group(1).strip()
+
     date = item.get("announcement_date") or item.get("date") or ""
     if date:
         date = date.split(" ")[0]
-        
-    quarter = item.get("quarter") or "Q4 FY26"
-    has_rec = bool(item.get("hasRecording") or item.get("audio_link") or item.get("recording_link") or False)
-    has_trans = bool(item.get("hasTranscript") or item.get("transcript_link") or True)
-    has_sum = bool(item.get("hasSummary") or item.get("summary_link") or False)
-    
+
+    # Extract quarter info from description (e.g., Q1, Q2, FY26, FY2026)
+    quarter = ""
+    qm = re.search(r'(Q[1-4][\s\-]?(?:FY[\s]?[\d]{2,4}|[\d]{4}))', desc, re.IGNORECASE)
+    if qm:
+        quarter = qm.group(1).strip().upper().replace(" ", " ")
+    else:
+        # Try to find FY year at least
+        fym = re.search(r'(FY[\s]?[\d]{2,4}|financial year [\d]{4})', desc, re.IGNORECASE)
+        if fym:
+            quarter = fym.group(1).strip().upper()
+
+    # Fallback: infer from date
+    if not quarter and date:
+        try:
+            month = int(date.split("-")[1]) if "-" in date else 0
+            year_val = int(date.split("-")[0]) if "-" in date else 0
+            qnum = {1:"Q3",2:"Q3",3:"Q4",4:"Q4",5:"Q4",6:"Q1",7:"Q1",8:"Q1",9:"Q2",10:"Q2",11:"Q2",12:"Q3"}.get(month, "Q1")
+            fy = year_val + 1 if month >= 4 else year_val
+            quarter = f"{qnum} FY{str(fy)[2:]}"
+        except Exception:
+            quarter = "Recent"
+
+    pdf_link = item.get("pdf_file_link") or ""
+    has_trans = bool(pdf_link)
+    category = item.get("category") or "Con. Call"
+    bse_code = item.get("bse_code") or ""
+
     return {
         "company": company,
         "symbol": symbol,
-        "quarter": quarter,
+        "bseCode": bse_code,
+        "quarter": quarter or "Recent",
         "date": date,
-        "hasRecording": has_rec,
+        "category": category,
+        "description": desc[:180],
+        "hasRecording": False,
         "hasTranscript": has_trans,
-        "hasSummary": has_sum
+        "hasSummary": False,
+        "pdfLink": pdf_link,
     }
 
 def _map_annual_report(item: dict) -> dict:
@@ -1329,14 +1399,15 @@ async def get_dividends(request: Request):
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=15)).strftime("%Y-%m-%d"),
-        "to_date": (now + timedelta(days=15)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
+        "to_date": (now + timedelta(days=30)).strftime("%Y-%m-%d"),
         "action": "dividend",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        items = [_map_dividend(item) for item in data] if isinstance(data, list) else []
+        bse_map = await _build_bse_map(rid)
+        items = [_map_dividend(item, bse_map) for item in data] if isinstance(data, list) else []
         return _paginate(items, request)
     except Exception as e:
         _api_error(e, "corporate-actions/all?action=dividend", rid)
