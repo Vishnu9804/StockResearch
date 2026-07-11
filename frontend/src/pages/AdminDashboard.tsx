@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/Text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AppFooter } from '@/components/shared/AppFooter'
-import { finscreenClient } from '@/services/finscreenApi'
+import { apiClient } from '@/services/finscreenApi'
 
 interface Metrics {
   totalUsers: number
@@ -33,7 +33,7 @@ export function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      const res = await finscreenClient.get('/admin/summary')
+      const res = await apiClient.get('/admin/summary')
       if (res.data?.success) {
         setMetrics(res.data.metrics)
         setStatus(res.data.status)

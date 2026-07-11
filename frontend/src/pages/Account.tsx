@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
 import { SCREENER_TEMPLATES } from '@/lib/data/screener'
-import { finscreenClient } from '@/services/finscreenApi'
+import { apiClient } from '@/services/finscreenApi'
 import { markAllAsRead, markAsRead } from '@/store/slices/notificationsSlice'
 import { useCompanyNameResolver } from '@/hooks/useCompanyNameResolver'
 
@@ -62,7 +62,7 @@ function ProfileTab({ user }: { user: any }) {
   useEffect(() => {
     if (user && user.plan === 'PRO') {
       setLoadingSub(true)
-      finscreenClient.get('/payments/status')
+      apiClient.get('/payments/status')
         .then((res) => {
           if (res.data?.subscription) {
             setSubStatus(res.data.subscription)

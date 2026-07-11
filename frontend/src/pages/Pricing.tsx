@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
 import { useAppSelector } from '@/store/hooks'
-import { finscreenClient } from '@/services/finscreenApi'
+import { apiClient } from '@/services/finscreenApi'
 
 export function Pricing() {
   const navigate = useNavigate()
@@ -24,7 +24,7 @@ export function Pricing() {
     setError(null)
     try {
       // Initiate request to backend
-      const res = await finscreenClient.post('/payments/initiate', { plan })
+      const res = await apiClient.post('/payments/initiate', { plan })
       const { payuData, checkoutUrl } = res.data
 
       // Create a temporary form to POST parameters to PayU

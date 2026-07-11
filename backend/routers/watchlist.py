@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from core.database import get_db, Watchlist, WatchlistItem
 
@@ -23,11 +23,11 @@ class UpdateItemBody(BaseModel):
     targetPrice: Optional[float] = None
     alertEnabled: Optional[bool] = None
 
-def _wl_dict(wl: Watchlist) -> dict:
+def _wl_dict(wl: Watchlist, items: Optional[List[WatchlistItem]] = None) -> dict:
     return {
         "id": wl.id, "userId": wl.user_id, "name": wl.name,
         "createdAt": wl.created_at.isoformat(), "updatedAt": wl.updated_at.isoformat(),
-        "items": [_item_dict(i) for i in (wl.items or [])]
+        "items": [_item_dict(i) for i in (items if items is not None else [])],
     }
 
 def _item_dict(item: WatchlistItem) -> dict:
@@ -44,23 +44,23 @@ async def get_watchlists(db: AsyncSession = Depends(get_db)):
         select(Watchlist).order_by(Watchlist.created_at.desc())
     )
     watchlists = result.scalars().all()
+    payload = []
     for wl in watchlists:
         items_result = await db.execute(
             select(WatchlistItem).where(WatchlistItem.watchlist_id == wl.id)
         )
-        wl.items = items_result.scalars().all()
-    return {"success": True, "watchlists": [_wl_dict(w) for w in watchlists]}
+        payload.append(_wl_dict(wl, items_result.scalars().all()))
+    return {"success": True, "watchlists": payload}
 
 @router.post("", status_code=201)
 async def create_watchlist(body: CreateWatchlistBody, db: AsyncSession = Depends(get_db)):
     if not body.name.strip():
         raise HTTPException(400, "Please provide a valid watchlist name.")
     wl = Watchlist(user_id=GUEST_USER_ID, name=body.name.strip())
-    wl.items = []
     db.add(wl)
     await db.commit()
     await db.refresh(wl)
-    return {"success": True, "watchlist": _wl_dict(wl)}
+    return {"success": True, "watchlist": _wl_dict(wl, items=[])}
 
 @router.post("/{watchlist_id}/items", status_code=201)
 async def add_item(watchlist_id: str, body: AddItemBody, db: AsyncSession = Depends(get_db)):

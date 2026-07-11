@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from core.config import settings
@@ -15,7 +16,7 @@ def generate_access_token(user_id: str, plan: str) -> str:
 def generate_refresh_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "refresh"},
+        {"sub": user_id, "exp": expire, "type": "refresh", "jti": str(uuid.uuid4())},
         settings.JWT_REFRESH_SECRET,
         algorithm="HS256"
     )

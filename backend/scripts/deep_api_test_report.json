@@ -1,0 +1,1112 @@
+{
+  "summary": {
+    "passed": 87,
+    "total": 89,
+    "finscreen_200": 50
+  },
+  "results": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "infra",
+      "snippet": "{\"status\":\"ok\",\"service\":\"FinScreen FastAPI\",\"environment\":\"development\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/signup",
+      "status": 201,
+      "expected": [
+        201
+      ],
+      "ok": true,
+      "category": "auth",
+      "snippet": "{\"success\":true,\"message\":\"Account created successfully.\",\"user\":{\"id\":\"052a5acd-e85b-4325-82eb-03b21319d6d4\",\"email\":\"live_76ec868e@example.com\",\"nam"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "auth",
+      "snippet": "{\"success\":true,\"message\":\"Logged in successfully.\",\"user\":{\"id\":\"886b904a-7691-4d88-95f5-6ba61714d4b8\",\"email\":\"free@finscreen.in\",\"name\":\"Free User\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/profile",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "auth",
+      "snippet": "{\"success\":true,\"user\":{\"id\":\"886b904a-7691-4d88-95f5-6ba61714d4b8\",\"email\":\"free@finscreen.in\",\"name\":\"Free User\",\"plan\":\"FREE\"}}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "auth",
+      "snippet": "{\"success\":true,\"message\":\"Logged out successfully.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/stock-symbols",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"symbol\":\"RELIANCE\",\"nse_code\":\"RELIANCE\",\"bse_code\":\"500325\",\"name\":\"Reliance Industries Ltd\",\"consolidated_ind\":true},{\"symbol\":\"ABREL\",\"nse_code\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/stock-search",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbols\":[]}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/name-changes",
+      "status": 400,
+      "expected": [
+        200,
+        400,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"detail\":{\"error\":true,\"message\":\"Live data temporarily unavailable. Please try again.\",\"endpoint\":\"name-changes\"}}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/symbol-changes",
+      "status": 400,
+      "expected": [
+        200,
+        400,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"detail\":{\"error\":true,\"message\":\"Live data temporarily unavailable. Please try again.\",\"endpoint\":\"symbol-changes\"}}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/profile",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbol\":\"ITC\",\"name\":\"ITC Ltd\",\"exchange\":\"NSE\",\"sector\":\"Diversified FMCG\",\"industry\":\"Diversified FMCG\",\"website\":\"www.itcportal.com\",\"description"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/basic-financials",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"ratios\":[{\"adjustedEquityShareCapital\":12529500000,\"adjustedFaceValue\":1,\"costOfGoodsSold\":322486100000,\"dilutedSharesOutstanding\":12529468231,\"divi"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/financial-metrics",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"financial_metrics\":{\"financingCashFlow3yearsTotal\":-507148800000,\"freeCashFlow3yearsTotal\":437669200000,\"investingCashFlow3yearsTotal\":7306500000,\"o"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/financials/pl",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"columns\":[\"Mar 2018\",\"Mar 2019\",\"Mar 2020\",\"Mar 2021\",\"Mar 2022\",\"Mar 2023\",\"Mar 2024\",\"Mar 2025\",\"Mar 2026\"],\"rows\":[{\"label\":\"Revenue from Operati"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/financials/balance-sheet",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"columns\":[\"Mar 2019\",\"Mar 2020\",\"Mar 2021\",\"Mar 2022\",\"Mar 2023\",\"Mar 2024\",\"Mar 2025\",\"Mar 2026\"],\"rows\":[{\"label\":\"Equity Capital\",\"values\":[1225."
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/financials/cash-flow",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"columns\":[\"Mar 2022\",\"Mar 2023\",\"Mar 2024\",\"Mar 2025\",\"Mar 2026\"],\"rows\":[{\"label\":\"Cash from Operations\",\"values\":[14807.79,17911.7,16118.23,16751."
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/notes",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"notes\":[{\"AssetsAndLiabilities\":\"\u2018Non-current investments\u2019 includes \u2018Investment accounted for using equity method\u2019.\",\"FinancialResults\":\"Financial R"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/segments",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"segment_revenues\":[{\"data\":{\"interSegmentRevenue\":98457100000,\"netOtherUnallocableExpense\":-16986800000,\"segmentFinanceCosts\":699400000,\"segmentProf"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/ratios",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbol\":\"ITC\",\"sections\":[{\"section\":\"Profitability\",\"columns\":[\"Mar 2018\",\"Mar 2019\",\"Mar 2020\",\"Mar 2021\",\"Mar 2022\",\"Mar 2023\",\"Mar 2024\",\"Mar 20"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/peers",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"peers\":[\"HINDUNILVR\",\"ITC\",\"HNDFDS\",\"DAVANGERE\"]}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/quote",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"ITC\":{\"change\":\"-0.09%\",\"current_price\":281.8,\"high52\":427,\"high_price\":283.65,\"low52\":275.05,\"low_price\":280.85,\"market_cap\":353080.4,\"open_price\":"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/price-history",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbol\":\"ITC\",\"price\":[{\"quote_date\":\"2026-07-10\",\"open_price\":282.85,\"close_price\":281.8,\"high_price\":283.65,\"low_price\":280.85,\"volume\":11772642},"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/annual-price-ratios",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbol\":\"ITC\",\"price_ratios\":[{\"average_price\":390.53,\"pe\":24.12,\"pb\":7,\"ptb\":7.27,\"ps\":5.76,\"pfcf\":32.46,\"header\":\"Mar 2026\",\"year\":2026},{\"average"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/daily-price-ratios",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"symbol\":\"ITC\",\"price_ratios\":[{\"pe\":17.41,\"pb\":5.05,\"ptb\":5.25,\"ps\":4.16,\"pfcf\":23.42,\"quote_date\":\"2026-07-10\"},{\"pe\":17.41,\"pb\":5.05,\"ptb\":5.25,\"p"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/shareholding",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"quarter\":\"Mar'17\",\"promoter\":0,\"fii\":20.08,\"dii\":35.79,\"public\":44.13,\"others\":0.0},{\"quarter\":\"Mar'18\",\"promoter\":0,\"fii\":18.0,\"dii\":37.1,\"public\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/shareholding/beneficial-owners",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"beneficial_owners\":[],\"period\":\"quarterly\",\"symbol\":\"ITC\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/shareholding/declaration",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"declaration\":[{\"differentialVotingRightsNonPublic\":false,\"differentialVotingRightsPromoter\":false,\"differentialVotingRightsPublic\":false,\"equityShar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/shareholding/ownership-current",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"ownerships\":[{\"convertibleSecWarrants\":0,\"dematEquityShares\":217669387,\"differentialVotingRights\":0,\"lockedInShares\":0,\"lockedInSharesPct\":0,\"outsta"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/shareholding/ownership-history",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"ownership_history\":[{\"data\":[{\"convertibleSecWarrants\":0,\"dematEquityShares\":0,\"differentialVotingRights\":0,\"lockedInShares\":0,\"lockedInSharesPct\":0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/corporate-actions",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"corporateActions\":[],\"upcomingEvents\":[],\"dividendHistory\":[]}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/documents",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"documents\":[]}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/credit-ratings",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/company/ITC/identity-history",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        500,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[]"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/indices",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"change_pct\":0.83,\"close_price\":41633.66,\"div_yield\":null,\"high_price\":41752.37,\"index_name\":\"BSE SENSEX NEXT 30\",\"index_symbol\":\"SNSXSNSXN30\",\"low_"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/index-master",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"index_name\":\"BSE SENSEX NEXT 30\",\"index_symbol\":\"SNSXSNSXN30\",\"index_type\":\"equity\",\"index_sub_type\":\"Market Cap/Broad\",\"exchange\":\"BSE\",\"descripti"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/index-returns",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"10Y\":0,\"1M\":2.09,\"1Y\":7.14,\"3M\":4.24,\"3Y\":0,\"5Y\":0,\"6M\":3.5,\"7Y\":0,\"dates\":{\"1M\":\"2026-06-10\",\"1Y\":\"2025-07-10\",\"3M\":\"2026-04-10\",\"6M\":\"2026-01-09\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/movers",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"RELIANCE\":{\"change\":\"2.36%\",\"current_price\":1310,\"high52\":1611.8,\"high_price\":1311.1,\"low52\":1253.2,\"low_price\":1287.8,\"market_cap\":1772753.92,\"open"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/sector-performance",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"sector\":\"Chemicals\",\"change\":123.72,\"marketCap\":95417,\"stocks\":193,\"peRatio\":0.0},{\"sector\":\"Banks\",\"change\":2.98,\"marketCap\":5631652,\"stocks\":42,\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/ipo",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"data\":[{\"symbol\":\"ALPINETEX\",\"company_name\":\"Alpine Texworld Limited\",\"security_type\":\"Equity\",\"ipo_status\":\"Forthcoming\",\"start_date\":\"14-Jul-2026\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/results-calendar",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"symbol\":\"536073\",\"company_name\":\"Julien Agro Infratech Ltd\",\"expected_result_date\":\"2026-07-04\"},{\"symbol\":\"539175\",\"company_name\":\"Bluegod Enterta"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/holidays",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"description\":\"Republic Day\",\"trading_date\":\"26-Jan-2026\",\"week_day\":\"Monday\"},{\"description\":\"Mahashivratri\",\"trading_date\":\"15-Feb-2026\",\"week_day"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/commodities",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"name\":\"Food Index\",\"price\":192.8,\"unit\":\"WPI\",\"change\":-0.05,\"updatedAt\":\"2026-03-01T00:00:00Z\"},{\"name\":\"Fuel & Power\",\"price\":153.7,\"unit\":\"WPI\","
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/commodity-list",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"code\":2000000000,\"name\":\"FOOD INDEX\",\"weight\":24.38},{\"code\":1322050001,\"name\":\"Intraocular Lens\",\"weight\":0.05},{\"code\":1322050000,\"name\":\"Manufac"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/announcements",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"stock_symbol\":\"AMCL\",\"nse_code\":\"AMCL\",\"bse_code\":\"\",\"category\":\"Updates\",\"description\":\"ANB Metal Cast Limited has informed the Exchange "
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/news",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"id\":\"32723020\",\"category\":\"MARKET\",\"categoryColor\":\"var(--fs-brand)\",\"headline\":\"ANB Metal Cast Limited has informed the Exchange regarding 'Certif"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/bulk-deals",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"date\":\"2026-07-10\",\"company\":\"539984\",\"symbol\":\"539984\",\"action\":\"Bonus\",\"subject\":\"Bonus issue 2:1\"},{\"date\":\"2026-07-10\",\"company\":\"AEGI"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/block-deals",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"date\":\"2026-07-10\",\"company\":\"539984\",\"symbol\":\"539984\",\"action\":\"Bonus\",\"subject\":\"Bonus issue 2:1\"},{\"date\":\"2026-07-10\",\"company\":\"AEGI"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/sast-trades",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"date\":\"2026-07-11\",\"company\":\"ANB Metal Cast Limited\",\"symbol\":\"AMCL\",\"bseCode\":\"\",\"category\":\"Updates\",\"description\":\"ANB Metal Cast Limi"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/insider-trades",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"date\":\"2026-07-11\",\"company\":\"ANB Metal Cast Limited\",\"symbol\":\"AMCL\",\"bseCode\":\"\",\"category\":\"Updates\",\"description\":\"ANB Metal Cast Limi"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/dividends",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"company\":\"500213\",\"symbol\":\"500213\",\"exDate\":\"2026-07-31\",\"recordDate\":\"2026-07-31\",\"dividendType\":\"Final\",\"dividendPerShare\":5.5,\"fy\":\"FY"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/concalls",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"company\":\"Amagi Media Labs Limited\",\"symbol\":\"AMAGI\",\"bseCode\":\"544679\",\"quarter\":\"Q1 FY27\",\"date\":\"2026-07-10\",\"category\":\"Analysts/Insti"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/annual-reports",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"items\":[{\"company\":\"AMCL\",\"symbol\":\"AMCL\",\"fy\":\"FY26\",\"revenue\":99124.0,\"pat\":3214.0,\"eps\":168.0,\"roe\":8.0,\"dividendPerShare\":3.0},{\"company\":\"AMCL\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/market/sectors",
+      "status": 200,
+      "expected": [
+        200,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"name\":\"Healthcare & Pharma\",\"stocks\":212,\"marketCapCr\":0,\"peRatio\":0,\"pbRatio\":0,\"roePercent\":0,\"rocePct\":0,\"changePercent\":0},{\"name\":\"Industrials"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/index/nifty-50/profile",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"index_name\":\"NIFTY-50\",\"index_symbol\":\"nifty-50\",\"index_type\":\"equity\",\"index_sub_type\":\"Broad Market\",\"exchange\":\"NSE\",\"constituents\":[\"RELIANCE\",\""
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/index/nifty-50/historical",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"quote_date\":\"2026-06-11\",\"close_price\":23862.0,\"open_price\":23842.0,\"high_price\":23912.0,\"low_price\":23782.0,\"volume\":1000000},{\"quote_date\":\"2026-"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/index/nifty-50/returns",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "{\"10Y\":0,\"1M\":2.09,\"1Y\":7.14,\"3M\":4.24,\"3Y\":0,\"5Y\":0,\"6M\":3.5,\"7Y\":0,\"dates\":{\"1M\":\"2026-06-10\",\"1Y\":\"2025-07-10\",\"3M\":\"2026-04-10\",\"6M\":\"2026-01-09\","
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/index/nifty-50/valuation",
+      "status": 200,
+      "expected": [
+        200,
+        404,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"quote_date\":\"2025-07-16\",\"pe\":20.0,\"pb\":2.93,\"div_yield\":1.0},{\"quote_date\":\"2025-08-15\",\"pe\":19.0,\"pb\":3.06,\"div_yield\":1.0},{\"quote_date\":\"2025-0"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/refreshed-stocks",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        502
+      ],
+      "ok": true,
+      "category": "finscreen",
+      "snippet": "[{\"symbol\":\"RELIANCE\",\"nse_code\":\"RELIANCE\",\"bse_code\":\"500325\",\"name\":\"Reliance Industries Ltd\",\"consolidated_ind\":true},{\"symbol\":\"HDFCBANK\",\"nse_co"
+    },
+    {
+      "method": "GET",
+      "path": "/api/watchlists",
+      "status": 500,
+      "expected": [
+        200
+      ],
+      "ok": false,
+      "category": "watchlist",
+      "snippet": "{\"error\":true,\"message\":\"An unexpected error occurred.\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlists",
+      "status": "ERR",
+      "expected": [
+        201
+      ],
+      "ok": false,
+      "category": "watchlist",
+      "snippet": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlists/fake-id/items",
+      "status": 404,
+      "expected": [
+        201,
+        404
+      ],
+      "ok": true,
+      "category": "watchlist",
+      "snippet": "{\"detail\":\"Watchlist not found.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/watchlists/items/fake-item",
+      "status": 404,
+      "expected": [
+        200,
+        404
+      ],
+      "ok": true,
+      "category": "watchlist",
+      "snippet": "{\"detail\":\"Watchlist item not found.\"}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/watchlists/items/fake-item",
+      "status": 404,
+      "expected": [
+        200,
+        404
+      ],
+      "ok": true,
+      "category": "watchlist",
+      "snippet": "{\"detail\":\"Watchlist item not found.\"}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/watchlists/fake-id",
+      "status": 404,
+      "expected": [
+        200,
+        404
+      ],
+      "ok": true,
+      "category": "watchlist",
+      "snippet": "{\"detail\":\"Watchlist not found.\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/screener/run",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"success\":true,\"results\":[{\"symbol\":\"COALINDIA\",\"name\":\"Coal India Ltd\",\"sector\":\"Other\",\"marketCap\":265213.02,\"pe\":0.0,\"pb\":0.0,\"dividendYield\":0.0,"
+    },
+    {
+      "method": "GET",
+      "path": "/api/screener/saved",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"success\":true,\"screens\":[]}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/screener/saved",
+      "status": 201,
+      "expected": [
+        201
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"success\":true,\"screen\":{\"id\":\"b1d61b26-702b-4239-85a0-3ab0e4163ae9\",\"userId\":\"guest\",\"name\":\"Live Screen\",\"description\":null,\"queryText\":\"roe > 10\","
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/screener/saved/fake-screen",
+      "status": 404,
+      "expected": [
+        200,
+        404
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"detail\":\"Saved screen not found.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/screener/notifications",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"success\":true,\"notifications\":[],\"unreadCount\":0}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/screener/notifications/fake-notif/read",
+      "status": 404,
+      "expected": [
+        200,
+        404
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"detail\":\"Notification not found.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/screener/notifications/read-all",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "ok": true,
+      "category": "screener",
+      "snippet": "{\"success\":true,\"message\":\"All notifications marked as read.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/portfolio",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"success\":true,\"portfolios\":[]}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/portfolio",
+      "status": 201,
+      "expected": [
+        201,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"success\":true,\"portfolio\":{\"id\":\"52748210-d053-47ae-81ea-8e3b4de22541\",\"userId\":\"886b904a-7691-4d88-95f5-6ba61714d4b8\",\"name\":\"Live Portfolio\",\"crea"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/portfolio/fake-portfolio",
+      "status": 404,
+      "expected": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"detail\":\"Portfolio not found or unauthorized.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/portfolio/fake-portfolio/holdings",
+      "status": 404,
+      "expected": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"detail\":\"Portfolio not found or unauthorized.\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/portfolio/fake-portfolio/holdings",
+      "status": 404,
+      "expected": [
+        201,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"detail\":\"Portfolio not found or unauthorized.\"}"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/portfolio/fake-portfolio/holdings/fake-holding",
+      "status": 404,
+      "expected": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"detail\":\"Portfolio not found or unauthorized.\"}"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/portfolio/fake-portfolio/holdings/fake-holding",
+      "status": 404,
+      "expected": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "portfolio",
+      "snippet": "{\"detail\":\"Portfolio not found or unauthorized.\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/queries",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "queries",
+      "snippet": "{\"success\":true,\"queries\":[]}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/queries",
+      "status": 201,
+      "expected": [
+        200,
+        201,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "queries",
+      "snippet": "{\"success\":true,\"query\":{\"id\":\"0bd9572e-2a7b-42d1-b176-952b6eff95cc\",\"userId\":\"886b904a-7691-4d88-95f5-6ba61714d4b8\",\"queryText\":\"dividend yield > 2\","
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/queries/fake-query",
+      "status": 404,
+      "expected": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "ok": true,
+      "category": "queries",
+      "snippet": "{\"detail\":\"Saved query not found.\"}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/initiate",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "payments",
+      "snippet": "{\"success\":true,\"payuData\":{\"key\":\"GTK42i\",\"txnid\":\"FS-886B904A-1783790441\",\"amount\":\"999.00\",\"productinfo\":\"FinScreen PRO Plan\",\"firstname\":\"Free Use"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/status",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "payments",
+      "snippet": "{\"success\":true,\"plan\":\"FREE\",\"subscription\":null}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/payu/success",
+      "status": 302,
+      "expected": [
+        302,
+        400,
+        422
+      ],
+      "ok": true,
+      "category": "payments",
+      "snippet": ""
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/payu/failure",
+      "status": 302,
+      "expected": [
+        302,
+        400,
+        422
+      ],
+      "ok": true,
+      "category": "payments",
+      "snippet": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/summary",
+      "status": 200,
+      "expected": [
+        200,
+        401,
+        403
+      ],
+      "ok": true,
+      "category": "admin",
+      "snippet": "{\"success\":true,\"metrics\":{\"totalUsers\":2,\"proUsers\":0,\"totalWatchlists\":1,\"totalRevenue\":0.0,\"totalHoldings\":0},\"status\":{\"database\":\"connected\",\"sch"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/portfolio",
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "ok": true,
+      "category": "frontend-bug",
+      "snippet": "{\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/queries",
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "ok": true,
+      "category": "frontend-bug",
+      "snippet": "{\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/payments/status",
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "ok": true,
+      "category": "frontend-bug",
+      "snippet": "{\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finscreen/admin/summary",
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "ok": true,
+      "category": "frontend-bug",
+      "snippet": "{\"detail\":\"Not Found\"}"
+    }
+  ]
+}

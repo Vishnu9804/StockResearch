@@ -3,7 +3,7 @@
  * Redux slice for user portfolios and holdings with custom thunk actions.
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import { finscreenClient } from '@/services/finscreenApi'
+import { apiClient } from '@/services/finscreenApi'
 
 export interface PortfolioHolding {
   id: string
@@ -124,7 +124,7 @@ export const portfolioReducer = portfolioSlice.reducer
 export const fetchPortfolios = () => async (dispatch: any) => {
   dispatch(fetchPortfoliosStart())
   try {
-    const res = await finscreenClient.get('/portfolio')
+    const res = await apiClient.get('/portfolio')
     dispatch(fetchPortfoliosSuccess(res.data.portfolios))
   } catch (err: any) {
     const msg = err.response?.data?.detail?.message || err.message || 'Failed to fetch portfolios'
@@ -134,7 +134,7 @@ export const fetchPortfolios = () => async (dispatch: any) => {
 
 export const createPortfolio = (name: string) => async (dispatch: any) => {
   try {
-    const res = await finscreenClient.post('/portfolio', { name })
+    const res = await apiClient.post('/portfolio', { name })
     dispatch(createPortfolioSuccess(res.data.portfolio))
   } catch (err: any) {
     console.error('Failed to create portfolio:', err)
@@ -143,7 +143,7 @@ export const createPortfolio = (name: string) => async (dispatch: any) => {
 
 export const deletePortfolio = (id: string) => async (dispatch: any) => {
   try {
-    await finscreenClient.delete(`/portfolio/${id}`)
+    await apiClient.delete(`/portfolio/${id}`)
     dispatch(deletePortfolioSuccess(id))
   } catch (err: any) {
     console.error('Failed to delete portfolio:', err)
@@ -153,7 +153,7 @@ export const deletePortfolio = (id: string) => async (dispatch: any) => {
 export const fetchHoldings = (portfolioId: string) => async (dispatch: any) => {
   dispatch(fetchHoldingsStart())
   try {
-    const res = await finscreenClient.get(`/portfolio/${portfolioId}/holdings`)
+    const res = await apiClient.get(`/portfolio/${portfolioId}/holdings`)
     dispatch(fetchHoldingsSuccess(res.data.holdings))
   } catch (err: any) {
     const msg = err.response?.data?.detail?.message || err.message || 'Failed to fetch holdings'
@@ -166,7 +166,7 @@ export const addHolding = (
   holding: Omit<PortfolioHolding, 'id' | 'portfolioId' | 'createdAt'>
 ) => async (dispatch: any) => {
   try {
-    const res = await finscreenClient.post(`/portfolio/${portfolioId}/holdings`, holding)
+    const res = await apiClient.post(`/portfolio/${portfolioId}/holdings`, holding)
     dispatch(addHoldingSuccess(res.data.holding))
   } catch (err: any) {
     console.error('Failed to add holding:', err)
@@ -179,7 +179,7 @@ export const updateHolding = (
   updates: { quantity?: number; avgBuyPrice?: number }
 ) => async (dispatch: any) => {
   try {
-    const res = await finscreenClient.put(`/portfolio/${portfolioId}/holdings/${holdingId}`, updates)
+    const res = await apiClient.put(`/portfolio/${portfolioId}/holdings/${holdingId}`, updates)
     dispatch(updateHoldingSuccess(res.data.holding))
   } catch (err: any) {
     console.error('Failed to update holding:', err)
@@ -191,7 +191,7 @@ export const deleteHolding = (
   holdingId: string
 ) => async (dispatch: any) => {
   try {
-    await finscreenClient.delete(`/portfolio/${portfolioId}/holdings/${holdingId}`)
+    await apiClient.delete(`/portfolio/${portfolioId}/holdings/${holdingId}`)
     dispatch(deleteHoldingSuccess(holdingId))
   } catch (err: any) {
     console.error('Failed to delete holding:', err)

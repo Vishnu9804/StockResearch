@@ -8,7 +8,8 @@ import axios, { type AxiosInstance } from 'axios'
 import type { Company } from '@/lib/data/companies'
 
 const BASE_API = import.meta.env.VITE_API_URL || '/api'
-const BASE_URL = `${BASE_API.replace(/\/$/, '')}/finscreen`
+const ROOT_API = BASE_API.replace(/\/$/, '')
+const BASE_URL = `${ROOT_API}/finscreen`
 
 function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -57,6 +58,20 @@ function addRetryInterceptor(client: AxiosInstance) {
   )
 }
 
+/** Root /api client for portfolio, queries, payments, admin (not under /finscreen). */
+export const apiClient: AxiosInstance = axios.create({
+  baseURL: ROOT_API,
+  timeout: 60000,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+apiClient.interceptors.request.use((config) => {
+  config.headers['X-Request-ID'] = generateRequestId()
+  return config
+})
+addRetryInterceptor(apiClient)
+
 export const finscreenClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 60000, // 60s — backend heavy endpoints (insider trades etc.) can take up to 45s
@@ -72,7 +87,7 @@ finscreenClient.interceptors.request.use((config) => {
 // Auto-retry on network/5xx errors
 addRetryInterceptor(finscreenClient)
 
-const SCREENER_BASE_URL = `${BASE_API.replace(/\/$/, '')}/screener`
+const SCREENER_BASE_URL = `${ROOT_API}/screener`
 
 export const screenerApiClient: AxiosInstance = axios.create({
   baseURL: SCREENER_BASE_URL,

@@ -10,7 +10,7 @@ import { Heading } from '@/components/ui/Heading'
 import { Button } from '@/components/ui/button'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useAppSelector } from '@/store/hooks'
-import { finscreenClient } from '@/services/finscreenApi'
+import { apiClient } from '@/services/finscreenApi'
 
 const EXAMPLE_QUERIES = [
   'Mergers and de-mergers',
@@ -37,7 +37,7 @@ export function QueryBuilder() {
   const loadSavedFilters = async () => {
     if (isAuthenticated) {
       try {
-        const res = await finscreenClient.get('/queries')
+        const res = await apiClient.get('/queries')
         const items = res.data?.queries || []
         setSavedFilters(items.map((q: any) => ({ id: q.id, text: q.queryText })))
       } catch (err) {
@@ -82,7 +82,7 @@ export function QueryBuilder() {
 
     if (isAuthenticated) {
       try {
-        const res = await finscreenClient.post('/queries', { queryText: trimmed })
+        const res = await apiClient.post('/queries', { queryText: trimmed })
         if (res.data?.query) {
           const q = res.data.query
           setSavedFilters(prev => [{ id: q.id, text: q.queryText }, ...prev])
@@ -100,7 +100,7 @@ export function QueryBuilder() {
   const handleDeleteFilter = async (filter: { id?: string; text: string }) => {
     if (isAuthenticated && filter.id) {
       try {
-        await finscreenClient.delete(`/queries/${filter.id}`)
+        await apiClient.delete(`/queries/${filter.id}`)
         setSavedFilters(prev => prev.filter(f => f.id !== filter.id))
       } catch (err) {
         console.error('Failed to delete query from DB:', err)
