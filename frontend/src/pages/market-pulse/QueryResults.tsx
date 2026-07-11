@@ -16,6 +16,7 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/
 import { useAppSelector } from '@/store/hooks'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { AnnouncementItem } from '@/components/shared/AnnouncementItem'
+import { PaginationBar } from '@/components/ui/PaginationBar'
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   'Board Meeting': { bg: 'var(--fs-info-soft)', text: 'var(--fs-info)' },
@@ -42,6 +43,10 @@ export function QueryResults() {
 
   // Local storage persisted density state
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
+
+  // Pagination local state
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(15)
 
   // Redux watchlist state
   const watchlists = useAppSelector((state) => state.watchlist?.watchlists || [])
@@ -92,6 +97,7 @@ export function QueryResults() {
 
   const handleToggleRefinement = (ref: 'results' | 'concalls' | 'watchlist') => {
     setRefinement(prev => prev === ref ? 'all' : ref)
+    setPage(1)
   }
 
   const displayAnnouncements = useMemo(() => {
@@ -139,6 +145,16 @@ export function QueryResults() {
 
     return list
   }, [query, refinement, watchlistSymbols])
+
+  // Reset page to 1 when query changes
+  useEffect(() => {
+    setPage(1)
+  }, [query])
+
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * limit
+    return filtered.slice(start, start + limit)
+  }, [filtered, page, limit])
 
   return (
     <div className="min-h-screen bg-background font-sans select-none animate-[fadeInUp_0.15s_ease-out]">
@@ -278,14 +294,30 @@ export function QueryResults() {
             </div>
 
             {/* Results card */}
-            <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8 divide-y divide-border/40">
-              {filtered.map((ann) => (
-                <AnnouncementItem
-                  key={ann.id}
-                  item={ann}
-                  density={density}
+            <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs mb-8">
+              <div className="divide-y divide-border/40">
+                {paginatedData.map((ann) => (
+                  <AnnouncementItem
+                    key={ann.id}
+                    item={ann}
+                    density={density}
+                  />
+                ))}
+              </div>
+
+              {filtered.length > 0 && (
+                <PaginationBar
+                  total={filtered.length}
+                  page={page}
+                  limit={limit}
+                  onPageChange={(p) => setPage(p)}
+                  onLimitChange={(l) => {
+                    setLimit(l)
+                    setPage(1)
+                  }}
+                  limitOptions={[10, 15, 25, 50]}
                 />
-              ))}
+              )}
             </div>
           </>
         )}
