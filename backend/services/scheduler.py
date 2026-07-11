@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from core.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -181,14 +182,24 @@ async def run_watchlist_alerts():
 
 async def sync_all_company_metrics():
     logger.info("[Scheduler] Starting background loop sync of company metrics from FinEdge API...")
-    try:
-        symbols_data = await execute_proxy_request("GET", "stock-symbols", {}, None, "scheduler_sync")
-        if not symbols_data or not isinstance(symbols_data, list):
-            logger.warning("[Scheduler] No stock symbols returned from FinEdge API.")
+    
+    # In development, we only sync companies currently in the database to avoid
+    # flooding the logs and hitting API rate limits with thousands of stock symbols.
+    if settings.ENVIRONMENT == "development":
+        async with AsyncSessionLocal() as db:
+            res = await db.execute(select(CompanyMetric.symbol, CompanyMetric.name, CompanyMetric.sector, CompanyMetric.industry))
+            symbols_to_sync = [{"symbol": r[0], "name": r[1], "sector": r[2], "industry": r[3]} for r in res.all()]
+        logger.info(f"[Scheduler] Development mode: Only syncing {len(symbols_to_sync)} existing database companies.")
+    else:
+        try:
+            symbols_data = await execute_proxy_request("GET", "stock-symbols", {}, None, "scheduler_sync")
+            if not symbols_data or not isinstance(symbols_data, list):
+                logger.warning("[Scheduler] No stock symbols returned from FinEdge API.")
+                return
+            symbols_to_sync = symbols_data
+        except Exception as e:
+            logger.error(f"[Scheduler] Failed to fetch stock symbols: {e}")
             return
-    except Exception as e:
-        logger.error(f"[Scheduler] Failed to fetch stock symbols: {e}")
-        return
 
     def to_percent(val):
         if not val:
@@ -206,7 +217,7 @@ async def sync_all_company_metrics():
             return sorted(data["ratios"], key=lambda r: r.get("year", r.get("period_end", 0)), reverse=True)[0]
         return {}
 
-    for item in symbols_data:
+    for item in symbols_to_sync:
         symbol = item.get("symbol")
         if not symbol:
             continue
@@ -313,7 +324,7 @@ async def sync_all_company_metrics_loop():
             await sync_all_company_metrics()
         except Exception as e:
             logger.error(f"[Scheduler] Error in sync_all_company_metrics_loop: {e}")
-        await asyncio.sleep(3600)
+        await asyncio.sleep(settings.SCHEDULER_SYNC_INTERVAL)
 
 
 # ── Scheduler init ────────────────────────────────────────────────────────────

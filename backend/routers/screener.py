@@ -171,6 +171,16 @@ async def parse_and_build_filters(query_text: str, rid: str = "screener"):
 
 class RunScreenerBody(BaseModel):
     query: str
+    page: int = 1
+    limit: int = 25
+
+    @property
+    def page_clamped(self) -> int:
+        return max(1, self.page)
+
+    @property
+    def limit_clamped(self) -> int:
+        return max(1, min(200, self.limit))
 
 class SaveScreenBody(BaseModel):
     name: str
@@ -212,14 +222,14 @@ async def run_screener(body: RunScreenerBody, request: Request, db: AsyncSession
         result = await db.execute(stmt)
         companies = result.scalars().all()
         
-        results = []
+        all_results = []
         for c in companies:
             # Self-healing database write: persist sector/industry resolved from search
             if c.symbol in resolved_sectors and c.sector == "Other":
                 c.sector = resolved_sectors[c.symbol]
                 c.industry = resolved_sectors[c.symbol]
                 
-            results.append({
+            all_results.append({
                 "symbol": c.symbol,
                 "name": c.name,
                 "sector": resolved_sectors.get(c.symbol, c.sector if c.sector != "Other" else "Other"),
@@ -250,7 +260,23 @@ async def run_screener(body: RunScreenerBody, request: Request, db: AsyncSession
             
         # Commit self-healed sector updates
         await db.commit()
-        return {"success": True, "results": results, "data": results}
+
+        # ── Server-side pagination ────────────────────────────────────────────
+        total = len(all_results)
+        page  = body.page_clamped
+        limit = body.limit_clamped
+        start = (page - 1) * limit
+        end   = start + limit
+        paged_results = all_results[start:end]
+
+        return {
+            "success": True,
+            "results": paged_results,
+            "data":    paged_results,  # legacy compat
+            "total":   total,
+            "page":    page,
+            "limit":   limit,
+        }
     except Exception as e:
         logger.error(f"[Screener] Local screener query failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": True, "message": f"Failed to run screener query: {str(e)}"})

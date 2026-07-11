@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppSelector } from '@/store/hooks'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import {
-  ChevronLeft, ChevronRight,
   Download, Bell, X, Columns3, TrendingUp, TrendingDown, ChevronsUpDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +16,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { PaginationBar } from '@/components/ui/PaginationBar'
+import { setPage as setReduxPage, setPageSize as setReduxPageSize } from '@/store/slices/screenerSlice'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,8 +82,9 @@ const getFilterChipColors = (label: string) => {
 
 export function ScreenerResultsTable() {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const { results, status, queryText } = useAppSelector((state) => state.screener)
+  const { results, status, queryText, page, pageSize, totalCount } = useAppSelector((state) => state.screener)
 
   // Derive filter chips dynamically from the actual query text
   const derivedFilters: ActiveFilter[] = useMemo(() => {
@@ -95,7 +97,6 @@ export function ScreenerResultsTable() {
 
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [page, setPage] = useState(1)
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([])
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(['name', 'cmp', 'change', 'pe', 'marketCap', 'divYield', 'netProfit', 'roce'])
@@ -156,23 +157,18 @@ export function ScreenerResultsTable() {
     })
   }, [filtered, sortKey, sortDir])
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
-  const pageData = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     else { setSortKey(key); setSortDir('desc') }
-    setPage(1)
+    // page reset is handled by Redux runScreenerStart
   }
 
   const removeFilter = (id: string) => {
     setActiveFilters((prev) => prev.filter((f) => f.id !== id))
-    setPage(1)
   }
 
   const clearFilters = () => {
     setActiveFilters([])
-    setPage(1)
   }
 
   const showToast = (msg: string) => {
@@ -192,7 +188,7 @@ export function ScreenerResultsTable() {
     })
   }
 
-  // Summary stats
+  // Summary stats (over the current page's data)
   const avgPE = useMemo(() => {
     const withPE = filtered.filter((r) => r.pe !== null)
     if (withPE.length === 0) return 0
@@ -205,14 +201,9 @@ export function ScreenerResultsTable() {
     return arr[Math.floor(arr.length / 2)]
   }, [filtered])
 
-  const pageNums = useMemo(() => {
-    const nums: number[] = []
-    let start = Math.max(1, page - 2)
-    let end = Math.min(totalPages, start + 4)
-    start = Math.max(1, end - 4)
-    for (let i = start; i <= end; i++) nums.push(i)
-    return nums
-  }, [page, totalPages])
+  // The current-page slice is already returned by the backend;
+  // `sorted` contains only the current page's rows.
+  const pageData = sorted
 
   return (
     <div className="space-y-4">
@@ -492,87 +483,14 @@ export function ScreenerResultsTable() {
           </table>
         </div>
 
-        {/* Table Pagination Row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 14px',
-            borderTop: 'var(--fs-border)'
-          }}
-          className="select-none"
-        >
-          <span style={{ fontSize: 'var(--fs-size-body)' }} className="text-textMuted font-medium">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
-          </span>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <button
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: 'var(--fs-radius-sm)',
-                border: 'var(--fs-border)',
-                background: 'var(--fs-surface)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="hover:bg-surfaceMuted transition-colors"
-            >
-              <ChevronLeft className="size-4 text-textSecondary" />
-            </button>
-            {pageNums.map((n) => {
-              const isActive = n === page
-              return (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: 'var(--fs-radius-sm)',
-                    border: isActive ? '1px solid var(--fs-brand)' : '0.5px solid var(--fs-border-color)',
-                    background: isActive ? 'var(--fs-brand)' : 'var(--fs-surface)',
-                    color: isActive ? 'var(--fs-surface)' : 'var(--fs-text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontSize: 'var(--fs-size-body)',
-                    fontWeight: isActive ? 600 : 500,
-                  }}
-                  className={isActive ? '' : 'hover:bg-surfaceMuted transition-colors'}
-                >
-                  {n}
-                </button>
-              )
-            })}
-            <button
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: 'var(--fs-radius-sm)',
-                border: 'var(--fs-border)',
-                background: 'var(--fs-surface)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                opacity: page === totalPages ? 0.4 : 1,
-              }}
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="hover:bg-surfaceMuted transition-colors"
-            >
-              <ChevronRight className="size-4 text-textSecondary" />
-            </button>
-          </div>
-        </div>
+        {/* Table Pagination Row — shared PaginationBar */}
+        <PaginationBar
+          total={totalCount}
+          page={page}
+          limit={pageSize}
+          onPageChange={(p) => dispatch(setReduxPage(p))}
+          onLimitChange={(l) => dispatch(setReduxPageSize(l))}
+        />
       </div>
 
       {/* Edit Columns Dialog */}

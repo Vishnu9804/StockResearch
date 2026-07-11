@@ -14,6 +14,7 @@ import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
 import { finscreenClient } from '@/services/finscreenApi'
+import { PaginationBar } from '@/components/ui/PaginationBar'
 
 const TABS = ['Upcoming IPOs', 'Recent IPOs', 'Below IPO Price', 'Upcoming Rights'] as const
 type Tab = typeof TABS[number]
@@ -663,36 +664,17 @@ export function NewIssues() {
               </>
             )}
 
-            {/* Pagination / Total count Footer */}
-            {showPagination && !loading && !error ? (
-              <div className="flex items-center justify-between border-t border-border/40 px-5 py-3 text-xs text-textMuted bg-surfaceMuted/15">
-                <span>Showing {startEntry}-{endEntry} of {sortedData.length} companies</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1}
-                    onClick={() => handlePageChange(page - 1)}
-                    className="h-7 px-3 text-xs font-semibold cursor-pointer border-border/60 hover:bg-surfaceMuted"
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === totalPages}
-                    onClick={() => handlePageChange(page + 1)}
-                    className="h-7 px-3 text-xs font-semibold cursor-pointer border-border/60 hover:bg-surfaceMuted"
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            ) : !loading && !error ? (
-              <div className="px-5 py-3 border-t border-border/40 text-xs text-textMuted bg-surfaceMuted/5">
-                Showing {sortedData.length} companies
-              </div>
-            ) : null}
+            {/* Pagination — shared PaginationBar */}
+            {!loading && !error && sortedData.length > 0 && (
+              <PaginationBar
+                total={sortedData.length}
+                page={page}
+                limit={pageSize}
+                onPageChange={handlePageChange}
+                onLimitChange={handlePageSizeChange}
+                limitOptions={[10, 25, 50]}
+              />
+            )}
           </div>
         )}
       </div>

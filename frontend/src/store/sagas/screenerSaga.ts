@@ -7,6 +7,7 @@ import { call, put, takeLatest, delay, select } from 'redux-saga/effects'
 import {
   setQuery,
   setQueryValid,
+  setPage,
   runScreenerStart,
   runScreenerSuccess,
   runScreenerFailure,
@@ -136,7 +137,7 @@ import { finscreenClient, screenerApiClient } from '@/services/finscreenApi'
 function* runScreenerSaga(): Generator<any, void, any> {
   try {
     const state: ReturnType<typeof selectScreenerState> = yield select(selectScreenerState)
-    const { filters, queryText, queryValid } = state
+    const { filters, queryText, queryValid, page, pageSize } = state
 
     if (queryText.trim() && !queryValid) {
       throw new Error('Cannot run query with syntax errors')
@@ -150,18 +151,22 @@ function* runScreenerSaga(): Generator<any, void, any> {
       return `${f.variableId} ${f.operator} ${f.value}`
     }).join(' AND ')
 
-    // API call to the backend screener endpoint using the configured screenerApiClient
+    // API call — send page & limit so the backend slices the data
     const response = yield call(
       [screenerApiClient, screenerApiClient.post],
       '/run',
-      { query }
+      { query, page, limit: pageSize }
     )
     
-    // Map response structure (supports direct array list or results wrapper)
-    const resultsList = Array.isArray(response.data) ? response.data
-                       : Array.isArray(response.data?.results) ? response.data.results
-                       : Array.isArray(response.data?.data) ? response.data.data
-                       : []
+    // Read the paginated envelope: { results, total, page, limit }
+    const responseData = response.data
+    const resultsList: any[] = Array.isArray(responseData) ? responseData
+                             : Array.isArray(responseData?.results) ? responseData.results
+                             : Array.isArray(responseData?.data)    ? responseData.data
+                             : []
+
+    // Total comes from the envelope; fall back to slice length for legacy responses
+    const totalCount: number = responseData?.total ?? resultsList.length
 
     const results: ScreenerResult[] = resultsList.map((c: any) => ({
       symbol: c.symbol,
@@ -192,7 +197,7 @@ function* runScreenerSaga(): Generator<any, void, any> {
       beta: c.beta || 0,
     }))
 
-    yield put(runScreenerSuccess({ results, totalCount: results.length }))
+    yield put(runScreenerSuccess({ results, totalCount }))
   } catch (err: any) {
     console.error('Screener run error:', err)
     const errorMsg = err.response?.data?.detail?.message || err.message || 'Failed to run screener'
@@ -203,4 +208,6 @@ function* runScreenerSaga(): Generator<any, void, any> {
 export function* screenerSaga(): Generator<any, void, any> {
   yield takeLatest(setQuery.type, validateQuerySaga)
   yield takeLatest(runScreenerStart.type, runScreenerSaga)
+  // Re-run the screener when the user changes page (server-side pagination)
+  yield takeLatest(setPage.type, runScreenerSaga)
 }

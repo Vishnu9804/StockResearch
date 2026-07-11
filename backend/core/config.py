@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     PAYU_MERCHANT_SALT: str = "eCwWELSp"
 
     FRONTEND_URL: str = "http://localhost:3000"
+    SCHEDULER_SYNC_INTERVAL: int = 3600  # seconds between full metric sync loops
+
 
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:
