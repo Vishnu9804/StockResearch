@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { signupStart } from '@/store/slices/authSlice'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
+import { toast } from '@/components/ui/use-toast'
 
 // Validation schema for registration
 const registerSchema = z
@@ -39,15 +40,17 @@ export default function Register() {
   const redirect = searchParams.get('redirect')
 
   // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (redirect) {
-        navigate(decodeURIComponent(redirect))
-      } else {
-        navigate('/')
-      }
-    }
-  }, [isAuthenticated, navigate, redirect])
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     if (redirect) {
+  //       navigate(decodeURIComponent(redirect))
+  //     } else {
+  //       navigate('/')
+  //     }
+  //   }
+  // }, [isAuthenticated, navigate, redirect])
+
+  
 
   const {
     register,
@@ -60,12 +63,28 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      agreeToTerms: true, // auto agree for seamless mock experience
+      agreeToTerms: true,
     },
   })
 
-  const onSubmit = (data: RegisterFormValues) => {
-    dispatch(signupStart({ name: data.name, email: data.email, password: data.password }))
+  const onSubmit = async (data: RegisterFormValues) => {
+    try {
+      dispatch(signupStart({ name: data.name, email: data.email, password: data.password }))
+      // If signup is successful, show success message and redirect to login
+      toast({
+        title: 'Registration successful!',
+        description: 'Please sign in.',
+      })
+      // Redirect to login page after successful registration
+      if (redirect) {
+        navigate(`/login?redirect=${encodeURIComponent(redirect)}`)
+      } else {
+        navigate('/login')
+      }
+    } catch (error) {
+      // Error will be handled by the auth slice
+      console.error('Registration failed:', error)
+    }
   }
 
   return (

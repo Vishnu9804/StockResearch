@@ -1,8 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import DashboardLayout from './layouts/DashboardLayout'
 import AuthLayout from './layouts/AuthLayout'
 import { NavigationHandler } from './components/shared/NavigationHandler'
-import { AuthGuard } from './components/shared/AuthGuard'
 
 // Import Pages
 import Home from './pages/Home'
@@ -11,18 +10,13 @@ import Register from './pages/Register'
 import Pricing from './pages/Pricing'
 import Screener from './pages/Screener'
 import ScreenerResults from './pages/ScreenerResults'
-import Watchlists from './pages/Watchlists'
-import Portfolio from './pages/Portfolio'
-import CustomRatios from './pages/CustomRatios'
 import CompanyDetail from './pages/CompanyDetail'
 import IndexDetail from './pages/IndexDetail'
 import ScreenGallery from './pages/ScreenGallery'
-import Account from './pages/Account'
 import { MarketPulse } from './pages/market-pulse/MarketPulse'
 import { NewIssues } from './pages/market-pulse/NewIssues'
 import Feed from './pages/Feed'
 import PaymentResult from './pages/PaymentResult'
-import AdminDashboard from './pages/AdminDashboard'
 import Announcements from './pages/market-pulse/Announcements'
 import Industries from './pages/market-pulse/Industries'
 import AnnualReports from './pages/market-pulse/AnnualReports'
@@ -33,41 +27,26 @@ import SASTTrades from './pages/market-pulse/SASTTrades'
 import InsiderTrades from './pages/market-pulse/InsiderTrades'
 import { Concalls, UpcomingConcalls } from './pages/market-pulse/Concalls'
 import Results from './pages/market-pulse/Results'
-import { QueryBuilder } from './pages/market-pulse/QueryBuilder'
-import { QueryResults } from './pages/market-pulse/QueryResults'
 import { Holidays } from './pages/market-pulse/Holidays'
 import { Commodities } from './pages/market-pulse/Commodities'
-
-function ProtectedRoute() {
-  return (
-    <AuthGuard>
-      <Outlet />
-    </AuthGuard>
-  )
-}
 
 export function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      {/* NavigationHandler bridges Redux navigateTo() actions → React Router navigate()
-          Must be inside BrowserRouter so it has access to useNavigate() */}
       <NavigationHandler />
-
       <Routes>
-        {/* Auth Group */}
+        {/* Auth Group - Kept for design reference, but out of active enforcement flow */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Route>
-
-        {/* Pricing (Public page) */}
+        
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/payment/success" element={<PaymentResult />} />
         <Route path="/payment/failure" element={<PaymentResult />} />
 
         {/* Dashboard Group */}
         <Route element={<DashboardLayout />}>
-          {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/screener" element={<Screener />} />
           <Route path="/screener/results" element={<ScreenerResults />} />
@@ -90,21 +69,8 @@ export function App() {
           <Route path="/market-pulse/concalls" element={<Concalls />} />
           <Route path="/market-pulse/upcoming-concalls" element={<UpcomingConcalls />} />
           <Route path="/market-pulse/results" element={<Results />} />
-          <Route path="/market-pulse/queries/new" element={<QueryBuilder />} />
-          <Route path="/market-pulse/queries/results" element={<QueryResults />} />
           <Route path="/market-pulse/holidays" element={<Holidays />} />
           <Route path="/market-pulse/commodities" element={<Commodities />} />
-
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/watchlists" element={<Watchlists />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/custom-ratios" element={<CustomRatios />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            {/* Legacy profile — redirect to /account (was incorrectly rendering Profile.tsx) */}
-            <Route path="/profile" element={<Navigate to="/account" replace />} />
-          </Route>
         </Route>
 
         {/* Fallback redirect to home */}

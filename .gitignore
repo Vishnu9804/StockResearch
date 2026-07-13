@@ -9,6 +9,7 @@
 /frontend/.next/
 /frontend/out/
 /frontend/tsconfig.tsbuildinfo
+/frontend/.env
 
 # ── Backend (FastAPI / Python) ─────────────────────────────────────────────────
 /backend/venv/

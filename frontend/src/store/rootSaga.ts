@@ -10,18 +10,14 @@
 import { all } from 'redux-saga/effects'
 import { companySaga } from './sagas/companySaga'
 import { screenerSaga } from './sagas/screenerSaga'
-import { watchlistSaga } from './sagas/watchlistSaga'
-import { notificationSaga } from './sagas/notificationSaga'
 import { authSaga } from './sagas/authSaga'
 import { marketPulseSaga } from './sagas/marketPulseSaga'
 
 export function* rootSaga() {
   yield all([
-    authSaga(),         // authSaga calls checkAuthSaga directly on boot
+    authSaga(),
     companySaga(),
     screenerSaga(),
-    watchlistSaga(),
-    notificationSaga(),
     marketPulseSaga(),
   ])
 }

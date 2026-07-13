@@ -1,6 +1,7 @@
 import { call, put, takeLatest } from 'redux-saga/effects'
 import { toast } from 'react-hot-toast'
-import { AuthService } from '../../services/auth'
+import { supabase } from '../../services/supabaseClient'
+import { apiClient } from '../../services/finscreenApi'
 import {
   loginStart,
   loginSuccess,
@@ -17,46 +18,32 @@ import {
 import { navigateTo } from '../slices/uiSlice'
 import { clearAllNotifications } from '../slices/notificationsSlice'
 
-// ─── Static Demo Credentials ──────────────────────────────────────────────────
-const STATIC_USER = {
-  email: 'free@finscreen.in',
-  password: 'free@finscreen.in',
-  user: {
-    id: 'usr_free_demo',
-    email: 'free@finscreen.in',
-    name: 'Free User',
-    plan: 'FREE' as const,
-  },
-}
-
 function* loginSaga(action: ReturnType<typeof loginStart>): Generator<any, void, any> {
   try {
     const { email, password } = action.payload
+    
+    // Authenticate directly via Supabase client engine
+    const { data, error } = yield call(
+      [supabase.auth, supabase.auth.signInWithPassword],
+      { email, password }
+    )
+    
+    if (error) throw error
 
-    // ── Static login bypass ────────────────────────────────────────────────
-    if (
-      email?.trim().toLowerCase() === STATIC_USER.email &&
-      password === STATIC_USER.password
-    ) {
-      yield put(loginSuccess({ user: STATIC_USER.user, accessToken: 'static_demo_token' }))
-      toast.success(`Welcome back, ${STATIC_USER.user.name}! 🚀`)
+    if (data?.user) {
+      const authenticatedUser = {
+        id: data.user.id,
+        email: data.user.email ?? email,
+        name: data.user.user_metadata?.name || 'Investor',
+        plan: 'FREE' as const
+      }
+      
+      yield put(loginSuccess({ user: authenticatedUser }))
+      toast.success(`Welcome back, ${authenticatedUser.name}!`)
       yield put(navigateTo('/'))
-      return
-    }
-    // ──────────────────────────────────────────────────────────────────────
-
-    const data = yield call(AuthService.login, action.payload)
-    if (data.success) {
-      yield put(loginSuccess({ user: data.user, accessToken: data.accessToken }))
-      toast.success(`Welcome back, ${data.user.name}! 🚀`)
-      // Use Redux action → NavigationHandler for client-side navigation (no page reload)
-      yield put(navigateTo('/'))
-    } else {
-      yield put(loginFailure(data.message || 'Login failed.'))
-      toast.error(data.message || 'Login failed.')
     }
   } catch (error: any) {
-    const errMsg = error.response?.data?.message || error.message || 'Login failed.'
+    const errMsg = error.message || 'Login failed.'
     yield put(loginFailure(errMsg))
     toast.error(errMsg)
   }
@@ -64,17 +51,38 @@ function* loginSaga(action: ReturnType<typeof loginStart>): Generator<any, void,
 
 function* signupSaga(action: ReturnType<typeof signupStart>): Generator<any, void, any> {
   try {
-    const data = yield call(AuthService.signup, action.payload)
-    if (data.success) {
-      yield put(signupSuccess({ user: data.user, accessToken: data.accessToken }))
-      toast.success('Account created successfully! Welcome to FinScreen ⚡')
+    const { email, password, name } = action.payload
+         
+    // Register the user credentials directly to Supabase Auth infrastructure
+    const { data, error } = yield call(
+      [supabase.auth, supabase.auth.signUp],
+      {
+        email,
+        password,
+        options: {
+          data: { name } // This passes the name to raw_user_meta_data so our trigger can grab it!
+        }
+      }
+    )
+         
+    if (error) throw error
+    if (data?.user) {
+      const newUser = {
+        id: data.user.id,
+        email: data.user.email ?? email,
+        name: name,
+        plan: 'FREE' as const
+      }
+             
+      // REMOVED: yield call([apiClient, apiClient.post], '/auth/sync-profile', { name })
+      // The database trigger handles this now automatically and perfectly!
+             
+      yield put(signupSuccess({ user: newUser }))
+      toast.success('Account created successfully! Welcome to FinScreen')
       yield put(navigateTo('/'))
-    } else {
-      yield put(signupFailure(data.message || 'Registration failed.'))
-      toast.error(data.message || 'Registration failed.')
     }
   } catch (error: any) {
-    const errMsg = error.response?.data?.message || error.message || 'Registration failed.'
+    const errMsg = error.message || 'Registration failed.'
     yield put(signupFailure(errMsg))
     toast.error(errMsg)
   }
@@ -82,13 +90,13 @@ function* signupSaga(action: ReturnType<typeof signupStart>): Generator<any, voi
 
 function* logoutSaga(): Generator<any, void, any> {
   try {
-    yield call(AuthService.logout)
+    yield call([supabase.auth, supabase.auth.signOut])
     yield put(logoutSuccess())
     yield put(clearAllNotifications())
-    toast.success('Logged out successfully. See you soon!')
+    toast.success('Logged out successfully.')
     yield put(navigateTo('/login'))
   } catch (error: any) {
-    yield put(logoutSuccess()) // Always clean up local state
+    yield put(logoutSuccess())
     yield put(clearAllNotifications())
     yield put(navigateTo('/login'))
   }
@@ -96,9 +104,17 @@ function* logoutSaga(): Generator<any, void, any> {
 
 function* checkAuthSaga(): Generator<any, void, any> {
   try {
-    const data = yield call(AuthService.getProfile)
-    if (data.success) {
-      yield put(checkAuthSuccess({ user: data.user }))
+    const { data: { session }, error } = yield call([supabase.auth, supabase.auth.getSession])
+    if (error) throw error
+
+    if (session?.user) {
+      const userProfile = {
+        id: session.user.id,
+        email: session.user.email ?? '',
+        name: session.user.user_metadata?.name || 'Investor',
+        plan: 'FREE' as const
+      }
+      yield put(checkAuthSuccess({ user: userProfile }))
     } else {
       yield put(checkAuthFailure())
     }
@@ -108,14 +124,6 @@ function* checkAuthSaga(): Generator<any, void, any> {
 }
 
 export function* authSaga(): Generator<any, void, any> {
-  // Perform the initial auth check directly on saga boot.
-  // We call checkAuthSaga() directly here instead of dispatching checkAuthStart,
-  // because if we used put(checkAuthStart()), the takeLatest listener below
-  // wouldn't be registered yet — causing the action to be silently dropped
-  // and the app to hang on the loading screen forever.
-  yield call(checkAuthSaga)
-
-  // Set up listeners for future user-triggered auth actions
   yield takeLatest(loginStart.type, loginSaga)
   yield takeLatest(signupStart.type, signupSaga)
   yield takeLatest(logoutStart.type, logoutSaga)

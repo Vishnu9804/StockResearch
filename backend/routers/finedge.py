@@ -11,8 +11,6 @@ import logging
 import time
 
 from services.finedge_service import execute_proxy_request
-from core.database import AsyncSessionLocal, CompanyMetric
-from sqlalchemy import select, func
 
 router = APIRouter(prefix="/api/finscreen", tags=["finedge"])
 logger = logging.getLogger("finedge_router")
@@ -832,86 +830,27 @@ async def get_index_returns(request: Request):
 @router.get("/market/movers")
 async def get_market_movers(request: Request):
     rid = _req_id(request)
-    # Build query dict, keeping duplicate keys (like multiple 'symbol' params) as a list
     q = {}
     for k, v in request.query_params.multi_items():
         if k in q:
-            if isinstance(q[k], list):
-                q[k].append(v)
-            else:
-                q[k] = [q[k], v]
+            if isinstance(q[k], list): q[k].append(v)
+            else: q[k] = [q[k], v]
         else:
             q[k] = v
     try:
-        data = await execute_proxy_request("GET", "quote", q, None, rid)
-        # Enrich with sector/industry from local company_metrics DB
-        if data:
-            symbols: list = []
-            if isinstance(data, list):
-                symbols = [item.get("symbol") for item in data if item.get("symbol")]
-            elif isinstance(data, dict):
-                symbols = list(data.keys())
-            if symbols:
-                async with AsyncSessionLocal() as session:
-                    result = await session.execute(
-                        select(CompanyMetric.symbol, CompanyMetric.sector, CompanyMetric.industry, CompanyMetric.name)
-                        .where(CompanyMetric.symbol.in_(symbols))
-                    )
-                    db_map = {row.symbol: {"sector": row.sector, "industry": row.industry, "name": row.name}
-                              for row in result.fetchall()}
-                if isinstance(data, list):
-                    for item in data:
-                        sym = item.get("symbol", "")
-                        if sym in db_map:
-                            item.setdefault("sector", db_map[sym]["sector"])
-                            item.setdefault("industry", db_map[sym]["industry"])
-                            item.setdefault("company_name", db_map[sym]["name"])
-                elif isinstance(data, dict):
-                    for sym, item in data.items():
-                        if sym in db_map and isinstance(item, dict):
-                            item.setdefault("sector", db_map[sym]["sector"])
-                            item.setdefault("industry", db_map[sym]["industry"])
-                            item.setdefault("company_name", db_map[sym]["name"])
-        return data
+        # Strictly return FinEdge proxy data without trying to map local DB sectors
+        return await execute_proxy_request("GET", "quote", q, None, rid)
     except Exception as e:
         _api_error(e, "quote", rid)
 
 
 @router.get("/market/sector-performance")
 async def get_sector_performance(request: Request):
-    """Fast sector performance from local company_metrics DB — no external API call needed."""
+    rid = _req_id(request)
     try:
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(
-                    CompanyMetric.sector,
-                    func.avg(CompanyMetric.change_pct).label("avg_change"),
-                    func.sum(CompanyMetric.market_cap).label("total_market_cap"),
-                    func.count(CompanyMetric.symbol).label("stock_count"),
-                    func.avg(CompanyMetric.pe).label("avg_pe"),
-                )
-                .where(CompanyMetric.sector.isnot(None))
-                .where(CompanyMetric.sector.notin_(["Other", "other", ""]))
-                .where(CompanyMetric.market_cap > 0)
-                .group_by(CompanyMetric.sector)
-                .order_by(func.avg(CompanyMetric.change_pct).desc())
-            )
-            rows = result.fetchall()
-        sectors = [
-            {
-                "sector": row.sector,
-                "change": round(float(row.avg_change or 0), 2),
-                "marketCap": round(float(row.total_market_cap or 0)),
-                "stocks": int(row.stock_count or 0),
-                "peRatio": round(float(row.avg_pe or 0), 1),
-            }
-            for row in rows
-            if row.sector and int(row.stock_count or 0) > 2
-        ]
-        return sectors
+        return await execute_proxy_request("GET", "market/sector-performance", dict(request.query_params), None, rid)
     except Exception as e:
-        logger.error(f"[sector-performance] DB error: {e}")
-        return []
+        _api_error(e, "market/sector-performance", rid)
 
 @router.get("/market/ipo")
 async def get_ipo_calendar(request: Request):

@@ -1,333 +1,51 @@
-/**
- * services/finscreenApi.ts
- * Typed service layer consuming our backend /api/finscreen REST endpoints.
- * This is a convenience wrapper — it picks up any auth cookies automatically.
- */
+import axios from 'axios'
+import { supabase } from './supabaseClient'
 
-import axios, { type AxiosInstance } from 'axios'
-import type { Company } from '@/lib/data/companies'
-
-const BASE_API = import.meta.env.VITE_API_URL || '/api'
-const ROOT_API = BASE_API.replace(/\/$/, '')
-const BASE_URL = `${ROOT_API}/finscreen`
-
-function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-}
-
-// ── Retry helper ─────────────────────────────────────────────────────────────
-const MAX_RETRIES = 3
-const RETRYABLE_STATUSES = new Set([502, 503, 504, 429])
-
-function sleep(ms: number) {
-  return new Promise<void>((r) => setTimeout(r, ms))
-}
-
-function isRetryable(err: any): boolean {
-  if (!err) return false
-  // Network / timeout with no response
-  if (!err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.message?.includes('timeout'))) return true
-  // Retryable HTTP status
-  if (err.response && RETRYABLE_STATUSES.has(err.response.status)) return true
-  return false
-}
-
-function addRetryInterceptor(client: AxiosInstance) {
-  client.interceptors.response.use(
-    (res) => res,
-    async (err) => {
-      const config = err.config
-      if (!config) return Promise.reject(err)
-
-      config.__retryCount = (config.__retryCount ?? 0)
-
-      if (config.__retryCount >= MAX_RETRIES || !isRetryable(err)) {
-        return Promise.reject(err)
-      }
-
-      config.__retryCount += 1
-      const delay = Math.min(1000 * 2 ** (config.__retryCount - 1), 8000) // 1s, 2s, 4s
-      console.warn(
-        `[FinScreen] Retry ${config.__retryCount}/${MAX_RETRIES} in ${delay}ms →`,
-        config.url,
-        err.message
-      )
-      await sleep(delay)
-      return client.request(config)
-    }
-  )
-}
-
-/** Root /api client for portfolio, queries, payments, admin (not under /finscreen). */
-export const apiClient: AxiosInstance = axios.create({
-  baseURL: ROOT_API,
-  timeout: 60000,
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+export const finscreenClient = axios.create({
+  baseURL: '/',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 })
 
-apiClient.interceptors.request.use((config) => {
-  config.headers['X-Request-ID'] = generateRequestId()
+export const apiClient = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+export const screenerApiClient = axios.create({
+  baseURL: '/api/screener',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Centralized injection mechanism for active validation tokens
+const injectAuthToken = async (config: any) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`
+  }
   return config
-})
-addRetryInterceptor(apiClient)
-
-export const finscreenClient: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  timeout: 60000, // 60s — backend heavy endpoints (insider trades etc.) can take up to 45s
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
-})
-
-// Request interceptor: attach request ID
-finscreenClient.interceptors.request.use((config) => {
-  config.headers['X-Request-ID'] = generateRequestId()
-  return config
-})
-// Auto-retry on network/5xx errors
-addRetryInterceptor(finscreenClient)
-
-const SCREENER_BASE_URL = `${ROOT_API}/screener`
-
-export const screenerApiClient: AxiosInstance = axios.create({
-  baseURL: SCREENER_BASE_URL,
-  timeout: 60000,
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
-})
-
-screenerApiClient.interceptors.request.use((config) => {
-  config.headers['X-Request-ID'] = generateRequestId()
-  return config
-})
-addRetryInterceptor(screenerApiClient)
-
-export interface CompanyProfile extends Company {}
-
-export interface SegmentItem {
-  name: string
-  revenuePercentage: number
-  revenue: number
 }
 
-export interface CompanySegments {
-  success: boolean
-  symbol: string
-  segments: SegmentItem[]
-}
-
-export interface FinancialMetricRatio {
-  success: boolean
-  symbol: string
-  valuation: { pe: number; pb: number; evEbitda: number; marketCapSales: number }
-  profitability: { roe: number; roce: number; netMargin: number; ebitdaMargin: number }
-  efficiency: { assetTurnover: number; inventoryDays: number; debtorDays: number }
-  leverage: { debtToEquity: number; interestCoverage: number; currentRatio: number }
-  growth: { revenueCagr3Y: number; profitCagr3Y: number; epsCagr: number }
-}
-
-export interface DocumentItem {
-  id: string
-  title: string
-  type: string
-  date: string
-  fileUrl: string
-}
-
-export interface CompanyDocuments {
-  success: boolean
-  symbol: string
-  documents: DocumentItem[]
-}
-
-export interface ShareholdingItem {
-  period: string
-  promoters: number
-  fii: number
-  dii: number
-  public: number
-  others: number
-}
+finscreenClient.interceptors.request.use(injectAuthToken, (error) => Promise.reject(error))
+apiClient.interceptors.request.use(injectAuthToken, (error) => Promise.reject(error))
+screenerApiClient.interceptors.request.use(injectAuthToken, (error) => Promise.reject(error))
 
 export const finscreenApi = {
-  // ─── Company Endpoints ────────────────────────────────────────────────────
-
-  fetchCompanyProfile: async (symbol: string): Promise<CompanyProfile> => {
-    const response = await finscreenClient.get<CompanyProfile>(`/company/${symbol}/profile`)
-    return response.data
-  },
-
-  fetchCompanyPL: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/financials/pl`, { params })
-    return response.data
-  },
-
-  fetchCompanyBalanceSheet: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/financials/balance-sheet`, { params })
-    return response.data
-  },
-
-  fetchCompanyCashFlow: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/financials/cash-flow`, { params })
-    return response.data
-  },
-
-  fetchCompanySegments: async (symbol: string, params?: Record<string, any>): Promise<CompanySegments> => {
-    const response = await finscreenClient.get<CompanySegments>(`/company/${symbol}/segments`, { params })
-    return response.data
-  },
-
-  fetchCompanyRatios: async (symbol: string, params?: Record<string, any>): Promise<FinancialMetricRatio> => {
-    const response = await finscreenClient.get<FinancialMetricRatio>(`/company/${symbol}/ratios`, { params })
-    return response.data
-  },
-
-  fetchCompanyShareholding: async (symbol: string, params?: Record<string, any>): Promise<ShareholdingItem[]> => {
-    const response = await finscreenClient.get<ShareholdingItem[]>(`/company/${symbol}/shareholding`, { params })
-    return response.data
-  },
-
-  fetchCompanyCorporateActions: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/corporate-actions`, { params })
-    return response.data
-  },
-
-  fetchCompanyDocuments: async (symbol: string, params?: Record<string, any>): Promise<CompanyDocuments> => {
-    const response = await finscreenClient.get<CompanyDocuments>(`/company/${symbol}/documents`, { params })
-    return response.data
-  },
-
-  fetchCompanyNotes: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/notes`, { params })
-    return response.data
-  },
-
-  fetchCompanyCreditRatings: async (symbol: string, params?: Record<string, any>): Promise<any> => {
-    const response = await finscreenClient.get<any>(`/company/${symbol}/credit-ratings`, { params })
-    return response.data
-  },
-
-  fetchPeersList: async (symbol: string): Promise<{ peers: string[] }> => {
-    const response = await finscreenClient.get<{ peers: string[] }>(`/company/${symbol}/peers`)
-    return response.data
-  },
-
-  // ─── Market / Discovery Endpoints ─────────────────────────────────────────
-
-  searchStockSymbols: async (query?: string): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/stock-symbols', { params: { query } })
-    return response.data
-  },
-
-  /**
-   * Fetch end-of-day index feed for all NSE/BSE indices
-   * Maps to: GET /api/finscreen/market/indices → FinEdge index/market-price/daily-feed
-   */
-  fetchMarketIndices: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/indices')
-    return response.data
-  },
-
-  /**
-   * Fetch EOD quotes for ALL listed stocks (premium account — no symbol filter needed)
-   * Maps to: GET /api/finscreen/market/movers → FinEdge /api/v1/quote
-   * Returns: Record<symbol, { current_price, change, volume, ... }>
-   */
-  fetchMarketMovers: async (): Promise<Record<string, any>> => {
-    const response = await finscreenClient.get<Record<string, any>>('/market/movers')
-    return response.data
-  },
-
-  /**
-   * Fetch quotes for a specific set of symbols (filtered via query param)
-   */
-  fetchMultipleQuotes: async (symbols: string[]): Promise<Record<string, any>> => {
-    const params = new URLSearchParams()
-    symbols.forEach(s => params.append('symbol', s))
-    const response = await finscreenClient.get<Record<string, any>>(`/market/movers?${params.toString()}`)
-    return response.data
-  },
-
-  /**
-   * Fetch upcoming earnings results calendar (next 30 days)
-   * Maps to: GET /api/finscreen/market/results-calendar
-   */
-  fetchResultsCalendar: async (params?: { from_date?: string; to_date?: string }): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/results-calendar', { params })
-    return response.data
-  },
-
-  /**
-   * Fetch daily corporate announcements feed
-   * Maps to: GET /api/finscreen/market/announcements
-   */
-  fetchMarketAnnouncements: async (params?: { from_date?: string; to_date?: string; symbol?: string }): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/announcements', { params })
-    return response.data
-  },
-
-  /**
-   * Fetch upcoming and recent IPO calendar
-   * Maps to: GET /api/finscreen/market/ipo
-   */
-  fetchIpoCalendar: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/ipo')
-    return response.data
-  },
-
-  /**
-   * Fetch 1M/3M/6M/1Y/3Y/5Y/10Y returns for all indices
-   * Maps to: GET /api/finscreen/market/index-returns
-   */
-  fetchIndexReturns: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/index-returns')
-    return response.data
-  },
-
-  /**
-   * Fetch recent financial news (mapped from FinEdge corp-announcements)
-   * Maps to: GET /api/finscreen/market/news
-   */
-  fetchMarketNews: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/news')
-    return response.data
-  },
-
-  /**
-   * Fetch market holidays calendar
-   * Maps to: GET /api/finscreen/market/holidays
-   */
-  fetchMarketHolidays: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/holidays')
-    return response.data
-  },
-
-  /**
-   * Fetch MCX and global commodities live prices
-   * Maps to: GET /api/finscreen/market/commodities
-   */
-  fetchCommodities: async (): Promise<any[]> => {
-    const response = await finscreenClient.get<any[]>('/market/commodities')
-    return response.data
-  },
-
-  fetchRefreshedStocks: async (): Promise<any> => {
-    try {
-      const response = await finscreenClient.get<any>('/refreshed-stocks', { params: { days: 1 } })
-      return response.data
-    } catch (err: any) {
-      if (err.response?.status === 401) {
-        console.warn('Refreshed stocks returned 401, falling back to core benchmark stocks.')
-      } else {
-        console.error('Failed to fetch refreshed stocks:', err)
-      }
-      return {
-        success: false,
-        fallback: true,
-        data: ['RELIANCE', 'TCS', 'HDFCBANK']
-      }
-    }
-  },
+  fetchCompanyProfile: (symbol: string) => finscreenClient.get(`/company/${symbol}/profile`).then(r => r.data),
+  fetchCompanyPL: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/pl`, { params }).then(r => r.data),
+  fetchCompanyBalanceSheet: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/balance-sheet`, { params }).then(r => r.data),
+  fetchCompanyCashFlow: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/cash-flow`, { params }).then(r => r.data),
+  fetchCompanySegments: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/segments`, { params }).then(r => r.data),
+  fetchCompanyRatios: (symbol: string) => finscreenClient.get(`/company/${symbol}/ratios`).then(r => r.data),
+  fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
+  fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
+  fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
 }
 
-export default finscreenApi
+// Add this line to satisfy default imports across your frontend
+export default finscreenApi;

@@ -100,7 +100,6 @@ ENDPOINTS = [
     ("GET", "/api/finscreen/admin/summary", None, None, {404}, "frontend-bug"),
 ]
 
-
 def main():
     uid = uuid.uuid4().hex[:8]
     results = []
@@ -177,7 +176,6 @@ def main():
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump({"summary": {"passed": len(passed), "total": len(results), "finscreen_200": len(finscreen_200)}, "results": results}, f, indent=2)
     print(f"\nReport saved: {report_path}")
-
 
 if __name__ == "__main__":
     main()

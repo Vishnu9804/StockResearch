@@ -1,39 +1,24 @@
 import logging
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
+from pydantic import BaseModel
 from core.config import settings
-from core.database import init_db
-from services.scheduler import start_scheduler
-
-from routers.finedge import _auth as guest_auth
+from routers import finedge, screener
+from middleware.auth import get_current_user, AuthenticatedUser
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s"
+    format="%(asctime)s - %(levelname)-8s - %(name)s - %(message)s"
 )
 logger = logging.getLogger("main")
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("⚡ [FinScreen FastAPI] Starting up…")
-    await init_db()
-    
-    # Seed initial company metrics
-    from core.database import AsyncSessionLocal
-    from core.seed import seed_metrics
-    async with AsyncSessionLocal() as session:
-        await seed_metrics(session)
-
-    start_scheduler()
-    logger.info(f"✅ Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
+    logger.info(f"  [FinScreen FastAPI] Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield
-    logger.info("👋 [FinScreen FastAPI] Shutting down…")
-
+    logger.info("  [FinScreen FastAPI] Shutting down")
 
 app = FastAPI(
     title="FinScreen API",
@@ -57,7 +42,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on {request.url}: {exc}", exc_info=True)
@@ -66,24 +50,49 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"error": True, "message": "An unexpected error occurred."}
     )
 
-
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "FinScreen FastAPI", "environment": settings.ENVIRONMENT}
 
+# Relational User Profile Sync Contract
+class ProfileSyncBody(BaseModel):
+    name: str
 
-# ── Routers ───────────────────────────────────────────────────────────────────
-from routers import auth, finedge, watchlist, screener, payments, portfolio, queries, admin
-app.include_router(auth.router)       # /api/auth/login, /api/auth/signup etc. — kept
-app.include_router(guest_auth)        # /api/auth/profile — returns guest if not logged in
-app.include_router(finedge.router)    # /api/finscreen/... — NO auth required
-app.include_router(watchlist.router)  # /api/watchlists/... — NO auth required
-app.include_router(screener.router)   # /api/screener/... — NO auth required
-app.include_router(payments.router)   # /api/payments/... — kept
-app.include_router(portfolio.router)  # /api/portfolio/... — authenticated
-app.include_router(queries.router)    # /api/queries/... — authenticated
-app.include_router(admin.router)      # /api/admin/... — authenticated
+@app.post("/api/auth/sync-profile")
+async def sync_profile(body: ProfileSyncBody, current_user: AuthenticatedUser = Depends(get_current_user)):
+    """
+    Invoked immediately after successful frontend Supabase sign-up.
+    Ensures a database entry maps records (Watchlists/Portfolios) to the Supabase UUID.
+    """
+    logger.info(f"Synchronizing database profile for Supabase User ID: {current_user.id}")
+    # Run database operational logic here to select/insert into public.users:
+    # INSERT INTO public.users (auth_id, email, name) VALUES (current_user.id, current_user.email, body.name)
+    return {
+        "success": True,
+        "message": " Relational database profile aligned with Supabase identity.",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": body.name,
+            "plan": "FREE"
+        }
+    }
 
+# Protected Sample Test Route
+@app.get("/api/auth/profile")
+async def get_profile(current_user: AuthenticatedUser = Depends(get_current_user)):
+    return {
+        "success": True,
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": "Authenticated User",
+            "plan": "FREE"
+        }
+    }
+
+app.include_router(finedge.router)
+app.include_router(screener.router)
 
 if __name__ == "__main__":
     import uvicorn

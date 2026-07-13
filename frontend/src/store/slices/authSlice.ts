@@ -18,18 +18,18 @@ const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
   status: 'idle',
-  error: null
+  error: null,
 }
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    loginStart(state, action: PayloadAction<any>) {
+    loginStart(state, _action: PayloadAction<any>) {
       state.status = 'loading'
       state.error = null
     },
-    loginSuccess(state, action: PayloadAction<{ user: User; accessToken: string }>) {
+    loginSuccess(state, action: PayloadAction<{ user: User }>) {
       state.status = 'success'
       state.isAuthenticated = true
       state.user = action.payload.user
@@ -39,11 +39,11 @@ const authSlice = createSlice({
       state.status = 'error'
       state.error = action.payload
     },
-    signupStart(state, action: PayloadAction<any>) {
+    signupStart(state, _action: PayloadAction<any>) {
       state.status = 'loading'
       state.error = null
     },
-    signupSuccess(state, action: PayloadAction<{ user: User; accessToken: string }>) {
+    signupSuccess(state, action: PayloadAction<{ user: User }>) {
       state.status = 'success'
       state.isAuthenticated = true
       state.user = action.payload.user

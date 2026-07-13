@@ -113,7 +113,6 @@ ENDPOINTS = [
     ("GET", "/api/finscreen/admin/summary", None, None, {404}, "frontend-bug"),
 ]
 
-
 def _fmt_params(params):
     if not params:
         return None
@@ -124,7 +123,6 @@ def _fmt_params(params):
         else:
             out[k] = v
     return out
-
 
 @pytest.mark.asyncio
 async def test_all_documented_endpoints_deep_smoke(client: AsyncClient):
