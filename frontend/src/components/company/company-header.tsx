@@ -11,7 +11,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { toggleWatchlist } from '@/store/slices/companySlice'
+import { quickWatch, quickUnwatch } from '@/store/slices/watchlistSlice'
 import { addNotification } from '@/store/slices/notificationsSlice'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { cn } from '@/lib/utils'
@@ -26,10 +26,11 @@ import { useState, useEffect } from 'react'
 export function CompanyHeader({ company }: { company: Company }) {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const watchlist = useAppSelector((state) => state.company.watchlist)
   const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const isWatched = useAppSelector((state) =>
+    state.watchlist.watchlists.some((wl) => wl.items.some((i) => i.symbol === company.symbol))
+  )
   const [liveRating, setLiveRating] = useState<string | null>(null)
-  const isWatched = watchlist.includes(company.symbol)
   const positive = company.change >= 0
   const prefersReduced = useReducedMotion()
 
@@ -51,7 +52,11 @@ export function CompanyHeader({ company }: { company: Company }) {
       navigate(`/login?redirect=${redirectPath}`)
       return
     }
-    dispatch(toggleWatchlist(company.symbol))
+    if (isWatched) {
+      dispatch(quickUnwatch(company.symbol))
+    } else {
+      dispatch(quickWatch({ symbol: company.symbol, companyName: company.name }))
+    }
     dispatch(addNotification({
       type: 'info',
       title: isWatched ? 'Removed from Watchlist' : 'Added to Watchlist',

@@ -12,6 +12,7 @@ import { companySaga } from './sagas/companySaga'
 import { screenerSaga } from './sagas/screenerSaga'
 import { authSaga } from './sagas/authSaga'
 import { marketPulseSaga } from './sagas/marketPulseSaga'
+import { watchlistSaga } from './sagas/watchlistSaga'
 
 export function* rootSaga() {
   yield all([
@@ -19,5 +20,6 @@ export function* rootSaga() {
     companySaga(),
     screenerSaga(),
     marketPulseSaga(),
+    watchlistSaga(),
   ])
 }

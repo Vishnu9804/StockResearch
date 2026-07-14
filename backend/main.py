@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
-from routers import finedge, screener, portfolio
+from routers import finedge, screener, portfolio, watchlist
 from middleware.auth import get_current_user, AuthenticatedUser
 
 logging.basicConfig(
@@ -94,6 +94,7 @@ async def get_profile(current_user: AuthenticatedUser = Depends(get_current_user
 app.include_router(finedge.router)
 app.include_router(screener.router)
 app.include_router(portfolio.router)
+app.include_router(watchlist.router)
 
 if __name__ == "__main__":
     import uvicorn

@@ -5,15 +5,12 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 export interface WatchlistItem {
+  id: string
   symbol: string
-  name: string
-  sector: string
+  companyName: string
   targetPrice: number | null
   alertEnabled: boolean
-  alertAbove: number | null
-  alertBelow: number | null
-  addedAt: string   // ISO timestamp
-  notes: string
+  addedAt: string
 }
 
 export interface Watchlist {
@@ -32,231 +29,25 @@ export interface WatchlistState {
   error: string | null
 }
 
-const DEFAULT_WATCHLIST_ID = 'default'
-
 const initialState: WatchlistState = {
-  watchlists: [
-    {
-      id: 'wl1',
-      name: 'My Watchlist',
-      createdAt: new Date().toISOString(),
-      items: [
-        {
-          symbol: 'RELIANCE',
-          name: 'Reliance Industries Ltd',
-          sector: 'Energy',
-          targetPrice: 3200,
-          alertEnabled: true,
-          alertAbove: 3200,
-          alertBelow: 2600,
-          addedAt: new Date().toISOString(),
-          notes: 'Diversified conglomerate',
-        },
-        {
-          symbol: 'INFY',
-          name: 'Infosys Ltd',
-          sector: 'Information Technology',
-          targetPrice: 1400,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'IT leader',
-        },
-        {
-          symbol: 'HDFCBANK',
-          name: 'HDFC Bank Ltd',
-          sector: 'Financial Services',
-          targetPrice: 1900,
-          alertEnabled: true,
-          alertAbove: 1900,
-          alertBelow: 1500,
-          addedAt: new Date().toISOString(),
-          notes: 'Banking leader',
-        },
-        {
-          symbol: 'TCS',
-          name: 'Tata Consultancy Services Ltd',
-          sector: 'Information Technology',
-          targetPrice: 4200,
-          alertEnabled: true,
-          alertAbove: 4200,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'IT services',
-        },
-        {
-          symbol: 'ITC',
-          name: 'ITC Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 430,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'Conglomerate',
-        },
-        {
-          symbol: 'NESTLEIND',
-          name: 'Nestle India Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 2500,
-          alertEnabled: true,
-          alertAbove: 2500,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'FMCG leader',
-        },
-        {
-          symbol: 'MARUTI',
-          name: 'Maruti Suzuki India Ltd',
-          sector: 'Automobile',
-          targetPrice: 12000,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'Auto leader',
-        },
-        {
-          symbol: 'TITAN',
-          name: 'Titan Company Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 3600,
-          alertEnabled: true,
-          alertAbove: 3600,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: 'Retail',
-        },
-      ],
-    },
-    {
-      id: 'wl2',
-      name: 'Tech Stocks',
-      createdAt: new Date().toISOString(),
-      items: [
-        {
-          symbol: 'INFY',
-          name: 'Infosys Ltd',
-          sector: 'Information Technology',
-          targetPrice: 1650,
-          alertEnabled: true,
-          alertAbove: 1650,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'TCS',
-          name: 'Tata Consultancy Services Ltd',
-          sector: 'Information Technology',
-          targetPrice: 4100,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'WIPRO',
-          name: 'Wipro Ltd',
-          sector: 'Information Technology',
-          targetPrice: 500,
-          alertEnabled: true,
-          alertAbove: 500,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'HCLTECH',
-          name: 'HCL Technologies Ltd',
-          sector: 'Information Technology',
-          targetPrice: 1700,
-          alertEnabled: true,
-          alertAbove: 1700,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-      ],
-    },
-    {
-      id: 'wl3',
-      name: 'High Dividend',
-      createdAt: new Date().toISOString(),
-      items: [
-        {
-          symbol: 'ITC',
-          name: 'ITC Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 480,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'HCLTECH',
-          name: 'HCL Technologies Ltd',
-          sector: 'Information Technology',
-          targetPrice: 1700,
-          alertEnabled: true,
-          alertAbove: 1700,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'HINDUNILVR',
-          name: 'Hindustan Unilever Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 2600,
-          alertEnabled: false,
-          alertAbove: null,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-        {
-          symbol: 'NESTLEIND',
-          name: 'Nestle India Ltd',
-          sector: 'Consumer Goods',
-          targetPrice: 2400,
-          alertEnabled: true,
-          alertAbove: 2400,
-          alertBelow: null,
-          addedAt: new Date().toISOString(),
-          notes: '',
-        },
-      ],
-    },
-  ],
-  activeWatchlistId: 'wl1',
+  watchlists: [],
+  activeWatchlistId: '',
   status: 'idle',
   error: null,
-}
-
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10)
 }
 
 const watchlistSlice = createSlice({
   name: 'watchlist',
   initialState,
   reducers: {
+    // ─── Fetch ───────────────────────────────────────────────────────────
+    fetchWatchlistsStart() {
+      // handled by saga; type string is 'watchlist/fetchWatchlistsStart'
+    },
+
     // ─── Watchlist CRUD ──────────────────────────────────────────────────
-    createWatchlist(state, action: PayloadAction<{ name: string }>) {
-      const newWatchlist: Watchlist = {
-        id: generateId(),
-        name: action.payload.name,
-        items: [],
-        createdAt: new Date().toISOString(),
-      }
-      state.watchlists.push(newWatchlist)
-      state.activeWatchlistId = newWatchlist.id
+    createWatchlist(_state, _action: PayloadAction<{ name: string }>) {
+      // handled by saga (needs server-generated id)
     },
     renameWatchlist(state, action: PayloadAction<{ id: string; name: string }>) {
       const wl = state.watchlists.find((w) => w.id === action.payload.id)
@@ -267,7 +58,7 @@ const watchlistSlice = createSlice({
     deleteWatchlist(state, action: PayloadAction<string>) {
       state.watchlists = state.watchlists.filter((w) => w.id !== action.payload)
       if (state.activeWatchlistId === action.payload) {
-        state.activeWatchlistId = state.watchlists[0]?.id ?? DEFAULT_WATCHLIST_ID
+        state.activeWatchlistId = state.watchlists[0]?.id ?? ''
       }
     },
     setActiveWatchlist(state, action: PayloadAction<string>) {
@@ -276,28 +67,10 @@ const watchlistSlice = createSlice({
 
     // ─── Item management ─────────────────────────────────────────────────
     addToWatchlist(
-      state,
-      action: PayloadAction<{
-        watchlistId?: string
-        item: Omit<WatchlistItem, 'addedAt' | 'alertEnabled' | 'alertAbove' | 'alertBelow' | 'notes' | 'targetPrice'>
-      }>
+      _state,
+      _action: PayloadAction<{ watchlistId?: string; symbol: string; companyName?: string }>
     ) {
-      const wlId = action.payload.watchlistId ?? state.activeWatchlistId
-      const wl = state.watchlists.find((w) => w.id === wlId)
-      if (wl) {
-        const exists = wl.items.some((i) => i.symbol === action.payload.item.symbol)
-        if (!exists) {
-          wl.items.push({
-            ...action.payload.item,
-            targetPrice: null,
-            alertEnabled: false,
-            alertAbove: null,
-            alertBelow: null,
-            addedAt: new Date().toISOString(),
-            notes: '',
-          })
-        }
-      }
+      // handled by saga (needs server-generated item id)
     },
     removeFromWatchlist(
       state,
@@ -335,40 +108,55 @@ const watchlistSlice = createSlice({
         }
       }
     },
-    setAlertBounds(
-      state,
-      action: PayloadAction<{
-        symbol: string
-        alertAbove: number | null
-        alertBelow: number | null
-        watchlistId?: string
-      }>
+
+    // ─── Move between collections ───────────────────────────────────────
+    moveItemRequest(
+      _state,
+      _action: PayloadAction<{ itemId: string; symbol: string; fromWatchlistId: string; toWatchlistId: string }>
     ) {
-      const wlId = action.payload.watchlistId ?? state.activeWatchlistId
-      const wl = state.watchlists.find((w) => w.id === wlId)
-      if (wl) {
-        const item = wl.items.find((i) => i.symbol === action.payload.symbol)
-        if (item) {
-          item.alertAbove = action.payload.alertAbove
-          item.alertBelow = action.payload.alertBelow
-        }
+      // handled by saga
+    },
+    moveItemLocally(
+      state,
+      action: PayloadAction<{ itemId: string; fromWatchlistId: string; toWatchlistId: string }>
+    ) {
+      const from = state.watchlists.find((w) => w.id === action.payload.fromWatchlistId)
+      const to = state.watchlists.find((w) => w.id === action.payload.toWatchlistId)
+      if (!from || !to) return
+      const idx = from.items.findIndex((i) => i.id === action.payload.itemId)
+      if (idx === -1) return
+      const [item] = from.items.splice(idx, 1)
+      to.items.push(item)
+    },
+
+    // ─── Quick watch/unwatch (company page "Watch" button) ──────────────
+    quickWatch(_state, _action: PayloadAction<{ symbol: string; companyName?: string }>) {
+      // handled by saga
+    },
+    quickUnwatch(_state, _action: PayloadAction<string>) {
+      // handled by saga
+    },
+    upsertWatchedSymbol(
+      state,
+      action: PayloadAction<{ watchlist: { id: string; name: string; createdAt: string }; item: WatchlistItem }>
+    ) {
+      let wl = state.watchlists.find((w) => w.id === action.payload.watchlist.id)
+      if (!wl) {
+        wl = { id: action.payload.watchlist.id, name: action.payload.watchlist.name, createdAt: action.payload.watchlist.createdAt, items: [] }
+        state.watchlists.push(wl)
+      }
+      const exists = wl.items.some((i) => i.id === action.payload.item.id)
+      if (!exists) {
+        wl.items.push(action.payload.item)
       }
     },
-    setItemNotes(
-      state,
-      action: PayloadAction<{ symbol: string; notes: string; watchlistId?: string }>
-    ) {
-      const wlId = action.payload.watchlistId ?? state.activeWatchlistId
-      const wl = state.watchlists.find((w) => w.id === wlId)
-      if (wl) {
-        const item = wl.items.find((i) => i.symbol === action.payload.symbol)
-        if (item) {
-          item.notes = action.payload.notes
-        }
+    removeSymbolEverywhere(state, action: PayloadAction<string>) {
+      for (const wl of state.watchlists) {
+        wl.items = wl.items.filter((i) => i.symbol !== action.payload)
       }
     },
 
-    // ─── Hydrate from localStorage ────────────────────────────────────────
+    // ─── Hydrate from server fetch ───────────────────────────────────────
     hydrateWatchlists(state, action: PayloadAction<WatchlistState>) {
       state.watchlists = action.payload.watchlists
       state.activeWatchlistId = action.payload.activeWatchlistId
@@ -384,6 +172,7 @@ const watchlistSlice = createSlice({
 })
 
 export const {
+  fetchWatchlistsStart,
   createWatchlist,
   renameWatchlist,
   deleteWatchlist,
@@ -392,8 +181,12 @@ export const {
   removeFromWatchlist,
   setTargetPrice,
   toggleAlert,
-  setAlertBounds,
-  setItemNotes,
+  moveItemRequest,
+  moveItemLocally,
+  quickWatch,
+  quickUnwatch,
+  upsertWatchedSymbol,
+  removeSymbolEverywhere,
   hydrateWatchlists,
   setStatus,
   setError,

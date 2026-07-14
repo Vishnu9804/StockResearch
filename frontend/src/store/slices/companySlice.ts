@@ -19,7 +19,6 @@ export interface CompanyState {
   shareholdingError: string | null
   priceChartStatus: LoadStatus
   priceChartError: string | null
-  watchlist: string[]
   activeTab: 'overview' | 'financials' | 'shareholding' | 'corporate-actions' | 'peers'
   // FinEdge specific fields
   profitLoss: any | null
@@ -47,7 +46,6 @@ const initialState: CompanyState = {
   shareholdingError: null,
   priceChartStatus: 'idle',
   priceChartError: null,
-  watchlist: [],
   activeTab: 'overview',
   // FinEdge specific initial states
   profitLoss: null,
@@ -136,28 +134,6 @@ const companySlice = createSlice({
       state.priceChartError = action.payload
     },
 
-    // ─── Watchlist ───────────────────────────────────────────────────────
-    addToWatchlistFromCompany(state, action: PayloadAction<string>) {
-      if (!state.watchlist.includes(action.payload)) {
-        state.watchlist.push(action.payload)
-      }
-    },
-    removeFromWatchlistFromCompany(state, action: PayloadAction<string>) {
-      state.watchlist = state.watchlist.filter((s) => s !== action.payload)
-    },
-    toggleWatchlist(state, action: PayloadAction<string>) {
-      const symbol = action.payload
-      const idx = state.watchlist.indexOf(symbol)
-      if (idx === -1) {
-        state.watchlist.push(symbol)
-      } else {
-        state.watchlist.splice(idx, 1)
-      }
-    },
-    setWatchlist(state, action: PayloadAction<string[]>) {
-      state.watchlist = action.payload
-    },
-
     // ─── Active Tab ──────────────────────────────────────────────────────
     setActiveTab(state, action: PayloadAction<CompanyState['activeTab']>) {
       state.activeTab = action.payload
@@ -209,10 +185,6 @@ export const {
   setShareholdingError,
   setPriceChartStatus,
   setPriceChartError,
-  addToWatchlistFromCompany,
-  removeFromWatchlistFromCompany,
-  toggleWatchlist,
-  setWatchlist,
   setActiveTab,
   resetCompany,
   fetchCompanyPLSuccess,

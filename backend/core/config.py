@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "info"
-    
+
+    DATABASE_URL: str = ""
+
     SUPABASE_URL: str = "https://csejxkjmxdqmemfurkgn.supabase.co"
     SUPABASE_JWT_SECRET: str = "4q2S/EDA+MpZMYwt3x9T9J8NKwz5a1/jRBJR+PALYi4Lf6e2gtVKjv5CJz7DZjpCwUil954FSU6sGdZI1bzB3Q=="
     # Add the Anon Key so the backend can securely pass the firewall
