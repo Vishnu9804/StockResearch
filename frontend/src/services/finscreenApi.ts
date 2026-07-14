@@ -52,11 +52,14 @@ export const finscreenApi = {
   fetchMarketNews: () => finscreenClient.get('/market/news').then(r => r.data),
   fetchMarketIndices: () => finscreenClient.get('/market/indices').then(r => r.data),
   fetchTopMovers: () => finscreenClient.get('/market/movers').then(r => r.data),
+  fetchMarketMovers: () => finscreenClient.get('/market/movers').then(r => r.data),
   fetchSectorPerformance: () => finscreenClient.get('/market/sector-performance').then(r => r.data),
   fetchCommodities: () => finscreenClient.get('/market/commodities').then(r => r.data),
   fetchHolidays: () => finscreenClient.get('/market/holidays').then(r => r.data),
   fetchIpoCalendar: () => finscreenClient.get('/market/ipo').then(r => r.data),
   fetchResultsCalendar: () => finscreenClient.get('/market/results-calendar').then(r => r.data),
+  fetchMarketAnnouncements: () => finscreenClient.get('/market/announcements').then(r => r.data),
+  fetchRefreshedStocks: () => finscreenClient.get('/refreshed-stocks').then(r => r.data),
   fetchStockSymbols: () => finscreenClient.get('/stock-symbols').then(r => r.data),
 }
 
