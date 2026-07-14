@@ -1,8 +1,3 @@
-/**
- * store/sagas/companySaga.ts
- * Redux-Saga for company data fetching and management
- */
-
 import { call, put, takeLatest, all, select } from 'redux-saga/effects'
 import {
   fetchCompanyStart,
@@ -21,30 +16,26 @@ import {
   fetchCompanyDocumentsSuccess,
   fetchCompanyFinancialsStart,
 } from '../slices/companySlice'
-import { finscreenApi } from '@/services/finscreenApi'
+import { finscreenApi } from '../../services/finscreenApi'
 
 function* loadCompanyFinancialsSaga(symbol: string): Generator<any, void, any> {
   try {
     yield put(setFinancialsStatus('loading'))
-    
-    // Get statementType and period from Redux State
+         
     const statementType = yield select((state: any) => state.company.statementType || 's')
     const period = yield select((state: any) => state.company.period || 'annual')
     const params = { statement_type: statementType, period }
-
-    // Fetch statements in parallel
+    
     const [pl, bs, cf, segments] = yield all([
       call(finscreenApi.fetchCompanyPL, symbol, params),
       call(finscreenApi.fetchCompanyBalanceSheet, symbol, params),
       call(finscreenApi.fetchCompanyCashFlow, symbol, params),
       call(finscreenApi.fetchCompanySegments, symbol, params),
     ])
-
     yield put(fetchCompanyPLSuccess(pl))
     yield put(fetchCompanyBalanceSheetSuccess(bs))
     yield put(fetchCompanyCashFlowSuccess(cf))
     yield put(fetchCompanySegmentsSuccess(segments))
-
     yield put(setFinancialsStatus('success'))
   } catch (err: any) {
     console.error('Failed to load company financials:', err)
@@ -94,18 +85,18 @@ function* loadCompanyDocumentsSaga(symbol: string): Generator<any, void, any> {
 function* fetchCompanyOverviewSaga(action: ReturnType<typeof fetchCompanyStart>): Generator<any, void, any> {
   const symbol = action.payload
   try {
-    // 1. Fetch company profile (overview)
     const profile = yield call(finscreenApi.fetchCompanyProfile, symbol)
-    yield put(fetchCompanySuccess(profile as any))
+    // Extract data field if wrapped by axios config response layer
+    const actualProfile = profile.data ? profile.data : profile
+    yield put(fetchCompanySuccess(actualProfile))
 
-    // 2. Parallel loading of other segments
     yield all([
       call(loadCompanyFinancialsSaga, symbol),
       call(loadCompanyRatiosSaga, symbol),
       call(loadCompanyShareholdingSaga, symbol),
       call(loadCompanyCorporateActionsSaga, symbol),
       call(loadCompanyDocumentsSaga, symbol),
-      put(setPriceChartStatus('success')), // price chart status is updated
+      put(setPriceChartStatus('success')),
     ])
   } catch (err: any) {
     console.error('Failed to fetch company overview:', err)
@@ -127,3 +118,4 @@ export function* companySaga(): Generator<any, void, any> {
     takeLatest(fetchCompanyFinancialsStart.type, fetchCompanyFinancialsSaga),
   ])
 }
+export default companySaga;

@@ -2,8 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import DashboardLayout from './layouts/DashboardLayout'
 import AuthLayout from './layouts/AuthLayout'
 import { NavigationHandler } from './components/shared/NavigationHandler'
+import { AuthGuard } from './components/shared/AuthGuard'
 
-// Import Pages
+// Import Pages[cite: 2]
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -13,10 +14,15 @@ import ScreenerResults from './pages/ScreenerResults'
 import CompanyDetail from './pages/CompanyDetail'
 import IndexDetail from './pages/IndexDetail'
 import ScreenGallery from './pages/ScreenGallery'
-import { MarketPulse } from './pages/market-pulse/MarketPulse'
-import { NewIssues } from './pages/market-pulse/NewIssues'
+import Account from './pages/Account'
+import Watchlists from './pages/Watchlists'
+import Portfolio from './pages/Portfolio'
 import Feed from './pages/Feed'
 import PaymentResult from './pages/PaymentResult'
+
+// Market Pulse Pages[cite: 2]
+import { MarketPulse } from './pages/market-pulse/MarketPulse'
+import { NewIssues } from './pages/market-pulse/NewIssues'
 import Announcements from './pages/market-pulse/Announcements'
 import Industries from './pages/market-pulse/Industries'
 import AnnualReports from './pages/market-pulse/AnnualReports'
@@ -35,18 +41,18 @@ export function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <NavigationHandler />
       <Routes>
-        {/* Auth Group - Kept for design reference, but out of active enforcement flow */}
+        {/* Auth Group - Accessible when logged out */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Route>
-        
+                 
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/payment/success" element={<PaymentResult />} />
         <Route path="/payment/failure" element={<PaymentResult />} />
 
-        {/* Dashboard Group */}
-        <Route element={<DashboardLayout />}>
+        {/* Dashboard Protected Group - Shielded by AuthGuard */}
+        <Route element={<AuthGuard><DashboardLayout /></AuthGuard>}>
           <Route path="/" element={<Home />} />
           <Route path="/screener" element={<Screener />} />
           <Route path="/screener/results" element={<ScreenerResults />} />
@@ -54,8 +60,11 @@ export function App() {
           <Route path="/index/:symbol" element={<IndexDetail />} />
           <Route path="/screens" element={<ScreenGallery />} />
           <Route path="/feed" element={<Feed />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/watchlists" element={<Watchlists />} />
+          <Route path="/portfolio" element={<Portfolio />} />
 
-          {/* Market Pulse Routes */}
+          {/* Market Pulse Sub-Routes */}
           <Route path="/market-pulse" element={<MarketPulse />} />
           <Route path="/market-pulse/new-issues" element={<NewIssues />} />
           <Route path="/market-pulse/announcements" element={<Announcements />} />

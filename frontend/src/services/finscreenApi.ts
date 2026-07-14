@@ -2,7 +2,7 @@ import axios from 'axios'
 import { supabase } from './supabaseClient'
 
 export const finscreenClient = axios.create({
-  baseURL: '/',
+  baseURL: '/api/finscreen',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -36,6 +36,7 @@ apiClient.interceptors.request.use(injectAuthToken, (error) => Promise.reject(er
 screenerApiClient.interceptors.request.use(injectAuthToken, (error) => Promise.reject(error))
 
 export const finscreenApi = {
+  // --- Company Specific Endpoints ---
   fetchCompanyProfile: (symbol: string) => finscreenClient.get(`/company/${symbol}/profile`).then(r => r.data),
   fetchCompanyPL: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/pl`, { params }).then(r => r.data),
   fetchCompanyBalanceSheet: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/balance-sheet`, { params }).then(r => r.data),
@@ -45,7 +46,19 @@ export const finscreenApi = {
   fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
   fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
+  fetchPeers: (symbol: string) => finscreenClient.get(`/company/${symbol}/peers`).then(r => r.data),
+  
+  // --- Market & Feed Endpoints ---
+  fetchMarketNews: () => finscreenClient.get('/market/news').then(r => r.data),
+  fetchMarketIndices: () => finscreenClient.get('/market/indices').then(r => r.data),
+  fetchTopMovers: () => finscreenClient.get('/market/movers').then(r => r.data),
+  fetchSectorPerformance: () => finscreenClient.get('/market/sector-performance').then(r => r.data),
+  fetchCommodities: () => finscreenClient.get('/market/commodities').then(r => r.data),
+  fetchHolidays: () => finscreenClient.get('/market/holidays').then(r => r.data),
+  fetchIpoCalendar: () => finscreenClient.get('/market/ipo').then(r => r.data),
+  fetchResultsCalendar: () => finscreenClient.get('/market/results-calendar').then(r => r.data),
+  fetchStockSymbols: () => finscreenClient.get('/stock-symbols').then(r => r.data),
 }
 
-// Add this line to satisfy default imports across your frontend
+// Default export to satisfy components importing it directly
 export default finscreenApi;

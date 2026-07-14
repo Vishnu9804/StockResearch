@@ -66,12 +66,9 @@ export function BalanceSheetTable() {
   const loadNotes = async () => {
     if (notesData) return notesData
     try {
-      const data = await finscreenApi.fetchCompanyNotes(symbol, {
-        statement_type: statementType,
-        period,
-      })
-      setNotesData(data)
-      return data
+      // TODO: Implement fetchCompanyNotes API endpoint
+      console.warn('fetchCompanyNotes not yet implemented')
+      return null
     } catch (err) {
       console.error('Failed to load notes:', err)
       return null

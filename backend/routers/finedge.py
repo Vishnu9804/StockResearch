@@ -772,10 +772,11 @@ async def get_company_identity_history(symbol: str, request: Request):
             return_exceptions=True
         )
         name_changes, symbol_changes = results
-
-        names = name_changes if isinstance(name_changes, list) else (name_changes.get("data") or name_changes.get("results") or [])
-        symbols = symbol_changes if isinstance(symbol_changes, list) else (symbol_changes.get("data") or symbol_changes.get("results") or [])
-
+        
+        # FIX: Check if they are Exceptions before trying to extract data
+        names = [] if isinstance(name_changes, Exception) else (name_changes if isinstance(name_changes, list) else (name_changes.get("data") or name_changes.get("results") or []))
+        symbols = [] if isinstance(symbol_changes, Exception) else (symbol_changes if isinstance(symbol_changes, list) else (symbol_changes.get("data") or symbol_changes.get("results") or []))
+        
         merged = []
         for nc in names:
             if not isinstance(nc, dict): continue
@@ -793,7 +794,6 @@ async def get_company_identity_history(symbol: str, request: Request):
                 "to": sc.get("new_symbol") or sc.get("current_symbol") or "",
                 "date": sc.get("date") or sc.get("changed_on") or ""
             })
-
         merged.sort(key=lambda x: x.get("date", ""), reverse=True)
         return merged
     except Exception as e:
