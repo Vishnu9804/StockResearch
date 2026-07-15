@@ -1,9 +1,8 @@
 /**
  * store/slices/portfolioSlice.ts
- * Redux slice for user portfolios and holdings with custom thunk actions.
+ * Redux slice for the current user's portfolio, hydrated via portfolioSaga.
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import { apiClient } from '@/services/finscreenApi'
 
 export interface PortfolioHolding {
   id: string
@@ -18,182 +17,55 @@ export interface PortfolioHolding {
 
 export interface Portfolio {
   id: string
-  userId: string
   name: string
   createdAt: string
+  updatedAt: string
+  holdings: PortfolioHolding[]
 }
+
+export type PortfolioStatus = 'idle' | 'loading' | 'success' | 'error'
 
 export interface PortfolioState {
   portfolios: Portfolio[]
-  holdings: PortfolioHolding[]
-  status: 'idle' | 'loading' | 'success' | 'error'
+  hasPortfolio: boolean
+  status: PortfolioStatus
   error: string | null
-  activePortfolioId: string | null
 }
 
 const initialState: PortfolioState = {
   portfolios: [],
-  holdings: [],
+  hasPortfolio: false,
   status: 'idle',
   error: null,
-  activePortfolioId: null,
 }
-
-// ─── Slice ───────────────────────────────────────────────────────────────────
 
 const portfolioSlice = createSlice({
   name: 'portfolio',
   initialState,
   reducers: {
-    setActivePortfolioId(state, action: PayloadAction<string | null>) {
-      state.activePortfolioId = action.payload
+    fetchPortfoliosStart() {
+      // handled by saga; type string is 'portfolio/fetchPortfoliosStart'
     },
-    // Portfolios
-    fetchPortfoliosStart(state) {
-      state.status = 'loading'
+    hydratePortfolios(state, action: PayloadAction<{ portfolios: Portfolio[]; hasPortfolio: boolean }>) {
+      state.portfolios = action.payload.portfolios
+      state.hasPortfolio = action.payload.hasPortfolio
+      state.status = 'success'
       state.error = null
     },
-    fetchPortfoliosSuccess(state, action: PayloadAction<Portfolio[]>) {
-      state.status = 'success'
-      state.portfolios = action.payload
-      if (action.payload.length > 0 && !state.activePortfolioId) {
-        state.activePortfolioId = action.payload[0].id
-      }
+    setStatus(state, action: PayloadAction<PortfolioStatus>) {
+      state.status = action.payload
     },
-    fetchPortfoliosFailure(state, action: PayloadAction<string>) {
-      state.status = 'error'
+    setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload
     },
-    createPortfolioSuccess(state, action: PayloadAction<Portfolio>) {
-      state.portfolios.unshift(action.payload)
-      state.activePortfolioId = action.payload.id
-    },
-    deletePortfolioSuccess(state, action: PayloadAction<string>) {
-      state.portfolios = state.portfolios.filter(p => p.id !== action.payload)
-      if (state.activePortfolioId === action.payload) {
-        state.activePortfolioId = state.portfolios.length > 0 ? state.portfolios[0].id : null
-      }
-    },
-    // Holdings
-    fetchHoldingsStart(state) {
-      state.status = 'loading'
-      state.error = null
-    },
-    fetchHoldingsSuccess(state, action: PayloadAction<PortfolioHolding[]>) {
-      state.status = 'success'
-      state.holdings = action.payload
-    },
-    fetchHoldingsFailure(state, action: PayloadAction<string>) {
-      state.status = 'error'
-      state.error = action.payload
-    },
-    addHoldingSuccess(state, action: PayloadAction<PortfolioHolding>) {
-      state.holdings.unshift(action.payload)
-    },
-    updateHoldingSuccess(state, action: PayloadAction<PortfolioHolding>) {
-      const idx = state.holdings.findIndex(h => h.id === action.payload.id)
-      if (idx !== -1) {
-        state.holdings[idx] = action.payload
-      }
-    },
-    deleteHoldingSuccess(state, action: PayloadAction<string>) {
-      state.holdings = state.holdings.filter(h => h.id !== action.payload)
-    }
-  }
+  },
 })
 
 export const {
-  setActivePortfolioId,
   fetchPortfoliosStart,
-  fetchPortfoliosSuccess,
-  fetchPortfoliosFailure,
-  createPortfolioSuccess,
-  deletePortfolioSuccess,
-  fetchHoldingsStart,
-  fetchHoldingsSuccess,
-  fetchHoldingsFailure,
-  addHoldingSuccess,
-  updateHoldingSuccess,
-  deleteHoldingSuccess,
+  hydratePortfolios,
+  setStatus,
+  setError,
 } = portfolioSlice.actions
 
 export const portfolioReducer = portfolioSlice.reducer
-
-// ─── Custom Thunk Actions ────────────────────────────────────────────────────
-
-export const fetchPortfolios = () => async (dispatch: any) => {
-  dispatch(fetchPortfoliosStart())
-  try {
-    const res = await apiClient.get('/portfolio')
-    dispatch(fetchPortfoliosSuccess(res.data.portfolios))
-  } catch (err: any) {
-    const msg = err.response?.data?.detail?.message || err.message || 'Failed to fetch portfolios'
-    dispatch(fetchPortfoliosFailure(msg))
-  }
-}
-
-export const createPortfolio = (name: string) => async (dispatch: any) => {
-  try {
-    const res = await apiClient.post('/portfolio', { name })
-    dispatch(createPortfolioSuccess(res.data.portfolio))
-  } catch (err: any) {
-    console.error('Failed to create portfolio:', err)
-  }
-}
-
-export const deletePortfolio = (id: string) => async (dispatch: any) => {
-  try {
-    await apiClient.delete(`/portfolio/${id}`)
-    dispatch(deletePortfolioSuccess(id))
-  } catch (err: any) {
-    console.error('Failed to delete portfolio:', err)
-  }
-}
-
-export const fetchHoldings = (portfolioId: string) => async (dispatch: any) => {
-  dispatch(fetchHoldingsStart())
-  try {
-    const res = await apiClient.get(`/portfolio/${portfolioId}/holdings`)
-    dispatch(fetchHoldingsSuccess(res.data.holdings))
-  } catch (err: any) {
-    const msg = err.response?.data?.detail?.message || err.message || 'Failed to fetch holdings'
-    dispatch(fetchHoldingsFailure(msg))
-  }
-}
-
-export const addHolding = (
-  portfolioId: string,
-  holding: Omit<PortfolioHolding, 'id' | 'portfolioId' | 'createdAt'>
-) => async (dispatch: any) => {
-  try {
-    const res = await apiClient.post(`/portfolio/${portfolioId}/holdings`, holding)
-    dispatch(addHoldingSuccess(res.data.holding))
-  } catch (err: any) {
-    console.error('Failed to add holding:', err)
-  }
-}
-
-export const updateHolding = (
-  portfolioId: string,
-  holdingId: string,
-  updates: { quantity?: number; avgBuyPrice?: number }
-) => async (dispatch: any) => {
-  try {
-    const res = await apiClient.put(`/portfolio/${portfolioId}/holdings/${holdingId}`, updates)
-    dispatch(updateHoldingSuccess(res.data.holding))
-  } catch (err: any) {
-    console.error('Failed to update holding:', err)
-  }
-}
-
-export const deleteHolding = (
-  portfolioId: string,
-  holdingId: string
-) => async (dispatch: any) => {
-  try {
-    await apiClient.delete(`/portfolio/${portfolioId}/holdings/${holdingId}`)
-    dispatch(deleteHoldingSuccess(holdingId))
-  } catch (err: any) {
-    console.error('Failed to delete holding:', err)
-  }
-}

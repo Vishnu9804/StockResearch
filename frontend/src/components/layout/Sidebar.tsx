@@ -15,6 +15,7 @@ interface SidebarItem {
   label: string
   href: string
   icon: any
+  authOnly?: boolean
 }
 
 const MENU_ITEMS: SidebarItem[] = [
@@ -24,7 +25,7 @@ const MENU_ITEMS: SidebarItem[] = [
   { label: 'Screen Gallery', href: '/screens',     icon: Filter },
   { label: 'Market Pulse',   href: '/market-pulse', icon: Activity },
   { label: 'My Watchlists',  href: '/watchlists',  icon: FolderHeart },
-  { label: 'My Portfolio',   href: '/portfolio',   icon: BookOpen },
+  { label: 'My Portfolio',   href: '/portfolio',   icon: BookOpen, authOnly: true },
   { label: 'Custom Ratios',  href: '/custom-ratios', icon: Sliders },
   { label: 'My Account',     href: '/account',     icon: User },
 ]
@@ -34,6 +35,7 @@ export function Sidebar() {
   const pathname = location.pathname
   const dispatch = useAppDispatch()
   const { sidebarCollapsed } = useAppSelector((state) => state.ui)
+  const { isAuthenticated } = useAppSelector((state) => state.auth)
   const [tooltip, setTooltip] = useState<string | null>(null)
   const prefersReduced = useReducedMotion()
 
@@ -106,6 +108,39 @@ export function Sidebar() {
           {MENU_ITEMS.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
             const Icon = item.icon
+            const isLocked = Boolean(item.authOnly) && !isAuthenticated
+            const tooltipLabel = isLocked ? `${item.label} (log in to access)` : item.label
+
+            const linkContent = (
+              <>
+                {/* Animated active background pill */}
+                {isActive && !isLocked && (
+                  <motion.div
+                    layoutId="sidebar-active-pill"
+                    className="absolute inset-0 bg-accentSoft rounded-lg"
+                    transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+
+                <Icon
+                  className={cn(
+                    'size-4 shrink-0 relative z-10 transition-all duration-150',
+                    isLocked ? 'text-textMuted/50' : isActive ? 'text-accent' : 'text-textMuted'
+                  )}
+                />
+                {!sidebarCollapsed && (
+                  <span className="truncate relative z-10">{item.label}</span>
+                )}
+                {isActive && !isLocked && !sidebarCollapsed && (
+                  <motion.span
+                    className="ml-auto size-1.5 rounded-full bg-accent shrink-0 relative z-10"
+                    initial={prefersReduced ? false : { scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                  />
+                )}
+              </>
+            )
 
             return (
               <div
@@ -114,42 +149,31 @@ export function Sidebar() {
                 onMouseEnter={() => sidebarCollapsed ? setTooltip(item.label) : null}
                 onMouseLeave={() => setTooltip(null)}
               >
-                <Link
-                  to={item.href}
-                  className={cn(
-                    'relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-medium z-10',
-                    'transition-colors duration-150',
-                    isActive ? 'text-accent' : 'text-textSecondary hover:text-textPrimary',
-                    sidebarCollapsed ? 'justify-center' : ''
-                  )}
-                >
-                  {/* Animated active background pill */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="sidebar-active-pill"
-                      className="absolute inset-0 bg-accentSoft rounded-lg"
-                      transition={prefersReduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-
-                  <Icon
+                {isLocked ? (
+                  <div
+                    aria-disabled="true"
+                    title="Log in to access your portfolio"
                     className={cn(
-                      'size-4 shrink-0 relative z-10 transition-all duration-150',
-                      isActive ? 'text-accent' : 'text-textMuted'
+                      'relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-medium z-10',
+                      'text-textMuted/50 cursor-not-allowed select-none',
+                      sidebarCollapsed ? 'justify-center' : ''
                     )}
-                  />
-                  {!sidebarCollapsed && (
-                    <span className="truncate relative z-10">{item.label}</span>
-                  )}
-                  {isActive && !sidebarCollapsed && (
-                    <motion.span
-                      className="ml-auto size-1.5 rounded-full bg-accent shrink-0 relative z-10"
-                      initial={prefersReduced ? false : { scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                    />
-                  )}
-                </Link>
+                  >
+                    {linkContent}
+                  </div>
+                ) : (
+                  <Link
+                    to={item.href}
+                    className={cn(
+                      'relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-xs font-medium z-10',
+                      'transition-colors duration-150',
+                      isActive ? 'text-accent' : 'text-textSecondary hover:text-textPrimary',
+                      sidebarCollapsed ? 'justify-center' : ''
+                    )}
+                  >
+                    {linkContent}
+                  </Link>
+                )}
 
                 {/* Tooltip (collapsed) */}
                 <AnimatePresence>
@@ -162,7 +186,7 @@ export function Sidebar() {
                       transition={{ duration: 0.15 }}
                     >
                       <div className="bg-textPrimary text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-[var(--shadow-lg)] whitespace-nowrap">
-                        {item.label}
+                        {tooltipLabel}
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-textPrimary rotate-45" />
                       </div>
                     </motion.div>

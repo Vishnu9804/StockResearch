@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, Text, Numeric, Boolean, DateTime, Index, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import ForeignKey, Text, Numeric, Boolean, Date, DateTime, Index, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -46,6 +46,37 @@ class WatchlistItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     watchlist: Mapped["Watchlist"] = relationship(back_populates="items")
+
+
+class Portfolio(Base):
+    __tablename__ = "portfolios"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    holdings: Mapped[list["PortfolioHolding"]] = relationship(
+        back_populates="portfolio", cascade="all, delete-orphan", order_by="PortfolioHolding.created_at"
+    )
+
+
+class PortfolioHolding(Base):
+    __tablename__ = "portfolio_holdings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    portfolio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("portfolios.id"), nullable=False)
+    symbol: Mapped[str] = mapped_column(Text, nullable=False)
+    company_name: Mapped[str | None] = mapped_column(Text)
+    quantity: Mapped[float] = mapped_column(Numeric, server_default="0.0")
+    avg_buy_price: Mapped[float] = mapped_column(Numeric, server_default="0.0")
+    buy_date: Mapped[date | None] = mapped_column(Date)
+    extra_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    portfolio: Mapped["Portfolio"] = relationship(back_populates="holdings")
 
 
 class CompanyMetric(Base):
