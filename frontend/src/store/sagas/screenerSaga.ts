@@ -167,6 +167,7 @@ function* runScreenerSaga(): Generator<any, void, any> {
 
     // Total comes from the envelope; fall back to slice length for legacy responses
     const totalCount: number = responseData?.total ?? resultsList.length
+    const aggregates = responseData?.aggregates ?? null
 
     const results: ScreenerResult[] = resultsList.map((c: any) => ({
       symbol: c.symbol,
@@ -197,7 +198,7 @@ function* runScreenerSaga(): Generator<any, void, any> {
       beta: c.beta || 0,
     }))
 
-    yield put(runScreenerSuccess({ results, totalCount }))
+    yield put(runScreenerSuccess({ results, totalCount, aggregates }))
   } catch (err: any) {
     console.error('Screener run error:', err)
     const errorMsg = err.response?.data?.detail?.message || err.message || 'Failed to run screener'

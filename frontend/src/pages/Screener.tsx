@@ -1,25 +1,43 @@
-import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Save, X } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { ChevronRight, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { QueryBuilder } from '@/components/screener/query-builder'
+import {
+  QueryBuilder,
+  DEFAULT_FILTERS,
+  buildQueryFromFilters,
+  parseFiltersFromQuery,
+  type FilterRow,
+} from '@/components/screener/query-builder'
 import { VariablesSidebar, type Variable } from '@/components/screener/variables-sidebar'
 import { Heading } from '@/components/ui/Heading'
-import { Text } from '@/components/ui/Text'
-import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { useAppDispatch } from '@/store/hooks'
 import { toast } from 'react-hot-toast'
 import { runScreenerStart } from '@/store/slices/screenerSlice'
 
-import { finscreenClient, screenerApiClient } from '@/services/finscreenApi'
+import { screenerApiClient } from '@/services/finscreenApi'
+
+interface EditingScreen {
+  id: string
+  name: string
+}
+
+interface ScreenerLocationState {
+  fromResults?: boolean
+  queryText?: string
+  editingScreen?: EditingScreen | null
+}
 
 export function Screener() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const { queryText, filters } = useAppSelector((state) => state.screener)
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('editId')
   const [insertedVariable, setInsertedVariable] = useState<Variable | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [filters, setFilters] = useState<FilterRow[]>(DEFAULT_FILTERS)
+  const [editingScreen, setEditingScreen] = useState<EditingScreen | null>(null)
 
   const handleInsert = useCallback((variable: Variable) => {
     setInsertedVariable(variable)
@@ -29,67 +47,44 @@ export function Screener() {
     setInsertedVariable(null)
   }, [])
 
-  // Fix: was a <Link> that only navigated — never dispatched runScreenerStart.
-  // Results page would always show stale/empty data.
+  // Three ways a user lands here:
+  //  1. Gallery "Edit" (?editId=...) — load that saved screen's query.
+  //  2. Back from the Results page ("Edit Screen" link) — restore the last
+  //     query that was just being viewed, plus whatever edit session it was
+  //     already part of.
+  //  3. Anything else (sidebar link, "Create New Screen") — the default
+  //     multi-attribute example query, which doubles as onboarding.
+  useEffect(() => {
+    if (editId) {
+      let cancelled = false
+      screenerApiClient.get(`/saved/${editId}`).then((res) => {
+        if (cancelled) return
+        const screen = res.data?.screen
+        if (screen) {
+          setEditingScreen({ id: screen.id, name: screen.name })
+          const parsed = parseFiltersFromQuery(screen.queryText)
+          setFilters(parsed.length > 0 ? parsed : DEFAULT_FILTERS)
+        }
+      }).catch(() => {
+        toast.error('Could not load the saved screen for editing.')
+      })
+      return () => { cancelled = true }
+    }
+
+    const state = location.state as ScreenerLocationState | null
+    if (state?.fromResults) {
+      const parsed = parseFiltersFromQuery(state.queryText ?? '')
+      setFilters(parsed.length > 0 ? parsed : DEFAULT_FILTERS)
+      setEditingScreen(state.editingScreen ?? null)
+    }
+    // Only ever needs to run once, on entry — not on every filters/state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId])
+
   const handleRunScreener = () => {
-    // Build query from Redux filters or raw queryText
-    const query = queryText.trim() || filters.map((f: any) => {
-      if (f.operator === 'between' && f.value2 !== undefined) {
-        return `${f.variableId} between ${f.value} and ${f.value2}`
-      }
-      return `${f.variableId} ${f.operator} ${f.value}`
-    }).join(' AND ')
-
+    const query = buildQueryFromFilters(filters)
     dispatch(runScreenerStart(query ? { query } : undefined))
-    navigate('/screener/results')
-  }
-
-  const handleSaveScreen = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to save screens.')
-      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-      navigate(`/login?redirect=${redirectPath}`)
-      return
-    }
-
-    const query = queryText.trim() || filters.map((f: any) => {
-      if (f.operator === 'between' && f.value2 !== undefined) {
-        return `${f.variableId} between ${f.value} and ${f.value2}`
-      }
-      return `${f.variableId} ${f.operator} ${f.value}`
-    }).join(' AND ')
-
-    if (!query) {
-      toast.error('Please add at least one query filter before saving.')
-      return
-    }
-
-    const name = window.prompt('Enter a name for this saved screen:')
-    if (name === null) return // Cancelled
-    if (!name.trim()) {
-      toast.error('Please provide a valid name.')
-      return
-    }
-
-    try {
-      setSaving(false)
-      const savePromise = screenerApiClient.post('/saved', {
-        name: name.trim(),
-        description: `Custom query filter: ${query}`,
-        queryText: query,
-        alertEnabled: false,
-        alertFrequency: 'IMMEDIATE',
-      })
-
-      toast.promise(savePromise, {
-        loading: 'Saving screen to account...',
-        success: '✓ Screen saved successfully!',
-        error: (err) => err.response?.data?.detail?.message || err.message || 'Failed to save screen',
-      })
-      await savePromise
-    } catch (err) {
-      console.error('Save screen error:', err)
-    }
+    navigate('/screener/results', { state: { editingScreen } })
   }
 
   return (
@@ -104,11 +99,11 @@ export function Screener() {
               <span className="mx-1.5">›</span>
               <Link to="/screener" className="hover:text-accent transition-colors">Screener</Link>
               <span className="mx-1.5">›</span>
-              <span className="text-accent font-medium">New Screen</span>
+              <span className="text-accent font-medium">{editingScreen ? 'Edit Screen' : 'New Screen'}</span>
             </div>
 
             <Heading level={1} variant="pageTitle" className="text-textPrimary">
-              Create a New Screen
+              {editingScreen ? `Editing "${editingScreen.name}"` : 'Create a New Screen'}
             </Heading>
 
             <p className="text-body text-textSecondary mt-1">
@@ -129,16 +124,6 @@ export function Screener() {
             </Link>
 
             <Button
-              variant="outline"
-              disabled={saving}
-              onClick={handleSaveScreen}
-              className="h-9 text-xs border-border text-textSecondary hover:bg-surfaceMuted font-medium shadow-none"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline ml-1">Save Screen</span>
-            </Button>
-
-            <Button
               id="run-screener-btn"
               onClick={handleRunScreener}
               className="bg-accent hover:bg-accent/90 text-white h-9 text-xs font-medium shadow-none"
@@ -154,8 +139,11 @@ export function Screener() {
         {/* Query Builder */}
         <div className="flex-1 min-w-0 overflow-hidden animate-slide-in-left">
           <QueryBuilder
+            filters={filters}
+            onFiltersChange={setFilters}
             insertedVariable={insertedVariable}
             onInsertConsumed={handleInsertConsumed}
+            onRun={handleRunScreener}
           />
         </div>
 

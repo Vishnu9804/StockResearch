@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Plus, Trash2, Inbox, Sparkles, BookOpen, TrendingUp, DollarSign } from 'lucide-react'
+import { ArrowRight, Plus, Trash2, Pencil, Inbox, Sparkles, BookOpen, TrendingUp, DollarSign } from 'lucide-react'
 import { AppFooter } from '@/components/shared/AppFooter'
 import { screenerApiClient } from '@/services/finscreenApi'
 import { toast } from 'react-hot-toast'
@@ -138,6 +138,8 @@ function TemplateCard({ name, description, query }: { name: string; description:
 
 // ─── Saved Screen Card component ──────────────────────────────────────────────
 function SavedScreenTile({ screen, onDelete }: { screen: any; onDelete: (id: string) => void }) {
+  const navigate = useNavigate()
+
   return (
     <div
       style={{
@@ -166,28 +168,48 @@ function SavedScreenTile({ screen, onDelete }: { screen: any; onDelete: (id: str
             {screen.queryText}
           </code>
         </div>
-        <button
-          onClick={() => {
-            if (window.confirm(`Are you sure you want to delete "${screen.name}"?`)) {
-              onDelete(screen.id)
-            }
-          }}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#EF4444',
-            cursor: 'pointer',
-            padding: '4px',
-            borderRadius: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          className="hover:bg-red-50 dark:hover:bg-red-950/20"
-          title="Delete Saved Screen"
-        >
-          <Trash2 style={{ width: '14px', height: '14px' }} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <button
+            onClick={() => navigate(`/screener?editId=${screen.id}`)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--fs-text-secondary)',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            className="hover:bg-surfaceMuted"
+            title="Edit Saved Screen"
+          >
+            <Pencil style={{ width: '14px', height: '14px' }} />
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm(`Are you sure you want to delete "${screen.name}"?`)) {
+                onDelete(screen.id)
+              }
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#EF4444',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            className="hover:bg-red-50 dark:hover:bg-red-950/20"
+            title="Delete Saved Screen"
+          >
+            <Trash2 style={{ width: '14px', height: '14px' }} />
+          </button>
+        </div>
       </div>
     </div>
   )

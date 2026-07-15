@@ -53,6 +53,28 @@ export interface ScreenerResult {
 
 export type ScreenerStatus = 'idle' | 'validating' | 'loading' | 'success' | 'error'
 
+export interface SectorBreakdownEntry {
+  sector: string
+  count: number
+  pct: number
+}
+
+export interface StatCoverage {
+  available: number
+  missing: number
+}
+
+export interface ScreenerAggregates {
+  avgPE: number | null
+  avgPECoverage: StatCoverage
+  totalMarketCap: number | null
+  totalMarketCapCoverage: StatCoverage
+  medianROCE: number | null
+  medianROCECoverage: StatCoverage
+  sectorBreakdown: SectorBreakdownEntry[]
+  sectorCoverage: StatCoverage
+}
+
 export interface ScreenerState {
   filters: FilterRow[]
   results: ScreenerResult[]
@@ -67,6 +89,7 @@ export interface ScreenerState {
   sortBy: keyof ScreenerResult | null
   sortOrder: 'asc' | 'desc'
   activeTemplateId: string | null
+  aggregates: ScreenerAggregates | null
 }
 
 const initialState: ScreenerState = {
@@ -83,6 +106,7 @@ const initialState: ScreenerState = {
   sortBy: 'marketCap',
   sortOrder: 'desc',
   activeTemplateId: null,
+  aggregates: null,
 }
 
 function generateId(): string {
@@ -139,10 +163,11 @@ const screenerSlice = createSlice({
     },
     runScreenerSuccess(
       state,
-      action: PayloadAction<{ results: ScreenerResult[]; totalCount: number }>
+      action: PayloadAction<{ results: ScreenerResult[]; totalCount: number; aggregates?: ScreenerAggregates | null }>
     ) {
       state.results = action.payload.results
       state.totalCount = action.payload.totalCount
+      state.aggregates = action.payload.aggregates ?? null
       state.status = 'success'
       state.error = null
     },

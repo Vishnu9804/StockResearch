@@ -17,7 +17,12 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { PaginationBar } from '@/components/ui/PaginationBar'
-import { setPage as setReduxPage, setPageSize as setReduxPageSize } from '@/store/slices/screenerSlice'
+import {
+  setPage as setReduxPage,
+  setPageSize as setReduxPageSize,
+  setQuery as setReduxQuery,
+  runScreenerStart,
+} from '@/store/slices/screenerSlice'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,16 +89,17 @@ export function ScreenerResultsTable() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const { results, status, queryText, page, pageSize, totalCount } = useAppSelector((state) => state.screener)
+  const { results, status, queryText, page, pageSize, totalCount, aggregates } = useAppSelector((state) => state.screener)
 
-  // Derive filter chips dynamically from the actual query text
+  // Derive filter chips dynamically from the actual query text. Each chip's
+  // id is its clause index so removing one can rebuild the query minus that
+  // clause (see removeFilter below).
+  const clauses = useMemo(() => (queryText ? queryText.split(/\bAND\b/i) : []), [queryText])
   const derivedFilters: ActiveFilter[] = useMemo(() => {
-    if (!queryText) return []
-    return queryText
-      .split(/\bAND\b/i)
+    return clauses
       .map((part, i) => ({ id: `f${i}`, label: part.trim() }))
       .filter((f) => f.label)
-  }, [queryText])
+  }, [clauses])
 
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -125,24 +131,11 @@ export function ScreenerResultsTable() {
     }))
   }, [results])
 
-  const filtered = useMemo(() => {
-    let list = [...mappedResults]
-    const activeIds = new Set(activeFilters.map((f) => f.id))
-
-    if (activeIds.has('f1')) {
-      list = list.filter((r) => r.marketCap >= 500)
-    }
-    if (activeIds.has('f2')) {
-      list = list.filter((r) => r.roce > 15)
-    }
-    if (activeIds.has('f3')) {
-      list = list.filter((r) => r.sector !== 'Banking' && r.sector !== 'NBFC')
-    }
-    if (activeIds.has('f4')) {
-      list = list.filter((r) => r.netProfitChange > 10)
-    }
-    return list
-  }, [mappedResults, activeFilters])
+  // Results are already filtered server-side by the actual query (queryText).
+  // The chips above are just a display of the query's clauses, not a second
+  // client-side filter — hardcoded re-filtering here previously zeroed out
+  // results whenever the query didn't match the four assumed default clauses.
+  const filtered = mappedResults
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -163,12 +156,25 @@ export function ScreenerResultsTable() {
     // page reset is handled by Redux runScreenerStart
   }
 
+  // Removing a chip drops that clause from the query and re-runs it against
+  // the server so the results table actually reflects the change.
+  const runQuery = (query: string) => {
+    dispatch(setReduxQuery(query))
+    dispatch(runScreenerStart({ query }))
+  }
+
   const removeFilter = (id: string) => {
-    setActiveFilters((prev) => prev.filter((f) => f.id !== id))
+    const idx = Number(id.slice(1))
+    const newQuery = clauses
+      .filter((_, i) => i !== idx)
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .join(' AND ')
+    runQuery(newQuery)
   }
 
   const clearFilters = () => {
-    setActiveFilters([])
+    runQuery('')
   }
 
   const showToast = (msg: string) => {
@@ -188,18 +194,22 @@ export function ScreenerResultsTable() {
     })
   }
 
-  // Summary stats (over the current page's data)
-  const avgPE = useMemo(() => {
-    const withPE = filtered.filter((r) => r.pe !== null)
-    if (withPE.length === 0) return 0
-    return withPE.reduce((s, r) => s + (r.pe ?? 0), 0) / withPE.length
-  }, [filtered])
-  const totalMktCap = useMemo(() => filtered.reduce((s, r) => s + r.marketCap, 0), [filtered])
-  const medianROCE = useMemo(() => {
-    if (filtered.length === 0) return 0
-    const arr = [...filtered].map((r) => r.roce).sort((a, b) => a - b)
-    return arr[Math.floor(arr.length / 2)]
-  }, [filtered])
+  // Summary stats reflect every matching company (server-computed aggregates),
+  // not just the rows on the current page. Companies still missing a given
+  // field are excluded from that calculation — coverageNote() states exactly
+  // how many were counted vs. missing so the number is never misread as a
+  // real zero.
+  const avgPE = aggregates?.avgPE
+  const totalMktCap = aggregates?.totalMarketCap
+  const medianROCE = aggregates?.medianROCE
+  const sectorLead = aggregates?.sectorBreakdown?.[0]
+  const sectorSecond = aggregates?.sectorBreakdown?.[1]
+
+  const coverageNote = (coverage?: { available: number; missing: number }): string | null => {
+    if (!coverage || coverage.missing <= 0) return null
+    const total = coverage.available + coverage.missing
+    return `${coverage.available}/${total} · ${coverage.missing} missing`
+  }
 
   // The current-page slice is already returned by the backend;
   // `sorted` contains only the current page's rows.
@@ -216,11 +226,31 @@ export function ScreenerResultsTable() {
 
       {/* Mini Stat Cards Row — 5 cards, all inside right column */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }} className="w-full">
-        <MiniSummaryCard label="Matches" value={String(filtered.length)} sub="companies" color="blue" />
-        <MiniSummaryCard label="Avg P/E Ratio" value={`${avgPE.toFixed(1)}x`} sub="industry avg 28.3x" color="gray" />
-        <MiniSummaryCard label="Total Market Cap" value={formatCap(totalMktCap)} sub="combined" color="gray" />
-        <MiniSummaryCard label="Median ROCE" value={`${medianROCE.toFixed(1)}%`} sub="annualized" color="purple" />
-        <MiniSummaryCard label="Sector Lead" value="Tech (14%)" sub="2nd: Finance (12%)" color="indigo" />
+        <MiniSummaryCard label="Matches" value={String(totalCount)} sub="companies" color="blue" />
+        <MiniSummaryCard
+          label="Avg P/E Ratio"
+          value={avgPE != null ? `${avgPE.toFixed(1)}x` : '—'}
+          sub={coverageNote(aggregates?.avgPECoverage) ?? 'industry avg 28.3x'}
+          color="gray"
+        />
+        <MiniSummaryCard
+          label="Total Market Cap"
+          value={totalMktCap != null ? formatCap(totalMktCap) : '—'}
+          sub={coverageNote(aggregates?.totalMarketCapCoverage) ?? 'combined'}
+          color="gray"
+        />
+        <MiniSummaryCard
+          label="Median ROCE"
+          value={medianROCE != null ? `${medianROCE.toFixed(1)}%` : '—'}
+          sub={coverageNote(aggregates?.medianROCECoverage) ?? 'annualized'}
+          color="purple"
+        />
+        <MiniSummaryCard
+          label="Sector Lead"
+          value={sectorLead ? `${sectorLead.sector} (${sectorLead.pct}%)` : '—'}
+          sub={coverageNote(aggregates?.sectorCoverage) ?? (sectorSecond ? `2nd: ${sectorSecond.sector} (${sectorSecond.pct}%)` : '')}
+          color="indigo"
+        />
       </div>
 
       {/* Table Container Card */}

@@ -1,20 +1,17 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X, Play, Save, Sparkles, Code2, LayoutList, HelpCircle, BookOpen, Keyboard, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useNavigate } from 'react-router-dom'
-import { useAppSelector, useAppDispatch } from '@/store/hooks'
-import { toast } from 'react-hot-toast'
+import { useAppSelector } from '@/store/hooks'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Variable } from './variables-sidebar'
-import { runScreenerStart } from '@/store/slices/screenerSlice'
 
-type Operator = '>' | '>=' | '<' | '<=' | '=' | '!=' | 'between'
+export type Operator = '>' | '>=' | '<' | '<=' | '=' | '!=' | 'between'
 
-interface FilterRow {
+export interface FilterRow {
   id: string
   connector: 'WHERE' | 'AND'
   variable: string
@@ -25,9 +22,13 @@ interface FilterRow {
 }
 
 interface QueryBuilderProps {
+  filters: FilterRow[]
+  onFiltersChange: (updater: FilterRow[] | ((prev: FilterRow[]) => FilterRow[])) => void
   insertedVariable?: Variable | null
   onInsertConsumed?: () => void
   onOpenVariables?: () => void
+  onRun: () => void
+  onSave?: () => void
 }
 
 const OPERATORS: { value: Operator; label: string }[] = [
@@ -69,12 +70,70 @@ const VARIABLE_OPTIONS = [
 
 const VARIABLE_CATEGORIES = ['Valuation', 'Profitability', 'Debt & Liquidity', 'Growth', 'Shareholding', 'Technical', 'Efficiency']
 
-const DEFAULT_FILTERS: FilterRow[] = [
+export const DEFAULT_FILTERS: FilterRow[] = [
   { id: '1', connector: 'WHERE', variable: 'market_cap', variableLabel: 'Market Cap', operator: '>=', value: '500', valueTo: '' },
   { id: '2', connector: 'AND', variable: 'roe', variableLabel: 'ROE', operator: '>', value: '15', valueTo: '' },
   { id: '3', connector: 'AND', variable: 'de_ratio', variableLabel: 'D/E Ratio', operator: '<', value: '1', valueTo: '' },
   { id: '4', connector: 'AND', variable: 'profit_growth_3y', variableLabel: 'Profit Growth 3Y', operator: '>', value: '10', valueTo: '' },
 ]
+
+// Builds the actual executable query string from filter rows.
+// Always serializes the field id (e.g. "market_cap"), never the display label
+// (e.g. "Market Cap") — the backend/FinEdge proxy only recognizes field ids.
+export function buildQueryFromFilters(filters: FilterRow[]): string {
+  return filters
+    .filter((f) => f.variable && f.value)
+    .map((f) => {
+      if (f.operator === 'between' && f.valueTo) {
+        return `${f.variable} between ${f.value} and ${f.valueTo}`
+      }
+      return `${f.variable} ${f.operator} ${f.value}`
+    })
+    .join(' AND ')
+}
+
+// Reverse of buildQueryFromFilters — parses a stored/saved query string back
+// into editable filter rows so a saved screen can be reopened for editing.
+export function parseFiltersFromQuery(queryText: string): FilterRow[] {
+  if (!queryText.trim()) return []
+  const clauses = queryText.split(/\bAND\b/i).map((c) => c.trim()).filter(Boolean)
+
+  const rows: FilterRow[] = []
+  clauses.forEach((clause, i) => {
+    const betweenMatch = clause.match(/^(\w+)\s+between\s+(-?\d+(?:\.\d+)?)\s+and\s+(-?\d+(?:\.\d+)?)$/i)
+    if (betweenMatch) {
+      const [, variable, v1, v2] = betweenMatch
+      const found = VARIABLE_OPTIONS.find((o) => o.id === variable)
+      rows.push({
+        id: generateId(),
+        connector: i === 0 ? 'WHERE' : 'AND',
+        variable,
+        variableLabel: found?.label ?? variable,
+        operator: 'between',
+        value: v1,
+        valueTo: v2,
+      })
+      return
+    }
+
+    const opMatch = clause.match(/^(\w+)\s*(>=|<=|>|<|=|!=)\s*(-?\d+(?:\.\d+)?)$/)
+    if (opMatch) {
+      const [, variable, operator, value] = opMatch
+      const found = VARIABLE_OPTIONS.find((o) => o.id === variable)
+      rows.push({
+        id: generateId(),
+        connector: i === 0 ? 'WHERE' : 'AND',
+        variable,
+        variableLabel: found?.label ?? variable,
+        operator: operator as Operator,
+        value,
+        valueTo: '',
+      })
+    }
+  })
+
+  return rows
+}
 
 const DEFAULT_SQL = `SELECT 
   company_name,
@@ -234,34 +293,28 @@ function ConnectorSelect({
 }
 
 // ─── QueryBuilder ─────────────────────────────────────────────────────────────
-export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariables }: QueryBuilderProps) {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const { isAuthenticated } = useAppSelector((state) => state.auth)
+export function QueryBuilder({
+  filters,
+  onFiltersChange,
+  insertedVariable,
+  onInsertConsumed,
+  onOpenVariables,
+  onRun,
+  onSave,
+}: QueryBuilderProps) {
   const screenerState = useAppSelector((state) => state.screener)
   const [mode, setMode] = useState<'visual' | 'sql'>('visual')
-  const [filters, setFilters] = useState<FilterRow[]>(DEFAULT_FILTERS)
   const [sqlValue, setSqlValue] = useState(DEFAULT_SQL)
   const [sqlValidation, setSqlValidation] = useState(() => validateSQL(DEFAULT_SQL))
   const isRunning = screenerState?.status === 'loading'
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lineNumbersRef = useRef<HTMLDivElement>(null)
 
-  const handleSaveScreen = () => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to save screens.')
-      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-      navigate(`/login?redirect=${redirectPath}`)
-    } else {
-      toast.success('✓ Screen saved (mock)')
-    }
-  }
-
   useEffect(() => {
     if (!insertedVariable) return
     if (mode === 'visual') {
       if (!filters.find((f) => f.variable === insertedVariable.id)) {
-        setFilters((prev) => [...prev, {
+        onFiltersChange((prev) => [...prev, {
           id: generateId(),
           connector: prev.length === 0 ? 'WHERE' : 'AND',
           variable: insertedVariable.id,
@@ -281,7 +334,7 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   }, [insertedVariable]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addFilter = () => {
-    setFilters((prev) => [...prev, {
+    onFiltersChange((prev) => [...prev, {
       id: generateId(),
       connector: prev.length === 0 ? 'WHERE' : 'AND',
       variable: '', variableLabel: '', operator: '>', value: '', valueTo: '',
@@ -289,7 +342,7 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   }
 
   const removeFilter = (id: string) => {
-    setFilters((prev) => {
+    onFiltersChange((prev) => {
       const next = prev.filter((f) => f.id !== id)
       if (next.length > 0) next[0].connector = 'WHERE'
       return next
@@ -297,29 +350,7 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
   }
 
   const updateFilter = (id: string, patch: Partial<FilterRow>) =>
-    setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)))
-
-  const handleRun = () => {
-    // Build query string from active filters
-    const query = filters
-      .filter((f) => f.variable && f.value)
-      .map((f) => {
-        if (f.operator === 'between' && f.valueTo) {
-          return `${f.variableLabel || f.variable} between ${f.value} and ${f.valueTo}`
-        }
-        return `${f.variableLabel || f.variable} ${f.operator} ${f.value}`
-      })
-      .join(' AND ')
-
-    if (!query.trim()) {
-      toast.error('Please add at least one filter with a value.')
-      return
-    }
-
-    dispatch(runScreenerStart({ query }))
-    // Navigate to results page so user can see the results table
-    navigate('/screener/results')
-  }
+    onFiltersChange((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)))
 
   return (
     <div className="flex flex-col h-full bg-surface">
@@ -356,14 +387,14 @@ export function QueryBuilder({ insertedVariable, onInsertConsumed, onOpenVariabl
       <div className="flex-1 overflow-auto min-h-0">
         {mode === 'visual' ? (
           <VisualMode filters={filters} onAdd={addFilter} onRemove={removeFilter}
-            onUpdate={updateFilter} onRun={handleRun} isRunning={isRunning} onSave={handleSaveScreen} />
+            onUpdate={updateFilter} onRun={onRun} isRunning={isRunning} onSave={onSave} />
         ) : (
           <SQLMode sqlValue={sqlValue} validation={sqlValidation}
             textareaRef={textareaRef} lineNumbersRef={lineNumbersRef}
             sqlLines={sqlValue.split('\n')}
             onSQLChange={(e) => { setSqlValue(e.target.value); setSqlValidation(validateSQL(e.target.value)) }}
-            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleRun() } }}
-            onRun={handleRun} isRunning={isRunning} onSave={handleSaveScreen} />
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); onRun() } }}
+            onRun={onRun} isRunning={isRunning} onSave={onSave} />
         )}
       </div>
     </div>
@@ -378,7 +409,7 @@ function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning, onSa
   onUpdate: (id: string, patch: Partial<FilterRow>) => void
   onRun: () => void
   isRunning: boolean
-  onSave: () => void
+  onSave?: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -413,10 +444,12 @@ function VisualMode({ filters, onAdd, onRemove, onUpdate, onRun, isRunning, onSa
           <Play className="w-3.5 h-3.5" />
           {isRunning ? 'Running...' : 'Run Query'}
         </Button>
-        <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
-          <Save className="w-3.5 h-3.5" />
-          Save Screen
-        </Button>
+        {onSave && (
+          <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
+            <Save className="w-3.5 h-3.5" />
+            Save Screen
+          </Button>
+        )}
         <Button variant="ghost" className="h-9 px-4 text-sm gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50">
           <Sparkles className="w-3.5 h-3.5" />
           AI Suggest
@@ -552,7 +585,7 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
   onRun: () => void
   isRunning: boolean
-  onSave: () => void
+  onSave?: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -607,12 +640,14 @@ function SQLMode({ sqlValue, validation, textareaRef, lineNumbersRef, sqlLines, 
           <span>+</span>
           <kbd className="bg-gray-200 rounded px-1.5 py-0.5 text-xs font-mono">Enter</kbd>
         </div>
-        <div className="ml-auto">
-          <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
-            <Save className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Save Screen</span>
-          </Button>
-        </div>
+        {onSave && (
+          <div className="ml-auto">
+            <Button variant="outline" className="h-9 px-4 text-sm gap-2" onClick={onSave}>
+              <Save className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Save Screen</span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

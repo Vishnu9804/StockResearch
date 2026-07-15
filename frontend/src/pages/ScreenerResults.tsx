@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
-import { Bell, Columns3, Download, Edit3, Play, ChevronRight, Mail } from 'lucide-react'
+import { Bell, Columns3, Download, Edit3, Play, ChevronRight, Mail, Save } from 'lucide-react'
 import { ScreenerResultsTable } from '@/components/screener/results-table'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { setQuery as setReduxQuery, runScreenerStart } from '@/store/slices/screenerSlice'
 import { toast } from 'react-hot-toast'
 import { AppFooter } from '@/components/shared/AppFooter'
+import { screenerApiClient } from '@/services/finscreenApi'
+
+interface EditingScreen {
+  id: string
+  name: string
+}
+
+interface ResultsLocationState {
+  editingScreen?: EditingScreen | null
+}
 
 export function ScreenerResults() {
   const navigate = useNavigate()
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
   const { queryText, totalCount, status } = useAppSelector((state) => state.screener)
@@ -22,6 +33,10 @@ debt_to_equity < 1`
   )
   const [onlyLatest, setOnlyLatest] = useState(false)
   const [screenName, setScreenName] = useState('Custom Screen')
+  const [editingScreen, setEditingScreen] = useState<EditingScreen | null>(
+    (location.state as ResultsLocationState | null)?.editingScreen ?? null
+  )
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -51,6 +66,61 @@ debt_to_equity < 1`
       dispatch(runScreenerStart({ query }))
     }
   }, [dispatch]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the "customize query" textarea in sync when the query changes some
+  // other way (e.g. removing a filter chip re-runs a shorter query).
+  useEffect(() => {
+    if (queryText) setQuery(queryText)
+  }, [queryText])
+
+  const handleSaveScreen = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save screens.')
+      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+      return
+    }
+
+    const currentQuery = (queryText || query).trim()
+    if (!currentQuery) {
+      toast.error('Please run a query with at least one filter before saving.')
+      return
+    }
+
+    const name = window.prompt(
+      editingScreen ? 'Update the name for this screen:' : 'Enter a name for this saved screen:',
+      editingScreen?.name ?? (screenName !== 'Custom Screen' ? screenName : '')
+    )
+    if (name === null) return // Cancelled
+    if (!name.trim()) {
+      toast.error('Please provide a valid name.')
+      return
+    }
+
+    try {
+      setSaving(true)
+      const payload = {
+        name: name.trim(),
+        queryText: currentQuery,
+        alertEnabled: false,
+        alertFrequency: 'IMMEDIATE',
+      }
+      const savePromise = editingScreen
+        ? screenerApiClient.put(`/saved/${editingScreen.id}`, payload)
+        : screenerApiClient.post('/saved', payload)
+
+      toast.promise(savePromise, {
+        loading: editingScreen ? 'Updating screen...' : 'Saving screen to account...',
+        success: editingScreen ? '✓ Screen updated successfully!' : '✓ Screen saved successfully!',
+        error: (err) => err.response?.data?.detail?.message || err.message || 'Failed to save screen',
+      })
+      await savePromise
+      navigate('/screens')
+    } catch (err) {
+      console.error('Save screen error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background font-sans select-none">
@@ -147,6 +217,7 @@ debt_to_equity < 1`
                 {/* Edit Screen */}
                 <Link
                   to="/screener"
+                  state={{ fromResults: true, queryText: queryText || query, editingScreen }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '5px',
                     padding: '7px 12px',
@@ -162,6 +233,27 @@ debt_to_equity < 1`
                   <Edit3 style={{ width: '13px', height: '13px' }} />
                   Edit Screen
                 </Link>
+
+                {/* Save Screen */}
+                <button
+                  onClick={handleSaveScreen}
+                  disabled={saving}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '7px 12px',
+                    border: '1px solid var(--fs-border-color)',
+                    borderRadius: '6px',
+                    background: 'var(--fs-surface)',
+                    fontSize: 'var(--fs-size-sm)', fontWeight: 500,
+                    color: 'var(--fs-text-secondary)',
+                    cursor: saving ? 'default' : 'pointer',
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                  className="hover:bg-surfaceMuted transition-colors"
+                >
+                  <Save style={{ width: '13px', height: '13px' }} />
+                  {editingScreen ? 'Update Screen' : 'Save Screen'}
+                </button>
 
                 {/* Get Email Updates — primary CTA */}
                 <button

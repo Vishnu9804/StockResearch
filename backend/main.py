@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException, status
@@ -5,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
+from core.database import async_session_maker
 from routers import finedge, screener, portfolio, watchlist
 from middleware.auth import get_current_user, AuthenticatedUser
+from services.metrics_sync import sync_quote_data, sync_fundamentals_batch
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -14,10 +17,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
+# ── Background sync loops ─────────────────────────────────────────────────────
+# FinEdge has no working screener endpoint of its own, so the screener filters
+# a local `company_metrics` cache instead. These loops keep it populated:
+# a cheap bulk quote refresh (market cap/price, ~2 calls total) and a gentle,
+# rate-limit-friendly rolling batch that fills in fundamentals (ROE/PE/etc.)
+# symbol-by-symbol, prioritizing the largest companies first.
+QUOTE_SYNC_INTERVAL_SECONDS = 20 * 60
+FUNDAMENTALS_SYNC_INTERVAL_SECONDS = 90
+FUNDAMENTALS_BATCH_SIZE = 30
+
+
+async def _quote_sync_loop():
+    while True:
+        try:
+            async with async_session_maker() as db:
+                await sync_quote_data(db)
+        except Exception:
+            logger.exception("[MetricsSync] Quote sync loop iteration failed")
+        await asyncio.sleep(QUOTE_SYNC_INTERVAL_SECONDS)
+
+
+async def _fundamentals_sync_loop():
+    while True:
+        try:
+            async with async_session_maker() as db:
+                await sync_fundamentals_batch(db, batch_size=FUNDAMENTALS_BATCH_SIZE)
+        except Exception:
+            logger.exception("[MetricsSync] Fundamentals sync loop iteration failed")
+        await asyncio.sleep(FUNDAMENTALS_SYNC_INTERVAL_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    quote_task = asyncio.create_task(_quote_sync_loop())
+    fundamentals_task = asyncio.create_task(_fundamentals_sync_loop())
     logger.info(f"  [FinScreen FastAPI] Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield
+    quote_task.cancel()
+    fundamentals_task.cancel()
+    for t in (quote_task, fundamentals_task):
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
     logger.info("  [FinScreen FastAPI] Shutting down")
 
 app = FastAPI(
