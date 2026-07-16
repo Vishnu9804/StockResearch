@@ -160,6 +160,8 @@ const watchlistSlice = createSlice({
     hydrateWatchlists(state, action: PayloadAction<WatchlistState>) {
       state.watchlists = action.payload.watchlists
       state.activeWatchlistId = action.payload.activeWatchlistId
+      state.status = action.payload.status
+      state.error = action.payload.error
     },
 
     setStatus(state, action: PayloadAction<WatchlistStatus>) {

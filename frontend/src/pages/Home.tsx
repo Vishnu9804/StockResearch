@@ -4,13 +4,12 @@ import { useMarketStatus } from "@/hooks/useMarketStatus"
 import { cn } from "@/lib/utils"
 import { Link } from "react-router-dom"
 import { useAppSelector } from "@/store/hooks"
-import finscreenApi, { finscreenClient } from "@/services/finscreenApi"
-import axios from "axios"
+import finscreenApi, { finscreenClient, screenerApiClient } from "@/services/finscreenApi"
 import { companies } from "@/lib/data/companies"
 import { useCompanyNameResolver } from "@/hooks/useCompanyNameResolver"
 import {
-  BarChart2, Bell, Bookmark, Calendar, ChevronRight, ExternalLink,
-  FileText, Plus, RefreshCw, Star, TrendingUp, TrendingDown,
+  ArrowRight, BarChart2, Bell, Bookmark, Calendar, ChevronRight, ExternalLink,
+  FileText, Plus, Star, TrendingUp, TrendingDown,
   TriangleAlert, Zap, Activity, Clock, Newspaper, Search
 } from "lucide-react"
 
@@ -73,6 +72,13 @@ const UPCOMING_RESULTS = [
   { day: "FRI", date: "Oct 18", items: [{ name: "Adani Ent.", symbol: "ADANIENT" }] },
 ]
 
+function formatCompactNumber(n: number): string {
+  if (n >= 1e7) return `${(n / 1e7).toFixed(2)}Cr`
+  if (n >= 1e5) return `${(n / 1e5).toFixed(2)}L`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+  return n.toLocaleString('en-IN')
+}
+
 function FeedIcon({ type, icon }: { type: string; icon: string }) {
   const base = "size-9 rounded-xl flex items-center justify-center shrink-0"
   if (icon === "file" || type === "document")
@@ -88,7 +94,7 @@ export function Home() {
   const marketStatus = useMarketStatus()
   const resolveName = useCompanyNameResolver()
   const { isAuthenticated } = useAppSelector((state) => state.auth)
-  const { watchlists } = useAppSelector((state) => state.watchlist)
+  const { watchlists, status: watchlistStatus } = useAppSelector((state) => state.watchlist)
   const [feedFilter, setFeedFilter] = useState<"all" | "alerts">("all")
 
   // Live API States
@@ -154,72 +160,67 @@ export function Home() {
       }
     }
     loadDashboardData()
+  }, [])
 
-    // Load saved screener scans separately (auth-gated, non-blocking)
+  // Load the user's saved screener scans (only when logged in)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSavedScans([])
+      setScansLoading(false)
+      return
+    }
+    let cancelled = false
     async function loadSavedScans() {
       setScansLoading(true)
       try {
-        const BASE_API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-        const res = await axios.get(`${BASE_API.replace(/\/$/, '')}/screener/saved`, { withCredentials: true })
-        const data = Array.isArray(res.data) ? res.data : (res.data?.screens || res.data?.data || [])
-        setSavedScans(data)
+        const res = await screenerApiClient.get('/saved')
+        const data = res.data?.screens || res.data?.data || (Array.isArray(res.data) ? res.data : [])
+        const sorted = [...data].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        if (!cancelled) setSavedScans(sorted)
       } catch (_e) {
-        // Not authenticated or no saved scans — silently ignore
-        setSavedScans([])
+        if (!cancelled) setSavedScans([])
       } finally {
-        setScansLoading(false)
+        if (!cancelled) setScansLoading(false)
       }
     }
     loadSavedScans()
-  }, [])
+    return () => { cancelled = true }
+  }, [isAuthenticated])
 
-  // Dynamically compute watchlists
-  const renderedWatchlists = (watchlists && watchlists.length > 0)
-    ? watchlists
-    : [
-      {
-        name: "My Watchlist",
-        items: [
-          { symbol: "RELIANCE" },
-          { symbol: "TCS" },
-          { symbol: "HDFCBANK" },
-        ],
-      },
-    ]
+  // Real watchlist data — flatten every collection, most-recently-added first,
+  // then surface only the top 3 on the dashboard (full list lives on /watchlists)
+  const allWatchlistItems = useMemo(() => {
+    return watchlists
+      .flatMap((wl) => wl.items)
+      .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime())
+  }, [watchlists])
 
-  const mappedWatchlists = renderedWatchlists.map((wl) => {
-    let totalChange = 0
-    let count = 0
-    wl.items.forEach((item) => {
-      const q = quotes[item.symbol]
-      if (q) {
-        const changeVal = typeof q.pct_change === 'number' ? q.pct_change
-          : typeof q.change === 'number' ? q.change
-            : parseFloat(String(q.pct_change || q.change || '0').replace('%', ''))
-        if (changeVal !== 0) { totalChange += changeVal; count++ }
-      }
-    })
-    const avgChange = count > 0 ? totalChange / count : 0
-    const changeLabel = avgChange >= 0 ? `+${avgChange.toFixed(2)}%` : `${avgChange.toFixed(2)}%`
-    const positive = avgChange >= 0
-    return {
-      name: wl.name,
-      count: wl.items.length,
-      change: changeLabel,
-      positive,
-    }
+  const totalWatchlistCount = allWatchlistItems.length
+  const topWatchlistItems = allWatchlistItems.slice(0, 3)
+
+  const watchlistRows = topWatchlistItems.map((item) => {
+    const q = quotes[item.symbol]
+    const price = q ? (q.current_price ?? q.close_price ?? null) : null
+    const changePct = q
+      ? (typeof q.pct_change === 'number' ? q.pct_change
+        : typeof q.change === 'number' ? q.change
+          : q.change ? parseFloat(String(q.change).replace('%', '')) : null)
+      : null
+    const volume = q?.volume ?? null
+    const marketCap = q?.market_cap ?? null
+    return { symbol: item.symbol, companyName: item.companyName, price, changePct, volume, marketCap }
   })
 
-  // Calculate dynamic watchlist total value (assuming 1000 shares of each)
-  const totalWatchlistValue = useMemo(() => {
-    let sum = 0
-    renderedWatchlists[0]?.items.forEach((item) => {
-      const q = quotes[item.symbol]
-      const price = q?.current_price || q?.close_price || (item.symbol === 'RELIANCE' ? 1396.50 : item.symbol === 'TCS' ? 2162.60 : 777.45)
-      sum += price * 1000
-    })
-    return sum
-  }, [quotes, renderedWatchlists])
+  // Total value / daily change are derived only from the 3 companies shown, not the whole watchlist
+  const totalWatchlistValue = watchlistRows.reduce((sum, r) => sum + (r.price ?? 0), 0)
+  const watchlistRowsWithChange = watchlistRows.filter((r) => r.changePct !== null)
+  const watchlistAvgChange = watchlistRowsWithChange.length > 0
+    ? watchlistRowsWithChange.reduce((sum, r) => sum + (r.changePct as number), 0) / watchlistRowsWithChange.length
+    : 0
+  const watchlistChangeLabel = watchlistRowsWithChange.length > 0
+    ? (watchlistAvgChange >= 0 ? `+${watchlistAvgChange.toFixed(2)}%` : `${watchlistAvgChange.toFixed(2)}%`)
+    : '—'
+  const watchlistChangePositive = watchlistAvgChange >= 0
 
   // Compute live Top Gainers & Losers from batch quotes
   const quoteList = Object.entries(quotes).map(([symbol, q]: [string, any]) => {
@@ -439,116 +440,7 @@ export function Home() {
         className="px-6 pb-12 flex flex-col gap-4 max-w-[1400px] mx-auto w-full select-none"
         style={{ marginTop: '24px' }}
       >
-        {/* PANEL 1 — MY WATCHLISTS CARD */}
-        <div
-          style={{
-            background: 'var(--fs-surface)',
-            border: 'var(--fs-border)',
-            borderRadius: 'var(--fs-radius-md)',
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
-          }}
-          className="w-full flex flex-col gap-3"
-        >
-          <div className="flex items-center justify-between w-full">
-            <div
-              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
-            >
-              <Star className="size-4 text-[var(--fs-info)]" />
-              MY WATCHLISTS
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="bg-accentSoft text-accent px-2 py-0.5 rounded-full text-xs font-medium">
-                {String(mappedWatchlists[0]?.count ?? 3).padStart(2, '0')} stocks
-              </span>
-              <span className={cn(
-                "text-body font-medium",
-                (mappedWatchlists[0]?.positive ?? true) ? "text-positive" : "text-negative"
-              )}>
-                {mappedWatchlists[0]?.change ?? "+1.24%"}
-              </span>
-              <button className="size-5 rounded-md border border-[var(--fs-border-color)] flex items-center justify-center text-textSecondary hover:bg-surfaceMuted transition-colors ml-1">
-                <Plus className="size-3" />
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full">
-            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
-              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">TOTAL VALUE</span>
-              <span className="text-lg font-semibold text-textPrimary font-mono">
-                ₹{totalWatchlistValue.toLocaleString('en-IN')}
-              </span>
-            </div>
-            <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
-              <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DAILY CHANGE</span>
-              <span className={cn(
-                "text-lg font-semibold font-mono",
-                (mappedWatchlists[0]?.positive ?? true) ? "text-positive" : "text-negative"
-              )}>
-                {mappedWatchlists[0]?.change ?? "+1.24%"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between w-full mt-1">
-            <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">RECENTLY REFRESHED</span>
-            <span className="bg-positive-soft text-positive px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-[var(--fs-positive)] animate-pulse" />
-              LIVE
-            </span>
-          </div>
-
-          <div className="flex flex-col w-full">
-            {[
-              { symbol: "RELIANCE", defaultPrice: 1396.50, defaultChange: "+1.04%" },
-              { symbol: "TCS", defaultPrice: 2162.60, defaultChange: "+0.06%" },
-              { symbol: "HDFCBANK", defaultPrice: 777.45, defaultChange: "+0.45%" },
-            ].map((s, idx, arr) => {
-              const q = quotes[s.symbol] || {}
-              const price = q.current_price || q.close_price || s.defaultPrice
-              const changeVal = typeof q.pct_change === 'number' ? q.pct_change
-                : typeof q.change === 'number' ? q.change
-                  : q.change ? parseFloat(String(q.change).replace('%', ''))
-                    : null
-              const changeText = changeVal !== null ? (changeVal >= 0 ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`) : s.defaultChange
-              const isPos = changeVal !== null ? changeVal >= 0 : s.defaultChange.startsWith('+')
-
-              return (
-                <div
-                  key={s.symbol}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '7px 0',
-                    borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
-                  }}
-                  className="w-full"
-                >
-                  <div className="flex items-center gap-3">
-                    <Link to={`/company/${s.symbol}`} className="text-body font-semibold text-accent hover:underline truncate max-w-[150px] block" title={resolveName(s.symbol)}>
-                      {resolveName(s.symbol)}
-                    </Link>
-                    <span className="text-sm color-textSecondary font-normal">14s ago</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-body font-normal text-textPrimary">
-                      ₹{price.toFixed(2)}
-                    </span>
-                    <span className={cn(
-                      "font-mono w-16 text-right text-body font-medium",
-                      isPos ? "text-positive" : "text-negative"
-                    )}>
-                      {changeText}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* PANEL 2 — TOP MOVERS CARD */}
+        {/* PANEL 1 — TOP MOVERS CARD */}
         <div
           style={{
             background: 'var(--fs-surface)',
@@ -949,82 +841,195 @@ export function Home() {
           </div>
         </div>
 
-        {/* PANEL 7 — RECENT CUSTOM SCANS CARD */}
-        <div
-          style={{
-            background: 'var(--fs-surface)',
-            border: 'var(--fs-border)',
-            borderRadius: 'var(--fs-radius-md)',
-            padding: 'var(--fs-space-lg) var(--fs-space-xl)'
-          }}
-          className="w-full flex flex-col gap-3.5"
-        >
-          <div className="flex items-center justify-between w-full">
-            <div
-              className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
-            >
-              <Search className="size-4 text-[var(--fs-info)]" />
-              RECENT CUSTOM SCANS
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <button style={{ border: 'var(--fs-border)', borderRadius: 'var(--fs-radius-sm)', padding: '5px 12px', color: 'var(--fs-text-primary)' }} className="flex items-center gap-1 hover:bg-surfaceMuted transition-colors font-medium uppercase">
-                <RefreshCw className="size-3" /> Refresh
-              </button>
-              <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '5px 12px' }} className="flex items-center gap-1 hover:bg-[#124b82] transition-colors font-medium">
-                <Plus className="size-3.5" /> + New Scan
-              </Link>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-md)', marginTop: '4px' }} className="w-full">
-            {scansLoading ? (
-              [1, 2, 3, 4].map(i => (
-                <div key={i} style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md) var(--fs-space-lg)' }} className="flex flex-col gap-2">
-                  <div className="w-24 h-2.5 bg-surfaceMuted rounded animate-pulse" />
-                  <div className="w-10 h-6 bg-surfaceMuted rounded animate-pulse" />
-                </div>
-              ))
-            ) : savedScans.length > 0 ? (
-              savedScans.slice(0, 4).map((scan: any) => {
-                const title = scan.name || scan.title || scan.query || 'Custom Scan'
-                const query = scan.query || scan.filter_query || scan.filters || ''
-                const created = scan.created_at ? new Date(scan.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
-                return (
-                  <Link
-                    key={scan.id}
-                    to={`/screener?scan=${scan.id}`}
-                    style={{
-                      background: 'var(--fs-surface-muted)',
-                      borderRadius: 'var(--fs-radius-sm)',
-                      padding: 'var(--fs-space-md) var(--fs-space-lg)'
-                    }}
-                    className="flex flex-col hover:bg-surfaceMuted/80 transition-colors"
-                  >
-                    <span className="text-xs text-textSecondary font-semibold uppercase tracking-wider mb-1 truncate">
-                      {String(title).toUpperCase().slice(0, 22)}
-                    </span>
-                    <div className="font-mono text-body font-medium text-accent leading-none flex items-baseline gap-1 mt-1">
-                      <span className="text-xs text-textMuted font-sans font-normal truncate max-w-full">{String(query).slice(0, 40)}</span>
-                    </div>
-                    {created && (
-                      <span className="text-xs text-textMuted font-normal mt-2">Saved: {created}</span>
-                    )}
+        {/* PANEL 7 — MY WATCHLIST CARD (logged-in users only) */}
+        {isAuthenticated && (
+          <div
+            style={{
+              background: 'var(--fs-surface)',
+              border: 'var(--fs-border)',
+              borderRadius: 'var(--fs-radius-md)',
+              padding: 'var(--fs-space-lg) var(--fs-space-xl)'
+            }}
+            className="w-full flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div
+                className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+              >
+                <Star className="size-4 text-[var(--fs-info)]" />
+                MY WATCHLIST
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="bg-accentSoft text-accent px-2 py-0.5 rounded-full text-xs font-medium">
+                  {String(totalWatchlistCount).padStart(2, '0')} stocks
+                </span>
+                {totalWatchlistCount > 3 && (
+                  <Link to="/watchlists" className="text-accent text-xs font-medium flex items-center gap-0.5 hover:underline ml-1">
+                    View full watchlist <ChevronRight className="size-3.5" />
                   </Link>
-                )
-              })
+                )}
+              </div>
+            </div>
+
+            {(watchlistStatus === 'loading' || watchlistStatus === 'idle') ? (
+              <div className="flex flex-col gap-2 py-1">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="w-full h-9 bg-surfaceMuted/60 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : topWatchlistItems.length > 0 ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full">
+                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
+                    <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">TOTAL VALUE (TOP 3)</span>
+                    <span className="text-lg font-semibold text-textPrimary font-mono">
+                      ₹{totalWatchlistValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-sm) var(--fs-space-md)' }} className="flex flex-col gap-0.5 animate-count-up">
+                    <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DAILY CHANGE (AVG)</span>
+                    <span className={cn(
+                      "text-lg font-semibold font-mono",
+                      watchlistChangePositive ? "text-positive" : "text-negative"
+                    )}>
+                      {watchlistChangeLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col w-full mt-1">
+                  <div
+                    style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '0.5px solid var(--fs-border-color)' }}
+                    className="w-full text-xs text-textMuted font-medium uppercase tracking-wider"
+                  >
+                    <span>Company</span>
+                    <div className="flex items-center gap-4">
+                      <span className="w-16 text-right">Price</span>
+                      <span className="w-16 text-right">Change</span>
+                      <span className="w-16 text-right">Volume</span>
+                      <span className="w-24 text-right">Mkt Cap</span>
+                    </div>
+                  </div>
+                  {watchlistRows.map((row, idx, arr) => (
+                    <div
+                      key={row.symbol}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '7px 0',
+                        borderBottom: idx === arr.length - 1 ? 'none' : '0.5px solid var(--fs-border-color)'
+                      }}
+                      className="w-full"
+                    >
+                      <Link to={`/company/${row.symbol}`} className="text-body font-semibold text-accent hover:underline truncate max-w-[150px] block" title={row.companyName}>
+                        {row.companyName}
+                      </Link>
+                      <div className="flex items-center gap-4">
+                        <span className="font-mono text-body font-normal text-textPrimary w-16 text-right">
+                          {row.price !== null ? `₹${row.price.toFixed(2)}` : '—'}
+                        </span>
+                        <span className={cn(
+                          "font-mono w-16 text-right text-body font-medium",
+                          row.changePct === null ? "text-textMuted" : row.changePct >= 0 ? "text-positive" : "text-negative"
+                        )}>
+                          {row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '—'}
+                        </span>
+                        <span className="font-mono text-sm text-textSecondary w-16 text-right">
+                          {row.volume !== null ? formatCompactNumber(row.volume) : '—'}
+                        </span>
+                        <span className="font-mono text-sm text-textSecondary w-24 text-right">
+                          {row.marketCap !== null ? `₹${Math.round(row.marketCap).toLocaleString('en-IN')} Cr` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
-              // No saved scans — show empty state with CTA
-              <div style={{ gridColumn: '1 / -1' }} className="flex flex-col items-center justify-center py-6 text-center">
-                <Search className="size-8 text-textMuted mb-2" />
-                <p className="text-sm text-textSecondary font-medium">No saved scans yet</p>
-                <p className="text-xs text-textMuted mt-1">Create and save screener queries to see them here.</p>
-                <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'white', borderRadius: 'var(--fs-radius-sm)', padding: '6px 16px' }} className="mt-3 text-xs font-medium inline-flex items-center gap-1 hover:opacity-90 transition-opacity">
-                  <Plus className="size-3" /> Build a Screen
-                </Link>
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <Star className="size-8 text-textMuted mb-2" />
+                <p className="text-sm text-textSecondary font-medium">Your watchlist is empty</p>
+                <p className="text-xs text-textMuted mt-1 max-w-sm">
+                  Add companies to your watchlist by searching their name and clicking the Watch button on the company's page.
+                </p>
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* PANEL 8 — SAVED CUSTOM SCANS CARD (logged-in users only) */}
+        {isAuthenticated && (
+          <div
+            style={{
+              background: 'var(--fs-surface)',
+              border: 'var(--fs-border)',
+              borderRadius: 'var(--fs-radius-md)',
+              padding: 'var(--fs-space-lg) var(--fs-space-xl)'
+            }}
+            className="w-full flex flex-col gap-3.5"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div
+                className="flex items-center gap-2 text-textPrimary text-lg font-semibold uppercase tracking-wider"
+              >
+                <Search className="size-4 text-[var(--fs-info)]" />
+                SAVED CUSTOM SCANS
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {savedScans.length > 3 && (
+                  <Link to="/screens" className="text-accent text-sm font-medium flex items-center gap-0.5 hover:underline">
+                    View all <ChevronRight className="size-3.5" />
+                  </Link>
+                )}
+                <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'var(--fs-surface)', border: 'none', borderRadius: 'var(--fs-radius-sm)', padding: '5px 12px' }} className="flex items-center gap-1 hover:bg-[#124b82] transition-colors font-medium">
+                  <Plus className="size-3.5" /> New Scan
+                </Link>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }} className="w-full">
+              {scansLoading ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} style={{ height: '64px', background: 'var(--fs-surface)', borderRadius: '8px', border: '1px solid var(--fs-border-color)' }} className="animate-pulse" />
+                ))
+              ) : savedScans.length > 0 ? (
+                savedScans.slice(0, 3).map((scan: any) => (
+                  <Link
+                    key={scan.id}
+                    to={`/screener/results?query=${encodeURIComponent(scan.queryText)}&name=${encodeURIComponent(scan.name)}`}
+                    style={{
+                      padding: '14px 18px',
+                      border: '1px solid var(--fs-border-color)',
+                      borderRadius: '8px',
+                      background: 'var(--fs-surface)',
+                      display: 'block'
+                    }}
+                    className="hover:border-accent hover:shadow-sm transition-colors group"
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--fs-brand)' }} className="group-hover:underline">
+                      {scan.name}
+                      <ArrowRight style={{ display: 'inline', width: '12px', height: '12px', marginLeft: '5px', verticalAlign: 'middle', opacity: 0.6 }} />
+                    </span>
+                    <code style={{ display: 'block', fontSize: '10px', color: 'var(--fs-text-muted)', background: 'var(--fs-background)', padding: '4px 8px', borderRadius: '4px', marginTop: '6px', fontFamily: 'monospace', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                      {scan.queryText}
+                    </code>
+                  </Link>
+                ))
+              ) : (
+                // No saved scans — show empty state with CTA
+                <div style={{ gridColumn: '1 / -1' }} className="flex flex-col items-center justify-center py-6 text-center">
+                  <Search className="size-8 text-textMuted mb-2" />
+                  <p className="text-sm text-textSecondary font-medium">No saved scans yet</p>
+                  <p className="text-xs text-textMuted mt-1">Build and save custom queries on the Screener page to see them here.</p>
+                  <Link to="/screener" style={{ background: 'var(--fs-brand)', color: 'white', borderRadius: 'var(--fs-radius-sm)', padding: '6px 16px' }} className="mt-3 text-xs font-medium inline-flex items-center gap-1 hover:opacity-90 transition-opacity">
+                    <Plus className="size-3" /> Go to Screener
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
