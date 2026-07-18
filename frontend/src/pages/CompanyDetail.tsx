@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { companies } from '@/lib/data/companies'
 import { CompanyHeader } from '@/components/company/company-header'
 import { KeyMetricsGrid } from '@/components/company/KeyMetricsGrid'
+import { ExtraRatiosGrid } from '@/components/company/ExtraRatiosGrid'
 import { StickySubNav } from '@/components/company/StickySubNav'
 import { StrengthsLimitations } from '@/components/company/strengths-limitations'
 import { ScrollReveal } from '@/components/shared/ScrollReveal'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Text } from '@/components/ui/Text'
 import { Heading } from '@/components/ui/Heading'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -274,6 +276,9 @@ export function CompanyDetail() {
 
       {/* 2. Key Fundamentals Flat Grid */}
       <KeyMetricsGrid {...company} />
+
+      {/* 2b. User-selected additional ratios (opt-in via Add Ratio picker) */}
+      <ExtraRatiosGrid ratios={company.ratios} />
 
       {/* 3. Sticky Tabbed Navigation */}
       <StickySubNav />
@@ -552,7 +557,7 @@ export function CompanyDetail() {
         <section id="shareholding" className="scroll-mt-16">
           <ScrollReveal className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <Suspense fallback={<SectionSkeleton />}>
-              <ShareholdingChart />
+              <ShareholdingChart symbol={company.symbol} />
             </Suspense>
             <Suspense fallback={<SectionSkeleton />}>
               <ShareholdingTable />
@@ -560,9 +565,11 @@ export function CompanyDetail() {
           </ScrollReveal>
           <div className="mt-6">
             <ScrollReveal>
-              <Suspense fallback={<SectionSkeleton />}>
-                <ShareholdingSubsections symbol={company.symbol} />
-              </Suspense>
+              <ErrorBoundary fallbackType="section" title="Shareholding details unavailable">
+                <Suspense fallback={<SectionSkeleton />}>
+                  <ShareholdingSubsections symbol={company.symbol} />
+                </Suspense>
+              </ErrorBoundary>
             </ScrollReveal>
           </div>
         </section>

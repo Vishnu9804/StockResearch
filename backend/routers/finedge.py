@@ -249,6 +249,268 @@ COMPANY_METADATA = {
 }
 
 
+# ── Extended Ratio Catalog (screener-style ratios beyond the core KEY FUNDAMENTALS) ─
+# Each entry describes a ratio the user can opt into showing on the company page.
+# `key` matches a field in the `ratios` map returned by /company/{symbol}/profile.
+RATIO_CATALOG = [
+    {"key": "sales", "label": "Sales", "category": "Profitability", "format": "crore"},
+    {"key": "opm", "label": "OPM", "category": "Profitability", "format": "percent"},
+    {"key": "profitAfterTax", "label": "Profit After Tax", "category": "Profitability", "format": "crore"},
+    {"key": "salesLatestQuarter", "label": "Sales (Latest Quarter)", "category": "Growth", "format": "crore"},
+    {"key": "profitLatestQuarter", "label": "Profit After Tax (Latest Quarter)", "category": "Growth", "format": "crore"},
+    {"key": "yoyQuarterlySalesGrowth", "label": "YoY Quarterly Sales Growth", "category": "Growth", "format": "percent"},
+    {"key": "yoyQuarterlyProfitGrowth", "label": "YoY Quarterly Profit Growth", "category": "Growth", "format": "percent"},
+    {"key": "salesGrowth", "label": "Sales Growth (YoY)", "category": "Growth", "format": "percent"},
+    {"key": "profitGrowth", "label": "Profit Growth (YoY)", "category": "Growth", "format": "percent"},
+    {"key": "priceToBookValue", "label": "Price to Book Value", "category": "Valuation", "format": "number"},
+    {"key": "returnOnAssets", "label": "Return on Assets", "category": "Profitability", "format": "percent"},
+    {"key": "eps", "label": "EPS", "category": "Per Share", "format": "currency"},
+    {"key": "debt", "label": "Debt", "category": "Leverage", "format": "crore"},
+    {"key": "changeInPromoterHolding", "label": "Change in Promoter Holding", "category": "Ownership", "format": "percent"},
+    {"key": "earningsYield", "label": "Earnings Yield", "category": "Valuation", "format": "percent"},
+    {"key": "pledgedPercentage", "label": "Pledged Percentage", "category": "Ownership", "format": "percent"},
+    {"key": "industryPE", "label": "Industry PE", "category": "Valuation", "format": "number"},
+    {"key": "priceToSales", "label": "Price to Sales", "category": "Valuation", "format": "number"},
+    {"key": "priceToFreeCashFlow", "label": "Price to Free Cash Flow", "category": "Valuation", "format": "number"},
+    {"key": "evEbitda", "label": "EV/EBITDA", "category": "Valuation", "format": "number"},
+    {"key": "enterpriseValue", "label": "Enterprise Value", "category": "Valuation", "format": "crore"},
+    {"key": "currentRatio", "label": "Current Ratio", "category": "Liquidity", "format": "number"},
+    {"key": "interestCoverageRatio", "label": "Interest Coverage Ratio", "category": "Liquidity", "format": "number"},
+    {"key": "pegRatio", "label": "PEG Ratio", "category": "Valuation", "format": "number"},
+    {"key": "return3m", "label": "Return over 3 months", "category": "Returns", "format": "percent"},
+    {"key": "return6m", "label": "Return over 6 months", "category": "Returns", "format": "percent"},
+    {"key": "noEqShares", "label": "No. of Equity Shares", "category": "Per Share", "format": "crore"},
+    {"key": "cashCycle", "label": "Cash Conversion Cycle", "category": "Efficiency", "format": "days"},
+]
+
+
+@router.get("/ratio-catalog")
+async def get_ratio_catalog():
+    """Static definitions for every ratio the 'Add Ratio' picker can offer.
+    Values themselves live under `ratios` in /company/{symbol}/profile."""
+    return {"ratios": RATIO_CATALOG}
+
+
+def _gv(d: Optional[dict], *keys):
+    """Get-value: return the first present, non-None key from d, else None (unlike rv() which defaults to 0)."""
+    if not d:
+        return None
+    for k in keys:
+        v = d.get(k)
+        if v is not None:
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+async def _compute_extended_ratios(
+    sym: str, st: str, rid: str, price: float, market_cap: float,
+    pe: float, combined_ratio_fields: dict, sh_data: Any,
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Best-effort fetch + derive the RATIO_CATALOG values, plus `core_fixes` —
+    corrections for core profile fields (pe/bookValue/eps) that the original
+    get_company_profile logic sourced from endpoints that don't actually carry
+    them. Any single upstream failure degrades that ratio to None rather than
+    failing the whole profile."""
+    import asyncio
+
+    async def safe(coro):
+        try:
+            return await coro
+        except Exception:
+            return None
+
+    pl_annual, pl_quarterly, bs_annual, cf_annual, price_ratios, price_hist, ownership_data = await asyncio.gather(
+        safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "pl"}, None, rid)),
+        safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "quarterly", "statement_code": "pl"}, None, rid)),
+        safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "bs"}, None, rid)),
+        safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "cf"}, None, rid)),
+        safe(execute_proxy_request("GET", f"annual-price-ratios/{sym}", {"statement_type": st, "period": "annual"}, None, rid)),
+        safe(execute_proxy_request("GET", f"daily-quotes/{sym}", {}, None, rid)),
+        # shareholdings/declaration is compliance booleans only (no numeric pledge %) —
+        # ownership-current's per-holder pledgedSharesPct is the real source.
+        safe(execute_proxy_request("GET", f"shareholdings/ownership-current/{sym}", {}, None, rid)),
+    )
+
+    def sorted_periods(data):
+        if not data or not isinstance(data.get("financials"), list):
+            return []
+        return sorted(data["financials"], key=lambda f: int(str(f.get("period_end", f.get("year", 0)))), reverse=True)
+
+    pl_a = sorted_periods(pl_annual)
+    pl_q = sorted_periods(pl_quarterly)
+    bs_a = sorted_periods(bs_annual)
+    cf_a = sorted_periods(cf_annual)
+
+    out: Dict[str, Any] = {k["key"]: None for k in RATIO_CATALOG}
+    # Corrections for the core (non-catalog) profile fields — populated below once we
+    # have real data confirmed present in the PL statement / annual-price-ratios.
+    core_fixes: Dict[str, Any] = {}
+
+    # ── Annual P&L derived: sales, OPM, PAT, growth, EPS, share count ──
+    if pl_a:
+        latest = pl_a[0]
+        rev = latest.get("revenueFromOperations")
+        exp = latest.get("expenses")
+        pat = latest.get("profitLossForPeriod")
+        if rev:
+            out["sales"] = round(rev / 1e7, 2)
+            if exp is not None:
+                out["opm"] = round((rev - exp) / rev * 100, 2)
+        if pat is not None:
+            out["profitAfterTax"] = round(pat / 1e7, 2)
+        if latest.get("eps") is not None:
+            out["eps"] = latest["eps"]
+            core_fixes["eps"] = latest["eps"]
+        if latest.get("dilutedOutstandingShares"):
+            out["noEqShares"] = round(latest["dilutedOutstandingShares"] / 1e7, 2)
+        if len(pl_a) > 1:
+            prev = pl_a[1]
+            prev_rev, prev_pat = prev.get("revenueFromOperations"), prev.get("profitLossForPeriod")
+            if rev and prev_rev:
+                out["salesGrowth"] = round((rev - prev_rev) / abs(prev_rev) * 100, 2)
+            if pat is not None and prev_pat:
+                out["profitGrowth"] = round((pat - prev_pat) / abs(prev_pat) * 100, 2)
+
+    # ── Quarterly P&L derived: latest quarter + YoY growth (vs same quarter, 4 back) ──
+    if pl_q:
+        latest_q = pl_q[0]
+        q_rev, q_pat = latest_q.get("revenueFromOperations"), latest_q.get("profitLossForPeriod")
+        if q_rev is not None:
+            out["salesLatestQuarter"] = round(q_rev / 1e7, 2)
+        if q_pat is not None:
+            out["profitLatestQuarter"] = round(q_pat / 1e7, 2)
+        if len(pl_q) > 4:
+            yoy_q = pl_q[4]
+            yoy_rev, yoy_pat = yoy_q.get("revenueFromOperations"), yoy_q.get("profitLossForPeriod")
+            if q_rev is not None and yoy_rev:
+                out["yoyQuarterlySalesGrowth"] = round((q_rev - yoy_rev) / abs(yoy_rev) * 100, 2)
+            if q_pat is not None and yoy_pat:
+                out["yoyQuarterlyProfitGrowth"] = round((q_pat - yoy_pat) / abs(yoy_pat) * 100, 2)
+
+    # ── Balance sheet derived: debt ──
+    if bs_a:
+        latest_bs = bs_a[0]
+        borrow_cur = latest_bs.get("borrowingsCurrent") or 0
+        borrow_noncur = latest_bs.get("borrowingsNoncurrent") or 0
+        out["debt"] = round((borrow_cur + borrow_noncur) / 1e7, 2)
+        # Fallback share count if the PL statement didn't have dilutedOutstandingShares.
+        if out["noEqShares"] is None:
+            equity_capital, face_value = latest_bs.get("equityCapital"), latest_bs.get("faceValue")
+            if equity_capital and face_value:
+                out["noEqShares"] = round((equity_capital / face_value) / 1e7, 2)
+
+    # ── Cash flow derived: free cash flow (fallback only — annual-price-ratios'
+    #    own `pfcf` below is FinEdge's authoritative figure and takes priority) ──
+    fallback_pfcf = None
+    if cf_a:
+        latest_cf = cf_a[0]
+        cfo = latest_cf.get("cashFlowsFromOperatingActivities")
+        capex = latest_cf.get("purchaseOfFixed&IntangibleAssets")
+        if cfo is not None:
+            fcf_cr = (cfo - (capex or 0)) / 1e7
+            if fcf_cr:
+                fallback_pfcf = round(market_cap / fcf_cr, 2)
+
+    # ── Ratio bag (merged pr/le/li/ef) — field names confirmed against live FinEdge
+    #    responses: returnOnAsset is singular, cashConversionCycle lives under 'ef'. ──
+    roa_frac = _gv(combined_ratio_fields, "returnOnAsset", "returnOnAssets", "roa")
+    out["returnOnAssets"] = round(roa_frac * 100, 2) if roa_frac is not None else None
+    out["currentRatio"] = _gv(combined_ratio_fields, "currentRatio", "current_ratio")
+    out["interestCoverageRatio"] = _gv(combined_ratio_fields, "interestCoverage", "interest_coverage")
+    out["cashCycle"] = _gv(combined_ratio_fields, "cashConversionCycle", "workingCapitalDays")
+
+    # ── Valuation multiples — FinEdge's annual-price-ratios endpoint returns
+    #    {"price_ratios": [...]}  with keys: pe, pb, ptb, ps, pfcf, average_price.
+    #    It has no ev/evEbitda/peg fields at all, so those three stay derived below. ──
+    latest_pr_ratio = None
+    if price_ratios and isinstance(price_ratios.get("price_ratios"), list) and price_ratios["price_ratios"]:
+        latest_pr_ratio = sorted(price_ratios["price_ratios"], key=lambda r: r.get("year", 0), reverse=True)[0]
+
+    out["priceToSales"] = _gv(latest_pr_ratio, "ps")
+    out["priceToFreeCashFlow"] = _gv(latest_pr_ratio, "pfcf")
+    pb_from_source = _gv(latest_pr_ratio, "pb")
+    pe_from_source = _gv(latest_pr_ratio, "pe")
+    if pb_from_source:
+        out["priceToBookValue"] = pb_from_source
+        core_fixes["bookValue"] = round(price / pb_from_source, 2) if price and pb_from_source else None
+    if pe_from_source:
+        core_fixes["pe"] = pe_from_source
+    if out["priceToSales"] is None and out["sales"]:
+        out["priceToSales"] = round(market_cap / out["sales"], 2) if out["sales"] else None
+    if out["priceToFreeCashFlow"] is None:
+        out["priceToFreeCashFlow"] = fallback_pfcf
+
+    effective_pe = pe_from_source or pe
+    if out["debt"] is not None:
+        out["enterpriseValue"] = round(market_cap + out["debt"], 2)
+    if out["enterpriseValue"] and out.get("sales") and out.get("opm") is not None:
+        ebitda = out["sales"] * out["opm"] / 100
+        out["evEbitda"] = round(out["enterpriseValue"] / ebitda, 2) if ebitda else None
+
+    # ── PEG ratio: no direct FinEdge field — derive from PE / annual profit growth ──
+    if effective_pe and out.get("profitGrowth"):
+        out["pegRatio"] = round(effective_pe / out["profitGrowth"], 2) if out["profitGrowth"] > 0 else None
+
+    # ── Earnings yield: inverse of PE ──
+    if effective_pe:
+        out["earningsYield"] = round(100 / effective_pe, 2)
+
+    # ── Price returns over 3/6 months from daily quotes ──
+    if price_hist and isinstance(price_hist.get("price"), list) and price_hist["price"]:
+        prices = sorted(price_hist["price"], key=lambda p: p.get("quote_date", ""), reverse=True)
+
+        def close_of(p):
+            for k in ("close_price", "close", "ltp", "last_price"):
+                if p.get(k) is not None:
+                    return float(p[k])
+            return None
+
+        latest_close = close_of(prices[0])
+        if latest_close:
+            if len(prices) > 63:
+                c3 = close_of(prices[63])
+                if c3:
+                    out["return3m"] = round((latest_close - c3) / c3 * 100, 2)
+            if len(prices) > 126:
+                c6 = close_of(prices[126])
+                if c6:
+                    out["return6m"] = round((latest_close - c6) / c6 * 100, 2)
+
+    # ── Pledged % — shareholdings/declaration only has compliance booleans (no
+    #    numeric %); the real figure is the sum of pledgedSharesPct across
+    #    ownership-current's named significant shareholders (FinEdge reports it as
+    #    a fraction, e.g. 0.05 == 0.05%, consistent with shareholdingPct there). ──
+    if not isinstance(ownership_data, Exception) and ownership_data and isinstance(ownership_data.get("ownerships"), list):
+        pledge_total = sum(
+            (o.get("pledgedSharesPct") or 0) for o in ownership_data["ownerships"]
+        )
+        out["pledgedPercentage"] = round(pledge_total * 100, 4)
+
+    # ── Change in promoter holding: compare last two quarters of shareholding pattern ──
+    if sh_data and not isinstance(sh_data, Exception):
+        cols = sh_data.get("columns", [])
+        rows = sh_data.get("rows", [])
+        if len(cols) >= 2:
+            last_col, prev_col = cols[-1], cols[-2]
+
+            def promoter_pct(col):
+                for row in rows:
+                    if row.get("catagory") in ("Indian", "Promoter"):
+                        v = row.get("data", {}).get(col)
+                        if v is not None:
+                            return float(v)
+                return None
+
+            latest_p, prev_p = promoter_pct(last_col), promoter_pct(prev_col)
+            if latest_p is not None and prev_p is not None:
+                out["changeInPromoterHolding"] = round(latest_p - prev_p, 2)
+
+    return out, core_fixes
+
+
 @router.get("/company/{symbol}/profile")
 async def get_company_profile(symbol: str, request: Request):
     import asyncio
@@ -258,17 +520,17 @@ async def get_company_profile(symbol: str, request: Request):
         # 1. Fetch profile
         profile = await execute_proxy_request("GET", f"company-profile/{sym}", dict(request.query_params), None, rid)
 
-        # 2. Parallel: quote, ratios (3 types), shareholding, metrics
+        # 2. Parallel: quote, ratios (4 types), shareholding
         results = await asyncio.gather(
             execute_proxy_request("GET", "quote", {"symbol": sym}, None, rid),
             execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "pr"}, None, rid),
             execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "le"}, None, rid),
             execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "li"}, None, rid),
             execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "quarterly"}, None, rid),
-            execute_proxy_request("GET", f"financial-metrics/{sym}", {"statement_type": "s", "ratio_type": "cu"}, None, rid),
+            execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "ef"}, None, rid),
             return_exceptions=True
         )
-        quote_data, pr_data, le_data, li_data, sh_data, metrics_data = results
+        quote_data, pr_data, le_data, li_data, sh_data, ef_data = results
 
         # 3. Parse quote
         quote = None
@@ -285,6 +547,10 @@ async def get_company_profile(symbol: str, request: Request):
         latest_pr = latest_ratio(pr_data)
         latest_le = latest_ratio(le_data)
         latest_li = latest_ratio(li_data)
+        latest_ef = latest_ratio(ef_data)
+        # Merge all ratio-type periods so extended-ratio lookups can try any field
+        # regardless of which FinEdge ratio_type bucket it actually lives in.
+        combined_ratio_fields = {**(latest_ef or {}), **(latest_li or {}), **(latest_le or {}), **(latest_pr or {})}
 
         # 5. Parse shareholding
         promoter = fii = dii = public_h = 0.0
@@ -302,11 +568,12 @@ async def get_company_profile(symbol: str, request: Request):
                     elif cat in ("NonInstitutions", "Goverments"): public_h += val
 
         # 6. Parse metrics
+        # NOTE: financial-metrics?ratio_type=cu ("Cumulative") only carries 3-year
+        # cash-flow totals (financingCashFlow3yearsTotal etc.) — no dividendYield or
+        # eps field exists there. EPS is corrected below from the PL statement via
+        # core_fixes; FinEdge exposes no dividend-yield field on any endpoint we've
+        # found, so it's left at 0 rather than silently reading the wrong field.
         div_yield = eps_val = 0.0
-        if not isinstance(metrics_data, Exception) and metrics_data:
-            m = metrics_data.get("metrics") or {}
-            div_yield = m.get("dividendYield") or m.get("dividend_yield") or 0
-            eps_val = m.get("eps") or m.get("basicEps") or 0
 
         # 7. Extract price data
         def qv(key, *alts):
@@ -334,17 +601,34 @@ async def get_company_profile(symbol: str, request: Request):
         roe = rv(latest_pr, "returnOnEquity", "roe")
         roce = rv(latest_pr, "returnOnCapital", "returnOnCapitalEmployed", "roce")
         npm = rv(latest_pr, "netMargin", "netProfitMargin", "net_profit_margin")
-        bvps = round(float(latest_le.get("bookValuePerShare") or latest_le.get("book_value_per_share") or 0), 2) if latest_le else 0
         de = round(float(latest_le.get("totalDebtToEquity") or latest_le.get("debtToEquity") or 0), 2) if latest_le else 0
-
+        # bookValuePerShare and pe/priceToEarnings don't exist on the pr/le ratio
+        # types — corrected below from annual-price-ratios via core_fixes.
+        bvps = 0
         pe = 0
-        if latest_pr:
-            pe = float(latest_pr.get("pe") or latest_pr.get("priceToEarnings") or 0)
-        if pe == 0 and current_price and eps_val:
-            pe = round(current_price / eps_val, 2)
+
+        market_cap = qv("market_cap")
 
         # 9. Get local metadata or fallback
         meta = COMPANY_METADATA.get(sym, {"founded": 1990, "employees": 0, "creditRating": "Stable"})
+
+        # 10. Extended (opt-in) ratio catalog values — best-effort, never blocks the profile.
+        # Also returns core_fixes: corrections for pe/bookValue/eps sourced from
+        # endpoints (annual-price-ratios, PL statement) that actually carry them.
+        st = request.query_params.get("statement_type", "s")
+        try:
+            extended_ratios, core_fixes = await _compute_extended_ratios(
+                sym, st, rid, current_price, market_cap, pe, combined_ratio_fields, sh_data,
+            )
+        except Exception as e:
+            logger.warning(f"[FinEdge] Extended ratios failed for {sym}: {e}")
+            extended_ratios, core_fixes = {k["key"]: None for k in RATIO_CATALOG}, {}
+
+        if core_fixes.get("pe"): pe = core_fixes["pe"]
+        if core_fixes.get("bookValue"): bvps = core_fixes["bookValue"]
+        if core_fixes.get("eps") is not None: eps_val = core_fixes["eps"]
+        if pe == 0 and current_price and eps_val:
+            pe = round(current_price / eps_val, 2)
 
         return {
             "symbol": sym,
@@ -369,12 +653,13 @@ async def get_company_profile(symbol: str, request: Request):
             "volume": qv("volume", "traded_volume"),
             "high52w": qv("high52", "week52_high", "yearly_high"),
             "low52w": qv("low52", "week52_low", "yearly_low"),
-            "marketCap": qv("market_cap"),
+            "marketCap": market_cap,
             "pe": pe, "eps": eps_val, "bookValue": bvps,
             "dividendYield": div_yield, "roe": roe, "roce": roce,
             "netProfitMargin": npm, "debtToEquity": de,
             "promoterHolding": promoter, "fiiHolding": fii,
             "diiHolding": dii, "publicHolding": public_h,
+            "ratios": extended_ratios,
         }
     except HTTPException:
         raise
@@ -647,6 +932,258 @@ async def get_ownership_history(symbol: str, request: Request):
     except Exception as e:
         _api_error(e, f"shareholdings/ownership-history/{symbol}", rid)
 
+
+# ── Shareholding category drill-down (Promoter/FII/DII/Public → named holders) ──
+# Uses standard SEBI shareholding-pattern category definitions:
+#   Promoter        = entities/individuals named in the SBO (beneficial-owners) filing
+#   DII             = Mutual Funds, Insurance Cos, NPS Trust, Pension/Provident Funds
+#   FII             = Foreign Portfolio/Institutional Investors, GDR depositories
+#   Public          = everything else (Bodies Corporate, HUF, Trusts, Clearing Members, etc.)
+_DII_KEYWORDS = ("mutual fund", "insurance", "nps trust", "provident fund",
+                 "pension fund", "alternative investment fund", "lic")
+_FII_KEYWORDS = ("foreign portfolio investor", "foreign institutional investor",
+                 "fpi", "gdr", "depository receipt")
+_PROMOTER_TOKEN_STOPWORDS = {"and", "together", "collectively", "the", "for", "of", "family", "group"}
+
+
+def _extract_promoter_tokens(sbo_entries: list) -> set:
+    """Individual promoters (e.g. 'K D Ambani') show up in ownership-current but
+    not as a registered SBO entity themselves — only their shared family name does,
+    inside significantOwnersName. Extract that name so we can still bucket them."""
+    import re
+    tokens: set = set()
+    for o in sbo_entries:
+        text = o.get("significantOwnersName") or ""
+        for word in re.findall(r"[A-Za-z]+", text):
+            wl = word.lower()
+            if len(wl) >= 4 and wl not in _PROMOTER_TOKEN_STOPWORDS:
+                tokens.add(wl)
+    return tokens
+
+
+def _has_keyword(text: str, keywords: tuple) -> bool:
+    """Word-boundary match — a plain substring check would let short tokens like
+    'lic' false-positive inside unrelated words (e.g. 'Public')."""
+    import re
+    return any(re.search(rf"\b{re.escape(kw)}\b", text) for kw in keywords)
+
+
+def _classify_holder(name: str, promoter_names: set, promoter_tokens: set) -> str:
+    n = (name or "").strip()
+    nl = n.lower()
+    if n in promoter_names or (promoter_tokens and any(tok in nl for tok in promoter_tokens)):
+        return "promoter"
+    if _has_keyword(nl, _DII_KEYWORDS):
+        return "dii"
+    if _has_keyword(nl, _FII_KEYWORDS):
+        return "fii"
+    return "public"
+
+
+@router.get("/company/{symbol}/shareholding/breakdown")
+async def get_shareholding_breakdown(symbol: str, request: Request):
+    """Expands the 4 headline shareholding-pattern categories into their underlying
+    named holders, for the drill-down under each row of the Shareholding Pattern table.
+    Reuses the same 3 FinEdge calls already proxied by the routes above — no new
+    upstream endpoint is introduced."""
+    import asyncio
+    sym = symbol.upper()
+    rid = _req_id(request)
+    try:
+        pattern_data, ownership_data, sbo_data = await asyncio.gather(
+            execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "annual"}, None, rid),
+            execute_proxy_request("GET", f"shareholdings/ownership-current/{sym}", {}, None, rid),
+            execute_proxy_request("GET", f"shareholdings/beneficial-owners/{sym}", {"period": "quarterly"}, None, rid),
+            return_exceptions=True,
+        )
+
+        # 1. Category-level percentages — identical source/logic to the summary table.
+        totals = {"promoter": 0.0, "fii": 0.0, "dii": 0.0, "public": 0.0}
+        quarter = None
+        if not isinstance(pattern_data, Exception) and pattern_data and pattern_data.get("columns"):
+            last_col = pattern_data["columns"][-1]
+            parts = last_col.split()
+            quarter = f"{parts[0][:3]}'{parts[1][2:]}" if len(parts) == 2 else last_col
+            for row in pattern_data.get("rows", []):
+                val = float(row.get("data", {}).get(last_col, 0) or 0)
+                cat = row.get("catagory", "")
+                if cat == "Indian": totals["promoter"] = val
+                elif cat == "InstitutionsForeign": totals["fii"] = val
+                elif cat == "InstitutionsDomestic": totals["dii"] = val
+                elif cat in ("NonInstitutions", "Goverments"): totals["public"] += val
+
+        # 2. Promoter entities from the SBO filing — authoritative, not a guess.
+        promoter_names: set = set()
+        promoter_tokens: set = set()
+        if not isinstance(sbo_data, Exception) and sbo_data and sbo_data.get("beneficial_owners"):
+            latest_group = sbo_data["beneficial_owners"][0] or {}
+            sbo_entries = latest_group.get("beneficial_owners") or []
+            for o in sbo_entries:
+                nm = o.get("registeredOwnerName")
+                if nm: promoter_names.add(nm.strip())
+            promoter_tokens = _extract_promoter_tokens(sbo_entries)
+
+        # 3. Bucket every named significant shareholder into its category.
+        #    FinEdge reports shareholdingPct as a fraction (e.g. 0.1112 == 11.12%).
+        buckets: Dict[str, list] = {"promoter": [], "fii": [], "dii": [], "public": []}
+        unclassified: list = []
+        if not isinstance(ownership_data, Exception) and ownership_data and ownership_data.get("ownerships"):
+            if not quarter:
+                quarter = ownership_data.get("quarter")
+            for o in ownership_data["ownerships"]:
+                name = (o.get("shareholder_name") or "").strip()
+                if not name:
+                    continue
+                pct_frac = o.get("shareholdingPct")
+                holder = {
+                    "name": name,
+                    "pct": round(pct_frac * 100, 4) if pct_frac is not None else None,
+                    "shares": o.get("totalShares"),
+                }
+                bucket = _classify_holder(name, promoter_names, promoter_tokens)
+                if bucket == "public":
+                    unclassified.append(holder)
+                else:
+                    buckets[bucket].append(holder)
+
+            # Dominant single-entity promoters (e.g. a holding company like
+            # "Tata Sons Private Limited") don't always appear in the SBO filing —
+            # that filing only covers *indirect* control chains. If a still-
+            # unclassified holder's own stake alone accounts for most of the
+            # promoter category total, it IS the promoter — checked against the
+            # real aggregate from shareholdings/pattern, not guessed.
+            for holder in unclassified:
+                if totals["promoter"] > 0 and holder["pct"] is not None and holder["pct"] >= totals["promoter"] * 0.5:
+                    buckets["promoter"].append(holder)
+                else:
+                    buckets["public"].append(holder)
+
+            for b in buckets.values():
+                b.sort(key=lambda h: h["pct"] or 0, reverse=True)
+
+        return {
+            "symbol": sym,
+            "quarter": quarter,
+            "categories": {
+                k: {"pct": totals[k], "holders": buckets[k]} for k in ("promoter", "fii", "dii", "public")
+            },
+        }
+    except Exception as e:
+        _api_error(e, f"shareholdings/breakdown/{symbol}", rid)
+
+
+QUARTERLY_BREAKDOWN_WINDOW = 12  # quarters shown, oldest → newest (matches the reference UI)
+NOTABLE_HOLDER_MIN_PCT = 0.5     # a holder needs to clear this in at least one quarter to get its own row
+
+
+@router.get("/company/{symbol}/shareholding/quarterly-breakdown")
+async def get_shareholding_quarterly_breakdown(symbol: str, request: Request):
+    """Quarter-by-quarter version of /shareholding/breakdown: category totals
+    (Promoter/FII/DII/Government/Public) across the last N quarters, each with its
+    notable named holders' per-quarter % — the 'Sep 2023 ... Jun 2026' table shape.
+    Reuses the same 3 FinEdge calls as /shareholding/breakdown, just fetched with
+    ownership-history (the quarterly time-series sibling of ownership-current)."""
+    import asyncio
+    sym = symbol.upper()
+    rid = _req_id(request)
+    try:
+        pattern_data, history_data, sbo_data = await asyncio.gather(
+            execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "quarterly"}, None, rid),
+            execute_proxy_request("GET", f"shareholdings/ownership-history/{sym}", {"period": "quarterly"}, None, rid),
+            execute_proxy_request("GET", f"shareholdings/beneficial-owners/{sym}", {"period": "quarterly"}, None, rid),
+            return_exceptions=True,
+        )
+
+        # 1. Category totals per quarter, straight from shareholdings/pattern —
+        #    identical source to the summary table, Government kept as its own
+        #    bucket here (the reference table shows it separately from Public).
+        quarters: list[str] = []
+        totals_by_cat: Dict[str, Dict[str, float]] = {k: {} for k in ("promoter", "fii", "dii", "government", "public")}
+        if not isinstance(pattern_data, Exception) and pattern_data and pattern_data.get("columns"):
+            cols = pattern_data["columns"][-QUARTERLY_BREAKDOWN_WINDOW:]
+            quarters = cols
+            cat_map = {
+                "Indian": "promoter", "InstitutionsForeign": "fii", "InstitutionsDomestic": "dii",
+                "Goverments": "government", "NonInstitutions": "public",
+            }
+            for row in pattern_data.get("rows", []):
+                bucket = cat_map.get(row.get("catagory"))
+                if not bucket:
+                    continue
+                for col in cols:
+                    v = row.get("data", {}).get(col)
+                    if v is not None:
+                        totals_by_cat[bucket][col] = float(v)
+
+        if not quarters:
+            return {"symbol": sym, "quarters": [], "categories": {}}
+
+        # 2. Promoter entities from the latest SBO filing — same authoritative
+        #    source used by /shareholding/breakdown, reused across all quarters
+        #    since an entity's identity doesn't change even if its holding does.
+        promoter_names: set = set()
+        promoter_tokens: set = set()
+        if not isinstance(sbo_data, Exception) and sbo_data and sbo_data.get("beneficial_owners"):
+            sbo_entries = (sbo_data["beneficial_owners"][0] or {}).get("beneficial_owners") or []
+            for o in sbo_entries:
+                nm = o.get("registeredOwnerName")
+                if nm: promoter_names.add(nm.strip())
+            promoter_tokens = _extract_promoter_tokens(sbo_entries)
+
+        # 3. Walk each quarter's named holders, classify, and build a
+        #    name -> {quarter: pct} map per category.
+        holder_series: Dict[str, Dict[str, Dict[str, float]]] = {k: {} for k in totals_by_cat}
+        history_groups = {}
+        if not isinstance(history_data, Exception) and history_data and isinstance(history_data.get("ownership_history"), list):
+            history_groups = {g.get("header"): g.get("data") or [] for g in history_data["ownership_history"]}
+
+        for q in quarters:
+            holders = history_groups.get(q) or []
+            promoter_total_q = totals_by_cat["promoter"].get(q, 0)
+
+            # FinEdge changed shareholdingPct's convention partway through its
+            # history: older quarters store it already as a percentage (11.19
+            # meaning 11.19%), newer ones as a fraction (0.1113 meaning 11.13%).
+            # Detect which one this quarter uses from its largest holder — a
+            # per-holder magnitude check would misclassify small (<1%) stakes,
+            # but a promoter LLP/entity >1% is present in nearly every quarter.
+            raw_vals = [o.get("shareholdingPct") or 0 for o in holders]
+            scale = 1 if raw_vals and max(raw_vals) > 1.5 else 100
+
+            for o in holders:
+                name = (o.get("shareholder_name") or "").strip()
+                if not name:
+                    continue
+                pct_raw = o.get("shareholdingPct")
+                pct = round(pct_raw * scale, 4) if pct_raw is not None else 0.0
+                if pct <= 0:
+                    continue
+                bucket = _classify_holder(name, promoter_names, promoter_tokens)
+                if bucket == "public" and promoter_total_q > 0 and pct >= promoter_total_q * 0.5:
+                    bucket = "promoter"  # dominant single-entity promoter (see /breakdown)
+                holder_series[bucket].setdefault(name, {})[q] = pct
+
+        # 4. Trim to "notable" holders — ones that clear the threshold in at
+        #    least one quarter in the window — ranked by their latest-quarter %.
+        categories_out = {}
+        latest_q = quarters[-1]
+        for cat, series in holder_series.items():
+            notable = [
+                {"name": name, "pctByQuarter": pcts}
+                for name, pcts in series.items()
+                if max(pcts.values(), default=0) >= NOTABLE_HOLDER_MIN_PCT
+            ]
+            notable.sort(key=lambda h: h["pctByQuarter"].get(latest_q, 0), reverse=True)
+            categories_out[cat] = {
+                "totals": totals_by_cat[cat],
+                "holders": notable[:10],
+            }
+
+        return {"symbol": sym, "quarters": quarters, "categories": categories_out}
+    except Exception as e:
+        _api_error(e, f"shareholdings/quarterly-breakdown/{symbol}", rid)
+
+
 @router.get("/company/{symbol}/corporate-actions")
 async def get_corporate_actions(symbol: str, request: Request):
     from datetime import datetime, timedelta
@@ -701,8 +1238,39 @@ async def get_corporate_actions(symbol: str, request: Request):
                 div_map[year] = div_map.get(year, 0) + item["amount"]
 
         actions.sort(key=lambda x: x["exDate"], reverse=True)
-        upcoming.sort(key=lambda x: x["date"], asc=True) if hasattr(upcoming, 'sort') else None
-        # python sort doesn't take asc parameter, it takes reverse parameter. Let's fix that:
+
+        # corporate-actions/all only carries dividend/bonus/split/rights events, so
+        # a company with no upcoming corporate action (the common case) shows an
+        # empty Upcoming Events panel even though FinEdge separately tracks expected
+        # quarterly-results dates. Merge those in as earnings events, reusing the
+        # existing results-calendar proxy call and the existing BSE-code resolver.
+        try:
+            rc_q = {"from_date": today_str, "to_date": (today_dt + timedelta(days=120)).strftime("%Y-%m-%d")}
+            rc_data = await execute_proxy_request("GET", "results-calendar", rc_q, None, rid)
+            if isinstance(rc_data, list):
+                bse_map = None
+                for item in rc_data:
+                    raw_symbol = str(item.get("symbol") or "").strip()
+                    result_date = item.get("expected_result_date") or ""
+                    if not raw_symbol or not result_date or result_date < today_str:
+                        continue
+                    matched_symbol = raw_symbol.upper()
+                    if raw_symbol.isdigit():
+                        if bse_map is None:
+                            bse_map = await _build_bse_map(rid)
+                        matched_symbol = bse_map.get(raw_symbol, {}).get("symbol", "").upper()
+                    if matched_symbol != sym:
+                        continue
+                    company_name = item.get("company_name") or sym
+                    upcoming.append({
+                        "date": result_date,
+                        "title": "Quarterly Results",
+                        "type": "EarningsCall",
+                        "description": f"{company_name} is expected to announce its quarterly financial results around this date."
+                    })
+        except Exception as e:
+            logger.error(f"[FinEdge] results-calendar merge for {sym} failed: {e}")
+
         upcoming.sort(key=lambda x: x["date"])
         dividend_history = [{"year": y, "amount": a} for y, a in sorted(div_map.items())]
 
@@ -711,7 +1279,8 @@ async def get_corporate_actions(symbol: str, request: Request):
             "upcomingEvents": upcoming,
             "dividendHistory": dividend_history
         }
-    except Exception:
+    except Exception as e:
+        logger.error(f"[FinEdge] corporate-actions/{symbol} failed: {e}")
         return {"corporateActions": [], "upcomingEvents": [], "dividendHistory": []}
 
 @router.get("/company/{symbol}/documents")
@@ -732,11 +1301,26 @@ async def get_documents(symbol: str, request: Request):
             date = (item.get("announcement_date") or "").split(" ")[0]
             text = f"{item.get('category','')} {item.get('description','')}".lower()
 
-            if "annual report" in text: cat = "annual-report"
-            elif any(x in text for x in ["concall", "conference call", "earnings call"]): cat = "concall"
-            elif any(x in text for x in ["credit rating", "crisil", "icra"]): cat = "credit-rating"
-            else: cat = "announcement"
+            if "annual report" in text:
+                cat = "annual-report"
+            elif any(x in text for x in [
+                "concall", "con. call", "conference call", "earnings call",
+                "institutional investor meet", "analyst meet", "investor meet",
+                "earnings press conference", "audio and video recording",
+                "transcript of the analyst",
+            ]):
+                cat = "concall"
+            elif any(x in text for x in [
+                "credit rating", "crisil", "icra", "care ratings", "care edge",
+                "india ratings", "ind-ra", "rating agency", "rating action",
+            ]):
+                cat = "credit-rating"
+            else:
+                cat = "announcement"
 
+            # No real audio/duration or file-size data exists in this feed —
+            # FinEdge/NSE only ever provide a PDF (transcript, filing, rating
+            # notice), never a playable recording. Don't fabricate one.
             doc = {
                 "id": f"doc-{item.get('timestamp_unix', i)}",
                 "title": title,
@@ -744,7 +1328,6 @@ async def get_documents(symbol: str, request: Request):
                 "category": cat,
                 "fileUrl": item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
             }
-            doc["duration" if cat == "concall" else "size"] = "45:00" if cat == "concall" else "1.5 MB"
             documents.append(doc)
 
         return {"documents": documents}

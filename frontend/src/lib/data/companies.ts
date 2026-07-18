@@ -47,6 +47,9 @@ export interface Company {
   creditRating: string
   // Optional extended metrics from ratios API
   netProfitMargin?: number
+  // Opt-in extended ratio catalog values (screener-style), keyed by RATIO_CATALOG key.
+  // Populated by GET /company/:symbol/profile → `ratios`.
+  ratios?: Record<string, number | null>
 }
 
 

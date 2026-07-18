@@ -23,12 +23,12 @@ const TABS: { id: TabKey; label: string }[] = [
   { id: 'splits', label: 'Splits' },
 ]
 
-const YEARS = ['All', '2025', '2024', '2023', '2022', '2021', '2020']
-
 export function CorporateActionsTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const [activeTab, setActiveTab] = useState<TabKey>('all')
-  const [yearFilter, setYearFilter] = useState('2023')
+  // Persists across tab switches by design (only currentPage resets on tab
+  // change) — starts on 'All' until the user explicitly picks a year.
+  const [yearFilter, setYearFilter] = useState('All')
   const itemsPerPage = 6
 
   const storeActions = useAppSelector((state) => state.company?.corporateActions)
@@ -36,6 +36,16 @@ export function CorporateActionsTable() {
   const activeActions = storeActions?.corporateActions || corporateActions
   const activeUpcoming = storeActions?.upcomingEvents || upcomingEvents
   const activeDividends = storeActions?.dividendHistory || dividendHistory
+
+  // Derived from the real data actually loaded, rather than a hardcoded/stale
+  // year list — otherwise a company's most recent events can silently fall
+  // outside every selectable year.
+  const yearsSet = new Set<string>(
+    activeActions
+      .map((a: CorporateAction) => a.announcementDate?.slice(0, 4))
+      .filter((y: string | undefined): y is string => Boolean(y))
+  )
+  const YEARS: string[] = ['All', ...Array.from(yearsSet).sort((a, b) => b.localeCompare(a))]
 
   // Filter by tab
   const tabFiltered = activeActions.filter((a: CorporateAction) => {
@@ -68,7 +78,6 @@ export function CorporateActionsTable() {
   const dividends = activeActions.filter((a: CorporateAction) => a.type === 'Dividend')
   const lastDividend = dividends[0]
   const bonuses = activeActions.filter((a: CorporateAction) => a.type === 'Bonus')
-  const maxBar = Math.max(...activeDividends.map((d: any) => d.amount))
 
   // Dynamic stat values derived from real data
   const dividendYield = typeof companyData?.dividendYield === 'number'
@@ -258,34 +267,73 @@ export function CorporateActionsTable() {
               </div>
             </div>
             <CardContent className="p-4">
-              {/* Pure CSS bar chart */}
-              <div className="flex items-end gap-1.5 h-36 w-full">
-                {activeDividends.map((d: any, i: number) => {
-                  const heightPct = maxBar > 0 ? (d.amount / maxBar) * 100 : 0
-                  const isLast = i === activeDividends.length - 1
-                  return (
-                    <div key={d.year} className="flex flex-col items-center flex-1 gap-1 group relative">
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        <div className="bg-gray-900 text-white text-xs font-mono px-2 py-1 rounded-md whitespace-nowrap">
-                          ₹{d.amount.toFixed(2)}
-                        </div>
-                      </div>
-                      <div
-                        className={cn(
-                          "w-full rounded-t-md transition-all",
-                          isLast ? "bg-accent/40 border-2 border-dashed border-accent" : "bg-accent group-hover:bg-accent/80"
-                        )}
-                        style={{ height: `${heightPct}%` }}
-                      />
-                      <span className="text-xs font-mono text-textMuted whitespace-nowrap">{d.year}</span>
+              {activeDividends.length === 0 ? (
+                <div className="h-36 flex items-center justify-center text-xs text-textMuted">
+                  No dividend history available
+                </div>
+              ) : (() => {
+                const amounts = activeDividends.map((d: any) => d.amount)
+                const maxAmt = Math.max(...amounts)
+                const minAmt = Math.min(...amounts)
+                const range = maxAmt - minAmt
+                // Floor every bar at a visible minimum height so a low value
+                // never collapses to nothing, then spread the rest of the
+                // range across the remaining space — differences between
+                // years stay readable instead of all bars looking near-100%.
+                const MIN_PCT = 18
+                const currentYear = new Date().getFullYear()
+                const isInProgress = (yearLabel: string) => {
+                  const m = yearLabel.match(/\d{4}/)
+                  return m ? parseInt(m[0], 10) >= currentYear : false
+                }
+                return (
+                  <>
+                    {/* Bars — fixed-height track so percentage heights actually resolve */}
+                    <div className="flex items-end gap-1.5 h-32 w-full">
+                      {activeDividends.map((d: any) => {
+                        const heightPct = range > 0
+                          ? MIN_PCT + ((d.amount - minAmt) / range) * (100 - MIN_PCT)
+                          : 60
+                        const estimated = isInProgress(d.year)
+                        return (
+                          <div key={d.year} className="relative flex h-full flex-1 flex-col items-center justify-end group">
+                            {/* Tooltip */}
+                            <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                              <div className="bg-gray-900 text-white text-xs font-mono px-2 py-1 rounded-md whitespace-nowrap">
+                                ₹{d.amount.toFixed(2)}{estimated ? ' · in progress' : ''}
+                              </div>
+                            </div>
+                            {/* Always-visible value label — no hover required */}
+                            <span className="mb-1 text-[10px] font-mono font-medium text-textSecondary tabular-nums whitespace-nowrap group-hover:text-accent transition-colors">
+                              {d.amount % 1 === 0 ? d.amount.toFixed(0) : d.amount.toFixed(2)}
+                            </span>
+                            <div
+                              className={cn(
+                                "w-full min-h-1.5 rounded-t-md transition-all",
+                                estimated
+                                  ? "bg-accent/25 border-2 border-dashed border-accent"
+                                  : "bg-accent group-hover:bg-accent/80"
+                              )}
+                              style={{ height: `${heightPct}%` }}
+                            />
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
-              <div className="mt-2 flex items-center gap-3 text-xs text-textMuted">
-                <span className="flex items-center gap-1"><span className="size-2 bg-accent rounded-sm inline-block" /> Paid</span>
-                <span className="flex items-center gap-1"><span className="size-2 bg-accent/30 border border-dashed border-accent rounded-sm inline-block" /> Estimated</span>
+                    {/* Year labels — separate row, aligned to the same columns as the bars */}
+                    <div className="flex gap-1.5 w-full mt-1.5">
+                      {activeDividends.map((d: any) => (
+                        <span key={d.year} className="flex-1 text-center text-xs font-mono text-textMuted whitespace-nowrap">
+                          {d.year}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )
+              })()}
+              <div className="mt-3 flex items-center gap-3 text-xs text-textMuted border-t border-border/40 pt-2.5">
+                <span className="flex items-center gap-1.5"><span className="size-2.5 bg-accent rounded-sm inline-block" /> Paid</span>
+                <span className="flex items-center gap-1.5"><span className="size-2.5 bg-accent/25 border-2 border-dashed border-accent rounded-sm inline-block" /> In progress (year not yet closed)</span>
               </div>
             </CardContent>
           </Card>

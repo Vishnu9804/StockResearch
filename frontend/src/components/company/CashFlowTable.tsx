@@ -68,8 +68,14 @@ export function CashFlowTable() {
 
   const loadNotes = async () => {
     if (notesData) return notesData
+    const fetchCompanyNotes = (finscreenApi as any).fetchCompanyNotes
+    if (typeof fetchCompanyNotes !== 'function') {
+      console.warn('fetchCompanyNotes is not available on finscreenApi')
+      return null
+    }
+
     try {
-      const data = await finscreenApi.fetchCompanyNotes(symbol, {
+      const data = await fetchCompanyNotes(symbol, {
         statement_type: statementType,
         period,
       })
@@ -489,50 +495,6 @@ export function CashFlowTable() {
           </div>
         )}
       </div>
-
-      {/* Ratios Table */}
-      {!isEmpty && (
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
-          <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
-            <div>
-              <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
-                Key Efficiency Ratios
-              </h3>
-              <p className="text-xs text-textMuted mt-0.5">
-                Annual activity and conversion metrics
-              </p>
-            </div>
-            <button
-              onClick={handleExportRatiosCSV}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors"
-              title="Export Efficiency Ratios to CSV"
-            >
-              <FileSpreadsheet className="size-3 text-positive" /> Export
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <Table className="min-w-[1000px]">
-              <TableHeader className="bg-surfaceMuted">
-                <TableRow>
-                  <TableHead className="sticky left-0 bg-surfaceMuted text-xs font-medium uppercase tracking-wider text-textMuted z-10">
-                    Ratio Name
-                  </TableHead>
-                  {visibleYears.map((y: string) => (
-                    <TableHead
-                      key={y}
-                      className="text-right text-xs font-medium uppercase tracking-wider text-textMuted font-mono"
-                    >
-                      {y}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>{activeRatios.map((row: FinancialRow) => renderRow(row, 0, 'ratio'))}</TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

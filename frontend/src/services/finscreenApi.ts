@@ -44,6 +44,7 @@ export const finscreenApi = {
   fetchCompanySegments: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/segments`, { params }).then(r => r.data),
   fetchCompanyRatios: (symbol: string) => finscreenClient.get(`/company/${symbol}/ratios`).then(r => r.data),
   fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
+  fetchShareholdingBreakdown: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/breakdown`).then(r => r.data),
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
   fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
   fetchPeers: (symbol: string) => finscreenClient.get(`/company/${symbol}/peers`).then(r => r.data),
@@ -61,6 +62,16 @@ export const finscreenApi = {
   fetchMarketAnnouncements: () => finscreenClient.get('/market/announcements').then(r => r.data),
   fetchRefreshedStocks: () => finscreenClient.get('/refreshed-stocks').then(r => r.data),
   fetchStockSymbols: () => finscreenClient.get('/stock-symbols').then(r => r.data),
+
+  // --- Ratio catalog (static definitions for the "Add Ratio" picker) ---
+  fetchRatioCatalog: () => finscreenClient.get('/ratio-catalog').then(r => r.data),
+}
+
+// --- User's saved extra-ratio preferences (global, applies to every company page) ---
+export const ratioPreferencesApi = {
+  list: () => apiClient.get('/ratio-preferences/').then(r => r.data),
+  add: (ratioKeys: string[]) => apiClient.post('/ratio-preferences/', { ratioKeys }).then(r => r.data),
+  remove: (ratioKey: string) => apiClient.delete(`/ratio-preferences/${encodeURIComponent(ratioKey)}`).then(r => r.data),
 }
 
 // Default export to satisfy components importing it directly

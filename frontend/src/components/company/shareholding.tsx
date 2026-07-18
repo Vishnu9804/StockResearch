@@ -1,4 +1,5 @@
 
+import { Fragment, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAppSelector } from '@/store/hooks'
 import {
@@ -7,8 +8,9 @@ import {
 import { shareholding } from "@/lib/data/financials"
 import { formatNumber } from "@/lib/formatters"
 import { cn } from "@/lib/utils"
-import { Download, Share2, TrendingUp } from "lucide-react"
+import { Download, Share2, TrendingUp, ChevronDown, AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import finscreenApi from "@/services/finscreenApi"
 
 // Color palette for shareholder segments
 const SEGMENT_COLORS = {
@@ -28,13 +30,129 @@ const LEGEND = [
 
 type SegmentKey = keyof typeof SEGMENT_COLORS
 
-export function ShareholdingChart() {
+interface Holder {
+  name: string
+  pct: number | null
+  shares: number | null
+}
+interface BreakdownCategory {
+  pct: number
+  holders: Holder[]
+}
+type Breakdown = Record<'promoter' | 'fii' | 'dii' | 'public', BreakdownCategory>
+
+const SEGMENT_TO_CATEGORY: Record<SegmentKey, keyof Breakdown | null> = {
+  promoter: 'promoter', fii: 'fii', dii: 'dii', public: 'public', others: null,
+}
+
+function formatShares(n: number | null) {
+  if (n === null || n === undefined) return '—'
+  return n.toLocaleString('en-IN')
+}
+
+// Expandable detail panel listing named holders within one category. Bounded to a
+// fixed max-height with internal scroll so a large bucket (e.g. 30+ promoter
+// entities) never pushes the rest of the page around — only one row can be
+// expanded at a time (enforced by the parent), keeping the UI predictable.
+function HolderDetailPanel({
+  loading, error, onRetry, category,
+}: {
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  category: BreakdownCategory | null
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2 py-1">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-8 bg-surfaceMuted/50 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-negative/30 bg-negative-soft/20 text-negative">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="size-3.5 shrink-0" />
+          <span className="text-xs font-medium">{error}</span>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onRetry() }}
+          className="flex items-center gap-1 text-xs font-semibold border border-negative/30 px-2 py-1 rounded-md hover:bg-negative/10 transition-colors shrink-0"
+        >
+          <RefreshCw className="size-3" /> Retry
+        </button>
+      </div>
+    )
+  }
+  if (!category || category.holders.length === 0) {
+    return (
+      <p className="text-xs text-textMuted py-2">
+        No individually disclosed shareholders in this category for the latest quarter.
+      </p>
+    )
+  }
+  return (
+    <div>
+      <div className="max-h-60 overflow-y-auto pr-1 space-y-1 rounded-lg">
+        {category.holders.map((h, i) => (
+          <div
+            key={`${h.name}-${i}`}
+            className="flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md hover:bg-surfaceMuted/40 transition-colors"
+          >
+            <span className="text-xs text-textSecondary truncate" title={h.name}>{h.name}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-[10px] font-mono text-textMuted hidden sm:inline">{formatShares(h.shares)} sh</span>
+              <span className="text-xs font-mono font-medium text-textPrimary tabular-nums w-14 text-right">
+                {h.pct !== null ? `${formatNumber(h.pct, 2)}%` : '—'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-textMuted mt-2 px-0.5 leading-relaxed">
+        Named significant shareholders from the latest disclosure — individual % may not sum to the {formatNumber(category.pct, 2)}% category total, since pooled/omnibus and retail holdings aren't individually disclosed.
+      </p>
+    </div>
+  )
+}
+
+export function ShareholdingChart({ symbol }: { symbol?: string }) {
   const storeShareholding = useAppSelector((state) => state.company?.shareholdingData)
   const activeShareholding = storeShareholding || shareholding
 
   // Show last 4 quarters
   const recent = activeShareholding.slice(-4)
   const latestQ = recent[recent.length - 1]
+
+  // ── Category drill-down state ──────────────────────────────────────────────
+  const [expanded, setExpanded] = useState<SegmentKey | null>(null)
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null)
+  const [breakdownLoading, setBreakdownLoading] = useState(false)
+  const [breakdownError, setBreakdownError] = useState<string | null>(null)
+
+  const loadBreakdown = () => {
+    if (!symbol) return
+    setBreakdownLoading(true)
+    setBreakdownError(null)
+    finscreenApi.fetchShareholdingBreakdown(symbol)
+      .then((data: any) => setBreakdown(data?.categories ?? null))
+      .catch((err: any) => {
+        console.error('[ShareholdingChart] Failed to load holder breakdown:', err)
+        setBreakdownError('Could not load holder details.')
+      })
+      .finally(() => setBreakdownLoading(false))
+  }
+
+  const toggleRow = (seg: SegmentKey) => {
+    const next = expanded === seg ? null : seg
+    setExpanded(next)
+    if (next && !breakdown && !breakdownLoading) {
+      loadBreakdown()
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -97,7 +215,7 @@ export function ShareholdingChart() {
             ))}
           </div>
 
-          {/* Holdings table */}
+          {/* Holdings table — each row expands (one at a time) to show named holders */}
           <div className="overflow-x-auto mt-2">
             <Table>
               <TableHeader>
@@ -111,15 +229,47 @@ export function ShareholdingChart() {
               <TableBody>
                 {(['promoter', 'fii', 'dii', 'public'] as SegmentKey[]).map((seg) => {
                   const segLabel: Record<SegmentKey, string> = { promoter: 'Promoters', fii: 'FIIs', dii: 'DIIs', public: 'Public', others: 'Others' }
+                  const categoryKey = SEGMENT_TO_CATEGORY[seg]
+                  const isExpandable = !!symbol && categoryKey !== null
+                  const isOpen = expanded === seg
                   return (
-                    <TableRow key={seg} className="hover:bg-surfaceMuted/40 border-border">
-                      <TableCell className="text-xs font-medium text-textPrimary py-3">{segLabel[seg]}</TableCell>
-                      {recent.map((row: any) => (
-                        <TableCell key={row.quarter} className="text-right font-mono tabular-nums text-xs text-textSecondary py-3">
-                          {formatNumber(row[seg] || 0, 2)}%
+                    <Fragment key={seg}>
+                      <TableRow
+                        onClick={() => isExpandable && toggleRow(seg)}
+                        aria-expanded={isOpen}
+                        className={cn(
+                          "border-border transition-colors",
+                          isExpandable ? "cursor-pointer hover:bg-surfaceMuted/40" : "",
+                          isOpen ? "bg-surfaceMuted/40" : "",
+                        )}
+                      >
+                        <TableCell className="text-xs font-medium text-textPrimary py-3">
+                          <span className="inline-flex items-center gap-1.5">
+                            {isExpandable && (
+                              <ChevronDown className={cn("size-3.5 text-textMuted transition-transform shrink-0", isOpen && "rotate-180")} />
+                            )}
+                            {segLabel[seg]}
+                          </span>
                         </TableCell>
-                      ))}
-                    </TableRow>
+                        {recent.map((row: any) => (
+                          <TableCell key={row.quarter} className="text-right font-mono tabular-nums text-xs text-textSecondary py-3">
+                            {formatNumber(row[seg] || 0, 2)}%
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      {isOpen && (
+                        <TableRow key={`${seg}-detail`} className="border-border">
+                          <TableCell colSpan={recent.length + 1} className="bg-surfaceMuted/20 py-3">
+                            <HolderDetailPanel
+                              loading={breakdownLoading}
+                              error={breakdownError}
+                              onRetry={loadBreakdown}
+                              category={categoryKey ? breakdown?.[categoryKey] ?? null : null}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   )
                 })}
               </TableBody>

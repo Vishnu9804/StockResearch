@@ -28,6 +28,7 @@ const SUBNAV_HEIGHT = 49
 
 export function StickySubNav() {
   const navRef = useRef<HTMLElement>(null)
+  const hScrollRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const sectionIds = SECTIONS.map((s) => s.id)
 
@@ -44,11 +45,23 @@ export function StickySubNav() {
   const activeSection = useIntersectionObserver(sectionIds, SUBNAV_HEIGHT, scrollingTarget)
 
   // Keep the active tab visible inside the horizontal scroll container.
+  // NOTE: this must only scroll the nav's own horizontal strip — not use
+  // btn.scrollIntoView(), which walks up every scrollable ancestor (including
+  // <main>) and cancels/resets the vertical scrollTo triggered by handleScrollTo.
   useEffect(() => {
     if (!activeSection) return
     const btn = buttonRefs.current[activeSection]
-    if (btn) {
-      btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    const scrollEl = hScrollRef.current
+    if (!btn || !scrollEl) return
+
+    const btnLeft = btn.offsetLeft
+    const btnRight = btnLeft + btn.offsetWidth
+    const viewLeft = scrollEl.scrollLeft
+    const viewRight = viewLeft + scrollEl.clientWidth
+
+    if (btnLeft < viewLeft || btnRight > viewRight) {
+      const targetLeft = btnLeft - (scrollEl.clientWidth - btn.offsetWidth) / 2
+      scrollEl.scrollTo({ left: targetLeft, behavior: 'smooth' })
     }
   }, [activeSection])
 
@@ -188,7 +201,7 @@ export function StickySubNav() {
       // sticky top-0: sticks at the top of <main> (topbar/ticker are OUTSIDE <main>)
       className="sticky top-0 bg-surface border-b border-border z-20 select-none shadow-sm"
     >
-      <div className="flex gap-0.5 overflow-x-auto px-4 py-0.5 scrollbar-hide">
+      <div ref={hScrollRef} className="flex gap-0.5 overflow-x-auto px-4 py-0.5 scrollbar-hide">
         {SECTIONS.map((section) => {
           const isActive = activeSection === section.id
           return (

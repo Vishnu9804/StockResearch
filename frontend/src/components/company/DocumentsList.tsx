@@ -1,9 +1,8 @@
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppSelector } from '@/store/hooks'
 import {
-  Bookmark, Download, ExternalLink, FileText, Headphones,
-  Pause, Play, RefreshCw, Search, Volume2,
+  Bookmark, Download, ExternalLink, FileText, RefreshCw, Search,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -16,22 +15,31 @@ interface DocumentItem {
   date: string
   category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating'
   size?: string
-  duration?: string
   fileUrl?: string
+}
+
+// FinEdge/NSE never expose a playable recording for a concall — only a PDF
+// (transcript, filing, or notice). Each category gets the label that
+// actually describes what opening the link gives the user.
+const CATEGORY_ACTION_LABEL: Record<string, string> = {
+  'announcement': 'View Link',
+  'annual-report': 'Download Report',
+  'concall': 'View Transcript',
+  'credit-rating': 'View Rating',
 }
 
 const DOCUMENTS: DocumentItem[] = [
   { id: 'doc-001', title: 'Annual Report FY 2024-25', date: '2025-05-15', category: 'annual-report', size: '18.4 MB' },
-  { id: 'doc-002', title: 'Q4 FY25 Earnings Conference Call Transcript', date: '2025-04-23', category: 'concall', duration: '45:12' },
+  { id: 'doc-002', title: 'Q4 FY25 Earnings Conference Call Transcript', date: '2025-04-23', category: 'concall' },
   { id: 'doc-003', title: 'Credit Rating Upgrade Notice (ICRA AAA)', date: '2025-04-10', category: 'credit-rating', size: '1.2 MB' },
   { id: 'doc-004', title: 'Intimation of Board Meeting for Dividend Consideration', date: '2025-04-28', category: 'announcement', size: '820 KB' },
   { id: 'doc-005', title: 'Press Release - Q4 & FY25 Audited Financial Results', date: '2025-04-22', category: 'announcement', size: '4.5 MB' },
   { id: 'doc-006', title: 'Outcome of Board Meeting - Dividends & Audited Financials', date: '2025-04-22', category: 'announcement', size: '2.1 MB' },
   { id: 'doc-007', title: 'Annual Report FY 2023-24', date: '2024-05-18', category: 'annual-report', size: '17.1 MB' },
-  { id: 'doc-008', title: 'Q3 FY25 Earnings Call Recording', date: '2025-01-18', category: 'concall', duration: '32:45' },
+  { id: 'doc-008', title: 'Q3 FY25 Earnings Call Recording', date: '2025-01-18', category: 'concall' },
   { id: 'doc-009', title: 'Crisil AAA Credit Rating Report', date: '2025-01-05', category: 'credit-rating', size: '1.4 MB' },
   { id: 'doc-010', title: 'Transcript of Q3 FY25 Earnings Conference Call', date: '2025-01-24', category: 'announcement', size: '750 KB' },
-  { id: 'doc-011', title: 'Q2 FY25 Earnings Call Recording', date: '2024-10-18', category: 'concall', duration: '42:15' },
+  { id: 'doc-011', title: 'Q2 FY25 Earnings Call Recording', date: '2024-10-18', category: 'concall' },
   { id: 'doc-012', title: 'Annual Report FY 2022-23', date: '2023-05-20', category: 'annual-report', size: '15.8 MB' },
 ]
 
@@ -57,74 +65,12 @@ const CATEGORY_STYLE: Record<string, string> = {
   'credit-rating': 'bg-warning-soft text-warning border-warning/20',
 }
 
-// ── Inline Audio Player component ────────────────────────────────────────────
-function AudioPlayer({ docId, duration, isPlaying, onToggle }: {
-  docId: string; duration: string; isPlaying: boolean; onToggle: (id: string) => void
-}) {
-  const [progress, setProgress] = useState(0)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (isPlaying) {
-      setProgress(0)
-      intervalRef.current = setInterval(() => {
-        setProgress((p) => {
-          if (p >= 100) {
-            clearInterval(intervalRef.current!)
-            onToggle(docId)
-            return 0
-          }
-          return p + 0.5
-        })
-      }, 150)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      setProgress(0)
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [isPlaying])
-
-  // Parse duration to estimate current time
-  const [totMins, totSecs] = duration.split(':').map(Number)
-  const totalSecs = totMins * 60 + totSecs
-  const elapsedSecs = Math.floor((progress / 100) * totalSecs)
-  const elapsedStr = `${String(Math.floor(elapsedSecs / 60)).padStart(2, '0')}:${String(elapsedSecs % 60).padStart(2, '0')}`
-
-  return (
-    <div className="mt-3 bg-surfaceMuted border border-border rounded-lg px-4 py-3 flex items-center gap-3">
-      <button
-        onClick={() => onToggle(docId)}
-        className={cn(
-          "size-9 rounded-full flex items-center justify-center shrink-0 transition-all",
-          isPlaying ? "bg-accent text-white" : "bg-surface border border-border text-textSecondary hover:border-accent hover:text-accent"
-        )}
-      >
-        {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between text-xs font-mono text-textMuted mb-1.5">
-          <span>{isPlaying ? elapsedStr : '00:00'}</span>
-          <span>{duration}</span>
-        </div>
-        <div className="relative h-1.5 bg-border rounded-full overflow-hidden cursor-pointer">
-          <div
-            className="h-full bg-accent rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-      <Volume2 className="size-3.5 text-textMuted shrink-0" />
-    </div>
-  )
-}
-
 export function DocumentsList() {
   const storeDocuments = useAppSelector((state) => state.company?.documents)
   const activeDocuments = storeDocuments?.documents || DOCUMENTS
 
   const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [playingId, setPlayingId] = useState<string | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const PAGE_SIZE = 5
@@ -136,10 +82,6 @@ export function DocumentsList() {
   const showToast = (msg: string) => {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(null), 3000)
-  }
-
-  const handlePlayToggle = (id: string) => {
-    setPlayingId((prev) => prev === id ? null : id)
   }
 
   const filteredDocuments = useMemo(() => {
@@ -220,8 +162,8 @@ export function DocumentsList() {
           </div>
         ) : (
           paginatedDocuments.map((doc: any) => {
-            const isConcall = doc.category === 'concall'
-            const isPlaying = playingId === doc.id
+            const actionLabel = CATEGORY_ACTION_LABEL[doc.category] || 'View Link'
+            const ActionIcon = doc.category === 'annual-report' ? Download : ExternalLink
 
             return (
               <div key={doc.id} className="px-5 py-4 hover:bg-surfaceMuted/20 transition-colors">
@@ -242,64 +184,29 @@ export function DocumentsList() {
                           {CATEGORY_LABEL[doc.category]}
                         </span>
                       </div>
-                      {/* Concall inline audio player */}
-                      {isConcall && doc.duration && (
-                        <AudioPlayer
-                          docId={doc.id}
-                          duration={doc.duration}
-                          isPlaying={isPlaying}
-                          onToggle={handlePlayToggle}
-                        />
-                      )}
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div className="shrink-0 flex items-center gap-2">
-                    {isConcall ? (
+                    {doc.fileUrl ? (
+                      <a
+                        href={formatExternalUrl(doc.fileUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-border text-textSecondary hover:border-accent hover:text-accent h-8 px-3 gap-1.5 transition-colors"
+                      >
+                        <ActionIcon className="size-3" /> {actionLabel}
+                      </a>
+                    ) : (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handlePlayToggle(doc.id)}
-                        className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
+                        disabled
+                        className="h-8 text-xs gap-1.5 font-medium border-border text-textMuted opacity-60 cursor-not-allowed"
                       >
-                        {isPlaying ? <><Pause className="size-3" /> Pause</> : <><Play className="size-3" /> Listen</>}
+                        <ActionIcon className="size-3" /> Not available
                       </Button>
-                    ) : doc.category === 'announcement' ? (
-                      doc.fileUrl ? (
-                        <a
-                          href={formatExternalUrl(doc.fileUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-border text-textSecondary hover:border-accent hover:text-accent h-8 px-3 gap-1.5 transition-colors"
-                        >
-                          <ExternalLink className="size-3" /> View Link
-                        </a>
-                      ) : (
-                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent">
-                          <ExternalLink className="size-3" /> View Link
-                        </Button>
-                      )
-                    ) : (
-                      doc.fileUrl ? (
-                        <a
-                          href={formatExternalUrl(doc.fileUrl)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-border text-textSecondary hover:border-accent hover:text-accent h-8 px-3 gap-1.5 transition-colors"
-                        >
-                          <Download className="size-3" /> Download PDF
-                        </a>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => showToast(`✓ Downloading: ${doc.title}`)}
-                          className="h-8 text-xs gap-1.5 font-medium border-border text-textSecondary hover:border-accent hover:text-accent"
-                        >
-                          <Download className="size-3" /> Download PDF
-                        </Button>
-                      )
                     )}
                     <button className="size-8 rounded-lg border border-border flex items-center justify-center text-textMuted hover:border-accent hover:text-accent transition-colors">
                       <Bookmark className="size-3.5" />

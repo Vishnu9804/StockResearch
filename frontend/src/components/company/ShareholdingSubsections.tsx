@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Users, FileText, History, BarChart2, RefreshCw, AlertCircle, Inbox } from 'lucide-react'
+import { Users, FileText, History, BarChart2, RefreshCw, AlertCircle, Inbox, ChevronRight } from 'lucide-react'
 import { finscreenClient } from '@/services/finscreenApi'
+import { cn } from '@/lib/utils'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,18 +17,6 @@ interface BeneficialOwnerItem {
   sBOExerciseByInfluence?: boolean
 }
 
-interface OwnershipItem {
-  shareholder_name?: string
-  shareholdingPct?: number
-  dematEquityShares?: number
-  pledgedShares?: number
-  pledgedSharesPct?: number
-  lockedInShares?: number
-  lockedInSharesPct?: number
-  paidUpEquityShares?: number
-  subCategory1?: string
-}
-
 interface DeclarationItem {
   header?: string
   equitySharesWithDifferentialVotingRights?: boolean
@@ -38,9 +26,18 @@ interface DeclarationItem {
   differentialVotingRightsPublic?: boolean
 }
 
-interface HistoryGroup {
-  header?: string
-  data?: OwnershipItem[]
+interface QuarterlyHolder {
+  name: string
+  pctByQuarter: Record<string, number>
+}
+interface QuarterlyCategory {
+  totals: Record<string, number>
+  holders: QuarterlyHolder[]
+}
+interface QuarterlyBreakdown {
+  symbol: string
+  quarters: string[]
+  categories: Record<'promoter' | 'fii' | 'dii' | 'government' | 'public', QuarterlyCategory>
 }
 
 const TABS = [
@@ -54,6 +51,11 @@ type TabId = typeof TABS[number]['id']
 
 const PAGE_SIZE = 10
 
+const CATEGORY_ORDER: (keyof QuarterlyBreakdown['categories'])[] = ['promoter', 'fii', 'dii', 'government', 'public']
+const CATEGORY_LABEL: Record<keyof QuarterlyBreakdown['categories'], string> = {
+  promoter: 'Promoters', fii: 'FIIs', dii: 'DIIs', government: 'Government', public: 'Public',
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmt(n?: number) {
@@ -62,17 +64,18 @@ function fmt(n?: number) {
 }
 function pct(n?: number) {
   if (n == null) return '—'
-  return `${n.toFixed(4)}%`
+  // FinEdge reports these as a fraction (e.g. 0.1112 === 11.12%), not a percentage.
+  return `${(n * 100).toFixed(2)}%`
 }
 function bool(v?: boolean) {
   return v ? <span className="text-positive font-semibold">Yes</span> : <span className="text-textMuted">No</span>
 }
 
-function Empty() {
+function Empty({ label = 'No records found for this section.' }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-textMuted gap-2">
       <Inbox className="size-8 opacity-40" />
-      <p className="text-xs">No records found for this section.</p>
+      <p className="text-xs">{label}</p>
     </div>
   )
 }
@@ -136,7 +139,7 @@ function BeneficialOwnersTab({ owners, page, setPage }: { owners: BeneficialOwne
 }
 
 function DeclarationTab({ item }: { item: DeclarationItem | null }) {
-  if (!item) return <Empty />
+  if (!item) return <Empty label="No declaration filed for this quarter." />
 
   return (
     <div className="p-4 border border-border/30 rounded-xl bg-surfaceMuted/10">
@@ -166,59 +169,86 @@ function DeclarationTab({ item }: { item: DeclarationItem | null }) {
   )
 }
 
-function CurrentHoldingsTab({ items, page, setPage }: { items: OwnershipItem[]; page: number; setPage: (p: number) => void }) {
-  if (!items.length) return <Empty />
+// Quarter-wise category breakdown — Promoters/FIIs/DIIs/Government/Public totals
+// per quarter, each expandable to its notable named holders' per-quarter %.
+function QuarterlyBreakdownTable({ data }: { data: QuarterlyBreakdown | null }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const totalPages = Math.ceil(items.length / PAGE_SIZE)
-  const pagedItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  if (!data || data.quarters.length === 0) return <Empty label="No shareholding history available." />
 
-  return (
-    <div className="space-y-2">
-      {pagedItems.map((o, i) => (
-        <div key={i} className="p-3 border border-border/30 rounded-xl bg-surfaceMuted/10">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-textPrimary truncate max-w-[60%]">
-              {o.shareholder_name || o.subCategory1 || `Holder ${i + 1}`}
-            </p>
-            <Badge variant="outline" className="text-xs font-bold text-accent bg-accentSoft border-accent/20">
-              {pct(o.shareholdingPct)}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-[10px] text-textMuted pt-1.5 border-t border-border/10">
-            <span>Demat: <span className="text-textSecondary font-mono">{fmt(o.dematEquityShares)}</span></span>
-            <span>Paid-up: <span className="text-textSecondary font-mono">{fmt(o.paidUpEquityShares)}</span></span>
-            <span>Pledged: <span className="text-textSecondary font-mono">{fmt(o.pledgedShares)} ({pct(o.pledgedSharesPct)})</span></span>
-            <span>Locked: <span className="text-textSecondary font-mono">{fmt(o.lockedInShares)} ({pct(o.lockedInSharesPct)})</span></span>
-          </div>
-        </div>
-      ))}
-      <Pagination current={page} total={totalPages} onChange={setPage} />
-    </div>
-  )
-}
-
-function FlowHistoryTab({ items, page, setPage }: { items: OwnershipItem[]; page: number; setPage: (p: number) => void }) {
-  if (!items.length) return <Empty />
-
-  const totalPages = Math.ceil(items.length / PAGE_SIZE)
-  const pagedItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const toggle = (cat: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
+  }
 
   return (
-    <div className="space-y-2">
-      {pagedItems.map((o, i) => (
-        <div key={i} className="flex items-center justify-between p-3 border border-border/30 rounded-xl bg-surfaceMuted/10 gap-4">
-          <span className="text-xs text-textPrimary truncate max-w-[55%] font-medium">
-            {o.shareholder_name || o.subCategory1 || `Holder ${i + 1}`}
-          </span>
-          <div className="flex items-center gap-3 text-[10px] text-textMuted shrink-0">
-            <span>Demat: <span className="text-textSecondary font-mono">{fmt(o.dematEquityShares)}</span></span>
-            <Badge variant="outline" className="text-[10px] font-bold text-accent bg-accentSoft border-accent/20 px-1.5">
-              {pct(o.shareholdingPct)}
-            </Badge>
-          </div>
-        </div>
-      ))}
-      <Pagination current={page} total={totalPages} onChange={setPage} />
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="border-b border-border/40">
+            <th className="text-left font-medium text-textMuted uppercase tracking-wider pb-2 pr-4 sticky left-0 bg-surface min-w-55">
+              Holders
+            </th>
+            {data.quarters.map((q) => (
+              <th key={q} className="text-right font-medium text-textMuted uppercase tracking-wider pb-2 px-3 whitespace-nowrap">
+                {q}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {CATEGORY_ORDER.map((cat) => {
+            const category = data.categories[cat]
+            if (!category) return null
+            const isOpen = expanded.has(cat)
+            const hasHolders = category.holders.length > 0
+            return (
+              <Fragment key={cat}>
+                <tr
+                  onClick={() => hasHolders && toggle(cat)}
+                  className={cn(
+                    "border-b border-border/20 transition-colors",
+                    hasHolders ? "cursor-pointer hover:bg-surfaceMuted/40" : "",
+                  )}
+                >
+                  <td className="py-2 pr-4 font-semibold text-textPrimary sticky left-0 bg-surface">
+                    <span className="inline-flex items-center gap-1.5">
+                      {hasHolders && (
+                        <ChevronRight className={cn("size-3.5 text-textMuted transition-transform shrink-0", isOpen && "rotate-90")} />
+                      )}
+                      {CATEGORY_LABEL[cat]}
+                    </span>
+                  </td>
+                  {data.quarters.map((q) => (
+                    <td key={q} className="text-right py-2 px-3 font-mono font-semibold tabular-nums text-textPrimary whitespace-nowrap">
+                      {category.totals[q] != null ? `${category.totals[q].toFixed(2)}%` : '—'}
+                    </td>
+                  ))}
+                </tr>
+                {isOpen && category.holders.map((h) => (
+                  <tr key={h.name} className="border-b border-border/10 hover:bg-surfaceMuted/20 transition-colors">
+                    <td className="py-1.5 pr-4 pl-6 text-textSecondary truncate max-w-55 sticky left-0 bg-surface" title={h.name}>
+                      {h.name}
+                    </td>
+                    {data.quarters.map((q) => (
+                      <td key={q} className="text-right py-1.5 px-3 font-mono tabular-nums text-textMuted whitespace-nowrap">
+                        {h.pctByQuarter[q] != null ? `${h.pctByQuarter[q].toFixed(2)}%` : ''}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className="text-[10px] text-textMuted mt-3 leading-relaxed">
+        Sub-rows show named significant shareholders who held at least 0.5% in one or more of the quarters shown — not exhaustive; pooled/omnibus and retail holdings aren't individually disclosed.
+      </p>
     </div>
   )
 }
@@ -228,43 +258,47 @@ function FlowHistoryTab({ items, page, setPage }: { items: OwnershipItem[]; page
 export function ShareholdingSubsections({ symbol }: { symbol: string }) {
   const [activeTab, setActiveTab] = useState<TabId>('beneficial')
   const [data, setData] = useState<any>(null)
+  // Which tab `data` was fetched for — each tab's response has a different shape
+  // (e.g. { declaration: [...] } vs { quarters: [...], categories: {...} }).
+  // activeTab updates on click, but data/loading only update once the effect it
+  // triggers actually runs — for one render in between, `loading` can still be
+  // false and `data` can still hold the *previous* tab's (differently-shaped)
+  // payload. Gating on dataTab, not just loading, stops that stale-shaped data
+  // from ever reaching a renderer built for a different tab and crashing.
+  const [dataTab, setDataTab] = useState<TabId | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Filter & Pagination state
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('')
+  // Filter & Pagination state. selectedPeriod stays null until the user
+  // explicitly picks a quarter — until then the latest quarter is shown.
+  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+
+  // Guards against a slower, stale request (e.g. the heavier Beneficial Owners
+  // call) resolving after a faster one and clobbering state for a tab the user
+  // has since switched away from — was causing Declarations to appear empty.
+  const requestIdRef = useRef(0)
 
   const load = async (tab: TabId = activeTab) => {
     if (!symbol || symbol === 'STOCK') return
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     setData(null)
-    setSelectedPeriod('')
+    setSelectedPeriod(null)
     setPage(1)
     try {
       const endpoint =
         tab === 'beneficial'   ? `/company/${symbol}/shareholding/beneficial-owners` :
         tab === 'declaration'  ? `/company/${symbol}/shareholding/declaration` :
-        tab === 'current'      ? `/company/${symbol}/shareholding/ownership-current` :
-                                 `/company/${symbol}/shareholding/ownership-history`
+                                 `/company/${symbol}/shareholding/quarterly-breakdown` // 'current' + 'history'
 
       const res = await finscreenClient.get(endpoint)
+      if (requestIdRef.current !== requestId) return // a newer request has since started — drop this one
       setData(res.data)
-
-      // Set initial selected period based on loaded tab data
-      const loaded = res.data
-      if (tab === 'beneficial' && Array.isArray(loaded?.beneficial_owners)) {
-        const first = loaded.beneficial_owners.map((g: any) => g.header).filter(Boolean)[0]
-        if (first) setSelectedPeriod(first)
-      } else if (tab === 'declaration' && Array.isArray(loaded?.declaration)) {
-        const first = loaded.declaration.map((i: any) => i.header).filter(Boolean)[0]
-        if (first) setSelectedPeriod(first)
-      } else if (tab === 'history' && Array.isArray(loaded?.ownership_history)) {
-        const first = loaded.ownership_history.map((g: any) => g.header).filter(Boolean)[0]
-        if (first) setSelectedPeriod(first)
-      }
+      setDataTab(tab)
     } catch (err: any) {
+      if (requestIdRef.current !== requestId) return
       console.error('[ShareholdingSubsections] error:', err?.response?.data || err?.message)
       if (err.response?.status === 404) {
         setData(null)
@@ -277,7 +311,7 @@ export function ShareholdingSubsections({ symbol }: { symbol: string }) {
         )
       }
     } finally {
-      setLoading(false)
+      if (requestIdRef.current === requestId) setLoading(false)
     }
   }
 
@@ -285,7 +319,8 @@ export function ShareholdingSubsections({ symbol }: { symbol: string }) {
     load(activeTab)
   }, [symbol, activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Extract all periods for current active tab
+  // Extract all periods for current active tab (only beneficial/declaration use
+  // the quarter dropdown — current/history render every quarter side by side).
   const periods: string[] = (() => {
     if (!data) return []
     if (activeTab === 'beneficial' && Array.isArray(data.beneficial_owners)) {
@@ -294,14 +329,13 @@ export function ShareholdingSubsections({ symbol }: { symbol: string }) {
     if (activeTab === 'declaration' && Array.isArray(data.declaration)) {
       return data.declaration.map((i: any) => i.header).filter(Boolean)
     }
-    if (activeTab === 'history' && Array.isArray(data.ownership_history)) {
-      return data.ownership_history.map((g: any) => g.header).filter(Boolean)
-    }
     return []
   })()
+  const latestPeriod = periods[0] ?? ''
+  const effectivePeriod = selectedPeriod ?? latestPeriod
 
   const renderContent = () => {
-    if (loading) {
+    if (loading || dataTab !== activeTab) {
       return (
         <div className="space-y-3 py-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -330,19 +364,16 @@ export function ShareholdingSubsections({ symbol }: { symbol: string }) {
 
     switch (activeTab) {
       case 'beneficial': {
-        const group = data.beneficial_owners?.find((g: any) => g.header === selectedPeriod) || data.beneficial_owners?.[0]
+        const group = data.beneficial_owners?.find((g: any) => g.header === effectivePeriod) || data.beneficial_owners?.[0]
         return <BeneficialOwnersTab owners={group?.beneficial_owners || []} page={page} setPage={setPage} />
       }
       case 'declaration': {
-        const item = data.declaration?.find((i: any) => i.header === selectedPeriod) || data.declaration?.[0] || null
+        const item = data.declaration?.find((i: any) => i.header === effectivePeriod) || data.declaration?.[0] || null
         return <DeclarationTab item={item} />
       }
-      case 'current': {
-        return <CurrentHoldingsTab items={data.ownerships || []} page={page} setPage={setPage} />
-      }
+      case 'current':
       case 'history': {
-        const group = data.ownership_history?.find((g: any) => g.header === selectedPeriod) || data.ownership_history?.[0]
-        return <FlowHistoryTab items={group?.data || []} page={page} setPage={setPage} />
+        return <QuarterlyBreakdownTable data={data as QuarterlyBreakdown} />
       }
     }
   }
@@ -354,24 +385,22 @@ export function ShareholdingSubsections({ symbol }: { symbol: string }) {
           <CardTitle className="text-sm font-semibold text-textPrimary flex items-center gap-2">
             <Users className="size-4 text-accent" />
             Institutional Micro-Details
-            {activeTab === 'current' && data?.quarter && (
-              <span className="text-xs font-normal text-textMuted font-mono">({data.quarter})</span>
-            )}
           </CardTitle>
-          
+
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Period Dropdown Filter */}
-            {!loading && periods.length > 0 && (
+            {/* Period Dropdown Filter — only for Beneficial Owners / Declarations */}
+            {!loading && periods.length > 0 && (activeTab === 'beneficial' || activeTab === 'declaration') && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] uppercase font-bold text-textMuted tracking-wider hidden sm:inline">Quarter:</span>
                 <select
-                  value={selectedPeriod}
+                  value={selectedPeriod ?? ''}
                   onChange={(e) => {
-                    setSelectedPeriod(e.target.value)
+                    setSelectedPeriod(e.target.value || null)
                     setPage(1)
                   }}
                   className="bg-surfaceMuted/60 text-xs font-semibold text-textPrimary px-2.5 py-1.5 rounded-lg border border-border/30 outline-none cursor-pointer focus:border-accent/40 focus:ring-1 focus:ring-accent/15"
                 >
+                  <option value="">Latest ({latestPeriod})</option>
                   {periods.map(p => (
                     <option key={p} value={p}>{p}</option>
                   ))}

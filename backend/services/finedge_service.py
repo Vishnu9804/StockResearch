@@ -86,12 +86,18 @@ def _clamp_query_dates(endpoint: str, query: Dict[str, Any]) -> None:
     except ValueError:
         return
 
-    if "corporate-actions" in ep:
-        max_days = 30
-    elif "investor-call-transcripts" in ep:
-        max_days = 7
+    # The market-wide feeds (no symbol filter) return every listed company's
+    # disclosures for the window, so they're capped hard to avoid an enormous
+    # response. A symbol-scoped query is filtered upstream to that one
+    # company's filings (verified: a symbol-scoped corp-announcements query
+    # returns only that company's records), so it's safe to allow a much
+    # wider history — otherwise per-company document lookups (annual
+    # reports, concalls, credit ratings) silently only ever see last week.
+    has_symbol = bool(query.get("symbol"))
+    if "investor-call-transcripts" in ep:
+        max_days = 730 if has_symbol else 7
     elif "corp-announcements" in ep:
-        max_days = 7
+        max_days = 730 if has_symbol else 7
     else:
         return
 
