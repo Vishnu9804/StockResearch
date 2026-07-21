@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
-import { Search, Bell, Menu, Moon, Sun, X, User as UserIcon, LogOut, Settings, ShieldAlert } from 'lucide-react'
+import { Search, Bell, Menu, Moon, Sun, X, User as UserIcon, LogOut, Sparkles } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import { toggleSidebar } from '@/store/slices/uiSlice'
 import { toggleDrawer } from '@/store/slices/notificationsSlice'
@@ -410,7 +410,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                       <UserIcon className="size-4 text-textMuted" />
                       My Account
                     </button>
-                    {user?.plan === 'FREE' && (
+                    {user?.plan !== 'PRO' && (
                       <button
                         onClick={() => {
                           setShowProfileMenu(false)
@@ -418,20 +418,10 @@ export function Topbar({ onOpenPalette }: { onOpenPalette?: () => void }) {
                         }}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-accent hover:text-accent/90 hover:bg-accentSoft/50 transition-colors text-left"
                       >
-                        <ShieldAlert className="size-4 text-accent" />
+                        <Sparkles className="size-4 text-accent" />
                         Upgrade to PRO
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false)
-                        navigate('/account?tab=settings')
-                      }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors text-left"
-                    >
-                      <Settings className="size-4 text-textMuted" />
-                      Account Settings
-                    </button>
                   </div>
 
                   {/* Logout Button */}

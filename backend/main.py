@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
 from core.database import async_session_maker
-from routers import finedge, screener, portfolio, watchlist, ratio_preferences
+from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison
 from middleware.auth import get_current_user, AuthenticatedUser
 from services.metrics_sync import sync_quote_data, sync_fundamentals_batch
 
@@ -139,6 +139,8 @@ app.include_router(screener.router)
 app.include_router(portfolio.router)
 app.include_router(watchlist.router)
 app.include_router(ratio_preferences.router)
+app.include_router(custom_ratios.router)
+app.include_router(peer_comparison.router)
 
 if __name__ == "__main__":
     import uvicorn

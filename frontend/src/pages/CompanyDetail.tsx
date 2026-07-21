@@ -468,7 +468,7 @@ export function CompanyDetail() {
         <section id="peers" className="scroll-mt-16">
           <ScrollReveal>
             <Suspense fallback={<SectionSkeleton />}>
-              <PeerComparison symbol={company.symbol} sector={company.sector} />
+              <PeerComparison company={company} />
             </Suspense>
           </ScrollReveal>
         </section>

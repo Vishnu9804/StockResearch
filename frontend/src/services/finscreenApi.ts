@@ -48,6 +48,12 @@ export const finscreenApi = {
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
   fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
   fetchPeers: (symbol: string) => finscreenClient.get(`/company/${symbol}/peers`).then(r => r.data),
+  fetchPeerComparison: (symbol: string, sector?: string, limit?: number) =>
+    finscreenClient.get(`/company/${symbol}/peer-comparison`, {
+      params: { ...(sector ? { sector } : {}), ...(limit ? { limit } : {}) },
+    }).then(r => r.data),
+  fetchPeerComparisonQuarterly: (symbol: string, symbols: string[]) =>
+    finscreenClient.get(`/company/${symbol}/peer-comparison/quarterly`, { params: { symbols: symbols.join(',') } }).then(r => r.data),
   
   // --- Market & Feed Endpoints ---
   fetchMarketNews: () => finscreenClient.get('/market/news').then(r => r.data),
@@ -72,6 +78,36 @@ export const ratioPreferencesApi = {
   list: () => apiClient.get('/ratio-preferences/').then(r => r.data),
   add: (ratioKeys: string[]) => apiClient.post('/ratio-preferences/', { ratioKeys }).then(r => r.data),
   remove: (ratioKey: string) => apiClient.delete(`/ratio-preferences/${encodeURIComponent(ratioKey)}`).then(r => r.data),
+}
+
+// --- User-authored custom ratio formulas (Custom Ratios / Formula Builder page) ---
+export interface CustomRatioDto {
+  id: string
+  name: string
+  formula: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EvaluateFormulaResult {
+  success: boolean
+  symbol: string
+  value?: number
+  resolvedVariables: Record<string, number>
+  missingVariables?: string[]
+  message?: string
+}
+
+export const customRatiosApi = {
+  list: () => apiClient.get('/custom-ratios/').then(r => r.data as { success: boolean; ratios: CustomRatioDto[] }),
+  create: (name: string, formula: string, description?: string) =>
+    apiClient.post('/custom-ratios/', { name, formula, description }).then(r => r.data as { success: boolean; ratio: CustomRatioDto }),
+  update: (id: string, body: { name?: string; formula?: string; description?: string }) =>
+    apiClient.put(`/custom-ratios/${id}`, body).then(r => r.data as { success: boolean; ratio: CustomRatioDto }),
+  remove: (id: string) => apiClient.delete(`/custom-ratios/${id}`).then(r => r.data),
+  evaluate: (formula: string, symbol: string) =>
+    apiClient.post('/custom-ratios/evaluate', { formula, symbol }).then(r => r.data as EvaluateFormulaResult),
 }
 
 // Default export to satisfy components importing it directly

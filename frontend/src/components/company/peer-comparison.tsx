@@ -1,69 +1,230 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { companies } from '@/lib/data/companies'
-import { formatNumber, formatPct, changeClass } from '@/lib/formatters'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { formatNumber } from '@/lib/formatters'
 import { ArrowUpRight, ArrowDownRight, Download, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import finscreenApi from '@/services/finscreenApi'
+import type { Company } from '@/lib/data/companies'
 
 type ViewMode = 'financial-ratios' | 'quarterly'
 
-export function PeerComparison({ symbol, sector }: { symbol: string; sector: string }) {
+const ALL_PEERS_LIMIT = 50
+
+interface PeerRatioRow {
+  symbol: string
+  name: string
+  marketCap: number
+  price: number
+  change: number
+  pe: number
+  pb: number
+  evEbitda: number | null
+  dividendYield: number | null
+  debtToEquity: number
+}
+
+// Shared row renderer for the Financial Ratios table — used by both the main
+// card and the "View All Peers" dialog so the two stay visually identical.
+function RatiosRow({ peer, isCurrent }: { peer: PeerRatioRow; isCurrent: boolean }) {
+  return (
+    <TableRow
+      className={cn(
+        'hover:bg-surfaceMuted transition-colors border-b border-border/40',
+        isCurrent ? 'bg-accentSoft/30' : ''
+      )}
+    >
+      <TableCell className="py-3">
+        <Link to={`/company/${peer.symbol}`} className="flex items-center gap-2">
+          {isCurrent && (
+            <span className="size-1.5 rounded-full bg-accent shrink-0" />
+          )}
+          <div>
+            <span className={cn('font-medium text-xs', isCurrent ? 'text-accent' : 'text-textPrimary hover:text-accent')}>
+              {peer.symbol}
+            </span>
+            {isCurrent && (
+              <span className="ml-1.5 text-xs font-medium bg-accentSoft text-accent border border-accent/20 px-1.5 py-0.5 rounded uppercase">NSE</span>
+            )}
+            <div className="text-xs text-textMuted">{peer.name}</div>
+          </div>
+        </Link>
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+        {peer.marketCap > 0 ? formatNumber(peer.marketCap, 0) : 'N/A'}
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums py-3">
+        <span className={cn(isCurrent ? 'font-medium text-textPrimary' : 'text-textSecondary')}>
+          {peer.pe > 0 ? formatNumber(peer.pe, 2) : 'N/A'}
+        </span>
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+        {peer.pb > 0 ? formatNumber(peer.pb, 2) : 'N/A'}
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+        {peer.evEbitda != null && peer.evEbitda > 0 ? formatNumber(peer.evEbitda, 2) : 'N/A'}
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+        {peer.dividendYield != null ? formatNumber(peer.dividendYield, 2) : 'N/A'}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+interface PeerQuarterlyRow {
+  symbol: string
+  quarter: string | null
+  revenue: number | null
+  netProfit: number | null
+  revenueYoY: number | null
+  profitYoY: number | null
+}
+
+export function PeerComparison({ company }: { company: Company }) {
+  const symbol = company.symbol
+  const sector = company.sector
+
   const [viewMode, setViewMode] = useState<ViewMode>('financial-ratios')
   const [selectedSector, setSelectedSector] = useState(sector)
-  const [peerSymbols, setPeerSymbols] = useState<string[]>([])
-  const [quotes, setQuotes] = useState<Record<string, any>>({})
-  const [profiles, setProfiles] = useState<Record<string, any>>({})
+  const [availableSectors, setAvailableSectors] = useState<string[]>([])
+  const [peers, setPeers] = useState<PeerRatioRow[]>([])
+  const [isFallbackUsed, setIsFallbackUsed] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const hasLoadedOnce = useRef(false)
+
+  const [quarterlyMap, setQuarterlyMap] = useState<Record<string, PeerQuarterlyRow>>({})
+  const [quarterlyLoading, setQuarterlyLoading] = useState(false)
+  const [quarterlyLoadedFor, setQuarterlyLoadedFor] = useState<string>('')
+
+  const [allPeersOpen, setAllPeersOpen] = useState(false)
+  const [allPeers, setAllPeers] = useState<PeerRatioRow[]>([])
+  const [allPeersLoading, setAllPeersLoading] = useState(false)
+  const [allPeersError, setAllPeersError] = useState(false)
+  const [allPeersLoadedFor, setAllPeersLoadedFor] = useState<string>('')
+
+  // Re-anchor the sector selection whenever the user navigates to a different
+  // company, and force the full skeleton (not the lighter "refreshing" state)
+  // so stale data from the previous company never flashes on screen.
+  useEffect(() => {
+    hasLoadedOnce.current = false
+    setSelectedSector(sector)
+  }, [symbol, sector])
 
   useEffect(() => {
+    let cancelled = false
     async function loadPeers() {
       try {
-        setLoading(true)
-        const response = await finscreenApi.fetchPeersList(symbol)
-        const peers = response && Array.isArray(response.peers) ? response.peers : []
-        setPeerSymbols(peers)
-        
-        const symbolsToFetch = Array.from(new Set([...peers, symbol].map(s => s.toUpperCase())))
-        if (symbolsToFetch.length > 0) {
-          const [quotesRes, profilesList] = await Promise.all([
-            finscreenApi.fetchMultipleQuotes(symbolsToFetch).catch(() => ({ data: {} })),
-            Promise.all(
-              symbolsToFetch.map(async (sym) => {
-                try {
-                  return await finscreenApi.fetchCompanyProfile(sym)
-                } catch {
-                  return null
-                }
-              })
-            )
-          ])
-
-          if (quotesRes && quotesRes.data) {
-            setQuotes(quotesRes.data)
-          }
-
-          const profileMap: Record<string, any> = {}
-          profilesList.forEach(p => {
-            if (p && p.symbol) {
-              profileMap[p.symbol.toUpperCase()] = p
-            }
-          })
-          setProfiles(profileMap)
-        }
+        if (hasLoadedOnce.current) setRefreshing(true)
+        else setLoading(true)
+        const res = await finscreenApi.fetchPeerComparison(symbol, selectedSector)
+        if (cancelled) return
+        setPeers(Array.isArray(res.peers) ? res.peers : [])
+        setIsFallbackUsed(!!res.isFallback)
+        setAvailableSectors(Array.isArray(res.availableSectors) ? res.availableSectors : [])
       } catch (err) {
-        console.error('Failed to fetch peers or quotes:', err)
-        setPeerSymbols([])
+        console.error('Failed to fetch peer comparison:', err)
+        if (!cancelled) {
+          setPeers([])
+          setIsFallbackUsed(true)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setRefreshing(false)
+          hasLoadedOnce.current = true
+        }
       }
     }
     loadPeers()
-  }, [symbol])
+    return () => { cancelled = true }
+  }, [symbol, selectedSector])
+
+  // Current company's own row, built from the already-loaded profile — real
+  // data, zero extra network cost (includes the one real evEbitda figure we have).
+  const currentCompany: PeerRatioRow = useMemo(() => ({
+    symbol: company.symbol,
+    name: company.name,
+    marketCap: company.marketCap || 0,
+    price: company.price || 0,
+    change: company.changePct || 0,
+    pe: company.pe || 0,
+    pb: company.bookValue > 0 ? company.price / company.bookValue : 0,
+    evEbitda: company.ratios?.evEbitda ?? null,
+    dividendYield: company.dividendYield ?? null,
+    debtToEquity: company.debtToEquity || 0,
+  }), [company])
+
+  const peersList = useMemo(() => {
+    const rest = peers.filter(p => p.symbol.toUpperCase() !== symbol.toUpperCase())
+    return [currentCompany, ...rest]
+  }, [peers, currentCompany, symbol])
+
+  const symbolsKey = useMemo(() => peersList.map(p => p.symbol).join(','), [peersList])
+
+  // Quarterly Performance data is only fetched once the user actually opens
+  // that tab (it requires a live FinEdge call per peer), and cached per peer set.
+  useEffect(() => {
+    if (viewMode !== 'quarterly' || !symbolsKey || quarterlyLoadedFor === symbolsKey) return
+    let cancelled = false
+    async function loadQuarterly() {
+      try {
+        setQuarterlyLoading(true)
+        const symbols = symbolsKey.split(',')
+        const res = await finscreenApi.fetchPeerComparisonQuarterly(symbol, symbols)
+        if (cancelled) return
+        const map: Record<string, PeerQuarterlyRow> = {}
+        for (const row of (res.quarters || [])) {
+          if (row?.symbol) map[row.symbol.toUpperCase()] = row
+        }
+        setQuarterlyMap(map)
+        setQuarterlyLoadedFor(symbolsKey)
+      } catch (err) {
+        console.error('Failed to fetch peer quarterly performance:', err)
+      } finally {
+        if (!cancelled) setQuarterlyLoading(false)
+      }
+    }
+    loadQuarterly()
+    return () => { cancelled = true }
+  }, [viewMode, symbolsKey, quarterlyLoadedFor, symbol])
+
+  // "View All Peers" dialog: fetch a much larger peer set for the currently
+  // selected sector, only while the dialog is open, cached per sector so
+  // reopening it without changing sectors doesn't refire the request.
+  useEffect(() => {
+    if (!allPeersOpen || allPeersLoadedFor === selectedSector) return
+    let cancelled = false
+    async function loadAllPeers() {
+      try {
+        setAllPeersLoading(true)
+        setAllPeersError(false)
+        const res = await finscreenApi.fetchPeerComparison(symbol, selectedSector, ALL_PEERS_LIMIT)
+        if (cancelled) return
+        setAllPeers(Array.isArray(res.peers) ? res.peers : [])
+        setAllPeersLoadedFor(selectedSector)
+      } catch (err) {
+        console.error('Failed to fetch full peer list:', err)
+        if (!cancelled) setAllPeersError(true)
+      } finally {
+        if (!cancelled) setAllPeersLoading(false)
+      }
+    }
+    loadAllPeers()
+    return () => { cancelled = true }
+  }, [allPeersOpen, allPeersLoadedFor, selectedSector, symbol])
+
+  const allPeersList = useMemo(() => {
+    const rest = allPeers.filter(p => p.symbol.toUpperCase() !== symbol.toUpperCase())
+    return [currentCompany, ...rest]
+  }, [allPeers, currentCompany, symbol])
 
   if (loading) {
     return (
@@ -81,88 +242,18 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
     )
   }
 
-  // Map symbols to profile and quote overrides
-  let peersList = peerSymbols
-    .map(sym => {
-      const uSym = sym.toUpperCase()
-      const profile = profiles[uSym]
-      const base = companies.find(c => c.symbol === uSym)
-      const quote = quotes[uSym]
-      if (!profile && !base && !quote) return undefined
-
-      const price = quote?.current_price || profile?.price || base?.price || 0
-      const pb = profile?.bookValue > 0 ? (price / profile.bookValue) : ((base as any)?.pb || 0)
-
-      return {
-        symbol: uSym,
-        name: profile?.name || base?.name || uSym,
-        sector: profile?.sector || base?.sector || selectedSector,
-        marketCap: quote?.market_cap || profile?.marketCap || base?.marketCap || 0,
-        price,
-        change: quote?.pct_change || profile?.changePct || base?.change || 0,
-        pe: profile?.pe || base?.pe || 0,
-        pb: pb,
-        evEbitda: profile?.evEbitda || (base as any)?.evEbitda || 0,
-        dividendYield: profile?.dividendYield || base?.dividendYield || 0,
-        debtToEquity: profile?.debtToEquity || base?.debtToEquity || 0,
-      }
-    })
-    .filter((c): c is any => c !== undefined)
-
-  const isFallbackUsed = peersList.length === 0
-  if (isFallbackUsed) {
-    // Fallback to sector filtering
-    peersList = companies.filter((c) => c.sector === selectedSector && c.symbol !== symbol).map(c => {
-      const quote = quotes[c.symbol]
-      const profile = profiles[c.symbol]
-      const price = quote?.current_price || profile?.price || c.price || 0
-      const pb = profile?.bookValue > 0 ? (price / profile.bookValue) : ((c as any).pb || 0)
-
-      return {
-        ...c,
-        marketCap: quote?.market_cap || profile?.marketCap || c.marketCap || 0,
-        price,
-        change: quote?.pct_change || profile?.changePct || c.change || 0,
-        pe: profile?.pe || c.pe || 0,
-        pb: pb,
-        evEbitda: profile?.evEbitda || (c as any).evEbitda || 0,
-        dividendYield: profile?.dividendYield || c.dividendYield || 0,
-        debtToEquity: profile?.debtToEquity || c.debtToEquity || 0,
-      }
-    }).slice(0, 8)
-  }
-
-  // Include current company at the top of comparison if not present
-  const currentCompanyProfile = profiles[symbol.toUpperCase()]
-  const currentCompanyBase = companies.find(c => c.symbol === symbol.toUpperCase())
-  const currentCompanyQuote = quotes[symbol.toUpperCase()]
-  const currentPrice = currentCompanyQuote?.current_price || currentCompanyProfile?.price || currentCompanyBase?.price || 0
-  const currentPB = currentCompanyProfile?.bookValue > 0 ? (currentPrice / currentCompanyProfile.bookValue) : ((currentCompanyBase as any)?.pb || 0)
-
-  const currentCompany = currentCompanyProfile || currentCompanyBase || currentCompanyQuote ? {
-    symbol: symbol.toUpperCase(),
-    name: currentCompanyProfile?.name || currentCompanyBase?.name || symbol.toUpperCase(),
-    sector: currentCompanyProfile?.sector || currentCompanyBase?.sector || sector || selectedSector,
-    marketCap: currentCompanyQuote?.market_cap || currentCompanyProfile?.marketCap || currentCompanyBase?.marketCap || 0,
-    price: currentPrice,
-    change: currentCompanyQuote?.pct_change || currentCompanyProfile?.changePct || currentCompanyBase?.change || 0,
-    pe: currentCompanyProfile?.pe || currentCompanyBase?.pe || 0,
-    pb: currentPB,
-    evEbitda: currentCompanyProfile?.evEbitda || (currentCompanyBase as any)?.evEbitda || 0,
-    dividendYield: currentCompanyProfile?.dividendYield || currentCompanyBase?.dividendYield || 0,
-    debtToEquity: currentCompanyProfile?.debtToEquity || currentCompanyBase?.debtToEquity || 0,
-  } : undefined
-
-  if (currentCompany && !peersList.some(p => p.symbol === symbol.toUpperCase())) {
-    peersList.unshift(currentCompany)
-  }
+  // The company's own real sector always stays pinned as the first option so
+  // it's a one-click hop back after browsing other sectors in the dropdown.
+  const sectorOptions = [
+    sector,
+    ...Array.from(new Set(availableSectors.filter(Boolean))).filter(s => s !== sector),
+  ]
 
   const peerMedianPE = peersList.reduce((sum, p) => sum + p.pe, 0) / (peersList.length || 1)
-  const currentPE = currentCompany?.pe ?? peerMedianPE
+  const currentPE = currentCompany.pe || peerMedianPE
   const pePremiumPct = peerMedianPE > 0 ? ((currentPE - peerMedianPE) / peerMedianPE * 100) : 0
   const totalMarketCap = peersList.reduce((s, p) => s + p.marketCap, 0)
-  const currentMcap = currentCompany?.marketCap ?? 0
-  const currentMcapPct = totalMarketCap > 0 ? (currentMcap / totalMarketCap * 100) : 100
+  const currentMcapPct = totalMarketCap > 0 ? (currentCompany.marketCap / totalMarketCap * 100) : 100
 
   return (
     <div className="space-y-4 select-none">
@@ -179,7 +270,7 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
               )}
             </div>
             <p className="text-xs text-textMuted mt-0.5">
-              Sector: <span className="font-medium text-textSecondary">{selectedSector}</span>
+              Sector: <span className="font-medium text-textSecondary">{sector}</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -189,8 +280,8 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
               onChange={e => setSelectedSector(e.target.value)}
               className="text-xs font-medium text-textPrimary bg-surface border border-border/40 rounded-md px-2 py-1.5 focus:outline-none focus:border-accent"
             >
-              {Array.from(new Set(companies.map(c => c.sector))).map(s => (
-                <option key={s}>{s}</option>
+              {sectorOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
             {/* View toggle */}
@@ -213,71 +304,112 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
 
         {/* Table */}
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-surfaceMuted">
-                <TableRow>
-                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Company</TableHead>
-                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Market Cap (Cr)</TableHead>
-                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/E</TableHead>
-                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/B</TableHead>
-                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">EV/EBITDA</TableHead>
-                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Div Yield (%)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {peersList.map((peer) => {
-                  const isCurrent = peer.symbol === symbol.toUpperCase()
-                  return (
-                    <TableRow
-                      key={peer.symbol}
-                      className={cn(
-                        'hover:bg-surfaceMuted transition-colors border-b border-border/40',
-                        isCurrent ? 'bg-accentSoft/30' : ''
-                      )}
-                    >
-                      <TableCell className="py-3">
-                        <Link to={`/company/${peer.symbol}`} className="flex items-center gap-2">
-                          {isCurrent && (
-                            <span className="size-1.5 rounded-full bg-accent shrink-0" />
-                          )}
-                          <div>
-                            <span className={cn('font-medium text-xs', isCurrent ? 'text-accent' : 'text-textPrimary hover:text-accent')}>
-                              {peer.symbol}
-                            </span>
-                            {isCurrent && (
-                              <span className="ml-1.5 text-xs font-medium bg-accentSoft text-accent border border-accent/20 px-1.5 py-0.5 rounded uppercase">NSE</span>
-                            )}
-                            <div className="text-xs text-textMuted">{peer.name}</div>
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        {formatNumber(peer.marketCap, 0)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums py-3">
-                        <span className={cn(isCurrent ? 'font-medium text-textPrimary' : 'text-textSecondary')}>
-                          {formatNumber(peer.pe, 2)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        {formatNumber(peer.pb, 2)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        {peer.evEbitda > 0 ? formatNumber(peer.evEbitda, 2) : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
-                        {formatNumber(peer.dividendYield, 2)}
+          <div className={cn('overflow-x-auto transition-opacity', refreshing ? 'opacity-50 pointer-events-none' : '')}>
+            {viewMode === 'financial-ratios' ? (
+              <Table>
+                <TableHeader className="bg-surfaceMuted">
+                  <TableRow>
+                    <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Company</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Market Cap (Cr)</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/E</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/B</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">EV/EBITDA</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Div Yield (%)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {peersList.map((peer) => (
+                    <RatiosRow key={peer.symbol} peer={peer} isCurrent={peer.symbol.toUpperCase() === symbol.toUpperCase()} />
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <Table>
+                <TableHeader className="bg-surfaceMuted">
+                  <TableRow>
+                    <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Company</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Latest Quarter</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Revenue (Cr)</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Revenue YoY</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Net Profit (Cr)</TableHead>
+                    <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Profit YoY</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quarterlyLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-6 text-center text-xs text-textMuted">
+                        Loading quarterly performance…
                       </TableCell>
                     </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                  ) : (
+                    peersList.map((peer) => {
+                      const isCurrent = peer.symbol.toUpperCase() === symbol.toUpperCase()
+                      const q = quarterlyMap[peer.symbol.toUpperCase()]
+                      return (
+                        <TableRow
+                          key={peer.symbol}
+                          className={cn(
+                            'hover:bg-surfaceMuted transition-colors border-b border-border/40',
+                            isCurrent ? 'bg-accentSoft/30' : ''
+                          )}
+                        >
+                          <TableCell className="py-3">
+                            <Link to={`/company/${peer.symbol}`} className="flex items-center gap-2">
+                              {isCurrent && (
+                                <span className="size-1.5 rounded-full bg-accent shrink-0" />
+                              )}
+                              <div>
+                                <span className={cn('font-medium text-xs', isCurrent ? 'text-accent' : 'text-textPrimary hover:text-accent')}>
+                                  {peer.symbol}
+                                </span>
+                                {isCurrent && (
+                                  <span className="ml-1.5 text-xs font-medium bg-accentSoft text-accent border border-accent/20 px-1.5 py-0.5 rounded uppercase">NSE</span>
+                                )}
+                                <div className="text-xs text-textMuted">{peer.name}</div>
+                              </div>
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+                            {q?.quarter || 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+                            {q?.revenue != null ? formatNumber(q.revenue, 0) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums py-3">
+                            {q?.revenueYoY != null ? (
+                              <span className={q.revenueYoY >= 0 ? 'text-positive' : 'text-negative'}>
+                                {q.revenueYoY >= 0 ? '+' : ''}{formatNumber(q.revenueYoY, 1)}%
+                              </span>
+                            ) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums text-textSecondary py-3">
+                            {q?.netProfit != null ? formatNumber(q.netProfit, 0) : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums py-3">
+                            {q?.profitYoY != null ? (
+                              <span className={q.profitYoY >= 0 ? 'text-positive' : 'text-negative'}>
+                                {q.profitYoY >= 0 ? '+' : ''}{formatNumber(q.profitYoY, 1)}%
+                              </span>
+                            ) : 'N/A'}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
           <div className="px-5 py-2 border-t border-border/40 text-xs text-textMuted">
             Showing {peersList.length} peers &nbsp;·&nbsp;
-            <button className="text-accent hover:underline font-medium">VIEW ALL PEERS →</button>
+            <button
+              type="button"
+              onClick={() => setAllPeersOpen(true)}
+              className="text-accent hover:underline font-medium"
+            >
+              VIEW ALL PEERS →
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -293,7 +425,7 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* P/E Comparison */}
             <div>
-              <p className="text-xs text-textMuted font-medium mb-1">{currentCompany?.name ?? symbol} vs. Industry Median P/E</p>
+              <p className="text-xs text-textMuted font-medium mb-1">{currentCompany.name} vs. Industry Median P/E</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-medium font-mono text-textPrimary tabular-nums">{formatNumber(currentPE, 2)}</span>
                 <span className={cn(
@@ -341,6 +473,71 @@ export function PeerComparison({ symbol, sector }: { symbol: string; sector: str
           </button>
         </div>
       </div>
+
+      {/* View All Peers dialog — blurred/dimmed backdrop, scrollable body, closes via
+          the corner ×, the Escape key, an outside click, or the Close button below. */}
+      <Dialog open={allPeersOpen} onOpenChange={setAllPeersOpen}>
+        <DialogContent
+          className="sm:max-w-3xl max-h-[80vh] flex flex-col p-0 gap-0 overflow-hidden"
+          overlayClassName="backdrop-blur-sm"
+        >
+          <DialogHeader className="p-5 pb-3 border-b border-border/50">
+            <DialogTitle className="text-sm font-medium text-textPrimary">All Peers</DialogTitle>
+            <DialogDescription className="text-xs text-textMuted">
+              Every company FinScreen has real data for in <span className="font-medium text-textSecondary">{selectedSector}</span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            <Table>
+              <TableHeader className="bg-surfaceMuted sticky top-0 z-10">
+                <TableRow>
+                  <TableHead className="text-xs font-medium uppercase tracking-wider text-textMuted">Company</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Market Cap (Cr)</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/E</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">P/B</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">EV/EBITDA</TableHead>
+                  <TableHead className="text-right text-xs font-medium uppercase tracking-wider text-textMuted">Div Yield (%)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allPeersLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-xs text-textMuted">
+                      Loading all peers…
+                    </TableCell>
+                  </TableRow>
+                ) : allPeersError ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-xs text-negative">
+                      Failed to load the full peer list. Please try again.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  allPeersList.map((peer) => (
+                    <RatiosRow key={peer.symbol} peer={peer} isCurrent={peer.symbol.toUpperCase() === symbol.toUpperCase()} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="p-4 border-t border-border/50 flex-row items-center justify-between sm:justify-between">
+            <span className="text-xs text-textMuted">
+              {!allPeersLoading && !allPeersError ? `${allPeersList.length} companies` : ' '}
+            </span>
+            <DialogClose asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs font-medium h-8"
+              >
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

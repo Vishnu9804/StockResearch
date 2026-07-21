@@ -35,7 +35,8 @@ export function Sidebar() {
   const pathname = location.pathname
   const dispatch = useAppDispatch()
   const { sidebarCollapsed } = useAppSelector((state) => state.ui)
-  const { isAuthenticated } = useAppSelector((state) => state.auth)
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth)
+  const isPro = user?.plan === 'PRO'
   const [tooltip, setTooltip] = useState<string | null>(null)
   const prefersReduced = useReducedMotion()
 
@@ -240,19 +241,39 @@ export function Sidebar() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
             >
-              <div className="flex items-center gap-1.5 text-xs font-medium text-accent uppercase tracking-wider">
-                <Zap className="size-3" />
-                Standard Feed
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-textSecondary">
-                Unlock 15-year histories and custom filters.
-              </p>
-              <Link
-                to="/pricing"
-                className="mt-2 flex w-full items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-[var(--shadow-accent)]"
-              >
-                Upgrade to Pro
-              </Link>
+              {isPro ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-accent uppercase tracking-wider">
+                    <Zap className="size-3" />
+                    Pro Member
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-textSecondary">
+                    Full access — 15-year histories, unlimited watchlists and custom ratios.
+                  </p>
+                  <Link
+                    to="/account"
+                    className="mt-2 flex w-full items-center justify-center rounded-lg border border-accent/30 bg-surface px-3 py-1.5 text-xs font-medium text-accent hover:bg-accentSoft transition-colors"
+                  >
+                    Manage Account
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-accent uppercase tracking-wider">
+                    <Zap className="size-3" />
+                    Standard Feed
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-textSecondary">
+                    Unlock 15-year histories and custom filters.
+                  </p>
+                  <Link
+                    to="/pricing"
+                    className="mt-2 flex w-full items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 transition-colors shadow-[var(--shadow-accent)]"
+                  >
+                    Upgrade to Pro
+                  </Link>
+                </>
+              )}
             </motion.div>
           )}
 

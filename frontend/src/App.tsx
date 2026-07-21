@@ -17,6 +17,7 @@ import ScreenGallery from './pages/ScreenGallery'
 import Account from './pages/Account'
 import Watchlists from './pages/Watchlists'
 import Portfolio from './pages/Portfolio'
+import CustomRatios from './pages/CustomRatios'
 import Feed from './pages/Feed'
 import PaymentResult from './pages/PaymentResult'
 
@@ -63,6 +64,7 @@ export function App() {
           <Route path="/account" element={<Account />} />
           <Route path="/watchlists" element={<Watchlists />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/custom-ratios" element={<CustomRatios />} />
 
           {/* Market Pulse Sub-Routes */}
           <Route path="/market-pulse" element={<MarketPulse />} />

@@ -511,156 +511,163 @@ async def _compute_extended_ratios(
     return out, core_fixes
 
 
+async def _build_company_profile(sym: str, extra_params: Dict[str, str], rid: str) -> dict:
+    """Core of GET /company/{symbol}/profile, factored out so other routers
+    (e.g. custom-ratios' formula evaluator) can reuse the same aggregated
+    FinEdge data without an extra internal HTTP round trip."""
+    import asyncio
+    # 1. Fetch profile
+    profile = await execute_proxy_request("GET", f"company-profile/{sym}", extra_params, None, rid)
+
+    # 2. Parallel: quote, ratios (4 types), shareholding
+    results = await asyncio.gather(
+        execute_proxy_request("GET", "quote", {"symbol": sym}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "pr"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "le"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "li"}, None, rid),
+        execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "quarterly"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "ef"}, None, rid),
+        return_exceptions=True
+    )
+    quote_data, pr_data, le_data, li_data, sh_data, ef_data = results
+
+    # 3. Parse quote
+    quote = None
+    if not isinstance(quote_data, Exception) and quote_data:
+        quote = quote_data.get(sym) or quote_data
+
+    # 4. Parse ratios
+    def latest_ratio(data):
+        if isinstance(data, Exception): return None
+        if data and isinstance(data.get("ratios"), list):
+            return sorted(data["ratios"], key=lambda r: r.get("year", r.get("period_end", 0)), reverse=True)[0]
+        return None
+
+    latest_pr = latest_ratio(pr_data)
+    latest_le = latest_ratio(le_data)
+    latest_li = latest_ratio(li_data)
+    latest_ef = latest_ratio(ef_data)
+    # Merge all ratio-type periods so extended-ratio lookups can try any field
+    # regardless of which FinEdge ratio_type bucket it actually lives in.
+    combined_ratio_fields = {**(latest_ef or {}), **(latest_li or {}), **(latest_le or {}), **(latest_pr or {})}
+
+    # 5. Parse shareholding
+    promoter = fii = dii = public_h = 0.0
+    if not isinstance(sh_data, Exception) and sh_data:
+        cols = sh_data.get("columns", [])
+        rows = sh_data.get("rows", [])
+        if cols and rows:
+            latest_col = cols[-1]
+            for row in rows:
+                val = float(row.get("data", {}).get(latest_col, 0) or 0)
+                cat = row.get("catagory", "")
+                if cat in ("Indian", "Promoter"): promoter = val
+                elif cat == "InstitutionsForeign": fii = val
+                elif cat == "InstitutionsDomestic": dii = val
+                elif cat in ("NonInstitutions", "Goverments"): public_h += val
+
+    # 6. Parse metrics
+    # NOTE: financial-metrics?ratio_type=cu ("Cumulative") only carries 3-year
+    # cash-flow totals (financingCashFlow3yearsTotal etc.) — no dividendYield or
+    # eps field exists there. EPS is corrected below from the PL statement via
+    # core_fixes; FinEdge exposes no dividend-yield field on any endpoint we've
+    # found, so it's left at 0 rather than silently reading the wrong field.
+    div_yield = eps_val = 0.0
+
+    # 7. Extract price data
+    def qv(key, *alts):
+        if not quote: return 0
+        for k in (key, *alts):
+            v = quote.get(k)
+            if v is not None: return float(v)
+        return 0
+
+    current_price = qv("current_price", "close_price", "ltp")
+    change_pct_raw = quote.get("pct_change") or quote.get("change_pct") or quote.get("change") or 0 if quote else 0
+    change_pct = float(str(change_pct_raw).replace("%", "")) if change_pct_raw else 0
+
+    # 8. Extract ratio values
+    def rv(data, *keys):
+        if not data: return 0
+        for k in keys:
+            v = data.get(k)
+            if v is not None:
+                val = float(v)
+                if 0 < val <= 1: val = val * 100
+                return round(val, 2)
+        return 0
+
+    roe = rv(latest_pr, "returnOnEquity", "roe")
+    roce = rv(latest_pr, "returnOnCapital", "returnOnCapitalEmployed", "roce")
+    npm = rv(latest_pr, "netMargin", "netProfitMargin", "net_profit_margin")
+    de = round(float(latest_le.get("totalDebtToEquity") or latest_le.get("debtToEquity") or 0), 2) if latest_le else 0
+    # bookValuePerShare and pe/priceToEarnings don't exist on the pr/le ratio
+    # types — corrected below from annual-price-ratios via core_fixes.
+    bvps = 0
+    pe = 0
+
+    market_cap = qv("market_cap")
+
+    # 9. Get local metadata or fallback
+    meta = COMPANY_METADATA.get(sym, {"founded": 1990, "employees": 0, "creditRating": "Stable"})
+
+    # 10. Extended (opt-in) ratio catalog values — best-effort, never blocks the profile.
+    # Also returns core_fixes: corrections for pe/bookValue/eps sourced from
+    # endpoints (annual-price-ratios, PL statement) that actually carry them.
+    st = extra_params.get("statement_type", "s")
+    try:
+        extended_ratios, core_fixes = await _compute_extended_ratios(
+            sym, st, rid, current_price, market_cap, pe, combined_ratio_fields, sh_data,
+        )
+    except Exception as e:
+        logger.warning(f"[FinEdge] Extended ratios failed for {sym}: {e}")
+        extended_ratios, core_fixes = {k["key"]: None for k in RATIO_CATALOG}, {}
+
+    if core_fixes.get("pe"): pe = core_fixes["pe"]
+    if core_fixes.get("bookValue"): bvps = core_fixes["bookValue"]
+    if core_fixes.get("eps") is not None: eps_val = core_fixes["eps"]
+    if pe == 0 and current_price and eps_val:
+        pe = round(current_price / eps_val, 2)
+
+    return {
+        "symbol": sym,
+        "name": profile.get("name") or profile.get("company_name") or sym,
+        "exchange": "NSE" if profile.get("nse_code") else "BSE",
+        "sector": profile.get("sector", "Other"),
+        "industry": profile.get("industry", "Other"),
+        "website": profile.get("website", ""),
+        "description": profile.get("description", ""),
+        "isin": profile.get("isin", ""),
+        "faceValue": profile.get("face_value", 10),
+        "founded": meta["founded"],
+        "employees": meta["employees"],
+        "creditRating": meta["creditRating"],
+        "price": current_price,
+        "change": round(current_price * (change_pct / 100), 2),
+        "changePct": change_pct,
+        "open": qv("open_price", "open"),
+        "high": qv("high_price", "high"),
+        "low": qv("low_price", "low"),
+        "close": current_price,
+        "volume": qv("volume", "traded_volume"),
+        "high52w": qv("high52", "week52_high", "yearly_high"),
+        "low52w": qv("low52", "week52_low", "yearly_low"),
+        "marketCap": market_cap,
+        "pe": pe, "eps": eps_val, "bookValue": bvps,
+        "dividendYield": div_yield, "roe": roe, "roce": roce,
+        "netProfitMargin": npm, "debtToEquity": de,
+        "promoterHolding": promoter, "fiiHolding": fii,
+        "diiHolding": dii, "publicHolding": public_h,
+        "ratios": extended_ratios,
+    }
+
+
 @router.get("/company/{symbol}/profile")
 async def get_company_profile(symbol: str, request: Request):
-    import asyncio
     sym = symbol.upper()
     rid = _req_id(request)
     try:
-        # 1. Fetch profile
-        profile = await execute_proxy_request("GET", f"company-profile/{sym}", dict(request.query_params), None, rid)
-
-        # 2. Parallel: quote, ratios (4 types), shareholding
-        results = await asyncio.gather(
-            execute_proxy_request("GET", "quote", {"symbol": sym}, None, rid),
-            execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "pr"}, None, rid),
-            execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "le"}, None, rid),
-            execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "li"}, None, rid),
-            execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "quarterly"}, None, rid),
-            execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "ef"}, None, rid),
-            return_exceptions=True
-        )
-        quote_data, pr_data, le_data, li_data, sh_data, ef_data = results
-
-        # 3. Parse quote
-        quote = None
-        if not isinstance(quote_data, Exception) and quote_data:
-            quote = quote_data.get(sym) or quote_data
-
-        # 4. Parse ratios
-        def latest_ratio(data):
-            if isinstance(data, Exception): return None
-            if data and isinstance(data.get("ratios"), list):
-                return sorted(data["ratios"], key=lambda r: r.get("year", r.get("period_end", 0)), reverse=True)[0]
-            return None
-
-        latest_pr = latest_ratio(pr_data)
-        latest_le = latest_ratio(le_data)
-        latest_li = latest_ratio(li_data)
-        latest_ef = latest_ratio(ef_data)
-        # Merge all ratio-type periods so extended-ratio lookups can try any field
-        # regardless of which FinEdge ratio_type bucket it actually lives in.
-        combined_ratio_fields = {**(latest_ef or {}), **(latest_li or {}), **(latest_le or {}), **(latest_pr or {})}
-
-        # 5. Parse shareholding
-        promoter = fii = dii = public_h = 0.0
-        if not isinstance(sh_data, Exception) and sh_data:
-            cols = sh_data.get("columns", [])
-            rows = sh_data.get("rows", [])
-            if cols and rows:
-                latest_col = cols[-1]
-                for row in rows:
-                    val = float(row.get("data", {}).get(latest_col, 0) or 0)
-                    cat = row.get("catagory", "")
-                    if cat in ("Indian", "Promoter"): promoter = val
-                    elif cat == "InstitutionsForeign": fii = val
-                    elif cat == "InstitutionsDomestic": dii = val
-                    elif cat in ("NonInstitutions", "Goverments"): public_h += val
-
-        # 6. Parse metrics
-        # NOTE: financial-metrics?ratio_type=cu ("Cumulative") only carries 3-year
-        # cash-flow totals (financingCashFlow3yearsTotal etc.) — no dividendYield or
-        # eps field exists there. EPS is corrected below from the PL statement via
-        # core_fixes; FinEdge exposes no dividend-yield field on any endpoint we've
-        # found, so it's left at 0 rather than silently reading the wrong field.
-        div_yield = eps_val = 0.0
-
-        # 7. Extract price data
-        def qv(key, *alts):
-            if not quote: return 0
-            for k in (key, *alts):
-                v = quote.get(k)
-                if v is not None: return float(v)
-            return 0
-
-        current_price = qv("current_price", "close_price", "ltp")
-        change_pct_raw = quote.get("pct_change") or quote.get("change_pct") or quote.get("change") or 0 if quote else 0
-        change_pct = float(str(change_pct_raw).replace("%", "")) if change_pct_raw else 0
-
-        # 8. Extract ratio values
-        def rv(data, *keys):
-            if not data: return 0
-            for k in keys:
-                v = data.get(k)
-                if v is not None:
-                    val = float(v)
-                    if 0 < val <= 1: val = val * 100
-                    return round(val, 2)
-            return 0
-
-        roe = rv(latest_pr, "returnOnEquity", "roe")
-        roce = rv(latest_pr, "returnOnCapital", "returnOnCapitalEmployed", "roce")
-        npm = rv(latest_pr, "netMargin", "netProfitMargin", "net_profit_margin")
-        de = round(float(latest_le.get("totalDebtToEquity") or latest_le.get("debtToEquity") or 0), 2) if latest_le else 0
-        # bookValuePerShare and pe/priceToEarnings don't exist on the pr/le ratio
-        # types — corrected below from annual-price-ratios via core_fixes.
-        bvps = 0
-        pe = 0
-
-        market_cap = qv("market_cap")
-
-        # 9. Get local metadata or fallback
-        meta = COMPANY_METADATA.get(sym, {"founded": 1990, "employees": 0, "creditRating": "Stable"})
-
-        # 10. Extended (opt-in) ratio catalog values — best-effort, never blocks the profile.
-        # Also returns core_fixes: corrections for pe/bookValue/eps sourced from
-        # endpoints (annual-price-ratios, PL statement) that actually carry them.
-        st = request.query_params.get("statement_type", "s")
-        try:
-            extended_ratios, core_fixes = await _compute_extended_ratios(
-                sym, st, rid, current_price, market_cap, pe, combined_ratio_fields, sh_data,
-            )
-        except Exception as e:
-            logger.warning(f"[FinEdge] Extended ratios failed for {sym}: {e}")
-            extended_ratios, core_fixes = {k["key"]: None for k in RATIO_CATALOG}, {}
-
-        if core_fixes.get("pe"): pe = core_fixes["pe"]
-        if core_fixes.get("bookValue"): bvps = core_fixes["bookValue"]
-        if core_fixes.get("eps") is not None: eps_val = core_fixes["eps"]
-        if pe == 0 and current_price and eps_val:
-            pe = round(current_price / eps_val, 2)
-
-        return {
-            "symbol": sym,
-            "name": profile.get("name") or profile.get("company_name") or sym,
-            "exchange": "NSE" if profile.get("nse_code") else "BSE",
-            "sector": profile.get("sector", "Other"),
-            "industry": profile.get("industry", "Other"),
-            "website": profile.get("website", ""),
-            "description": profile.get("description", ""),
-            "isin": profile.get("isin", ""),
-            "faceValue": profile.get("face_value", 10),
-            "founded": meta["founded"],
-            "employees": meta["employees"],
-            "creditRating": meta["creditRating"],
-            "price": current_price,
-            "change": round(current_price * (change_pct / 100), 2),
-            "changePct": change_pct,
-            "open": qv("open_price", "open"),
-            "high": qv("high_price", "high"),
-            "low": qv("low_price", "low"),
-            "close": current_price,
-            "volume": qv("volume", "traded_volume"),
-            "high52w": qv("high52", "week52_high", "yearly_high"),
-            "low52w": qv("low52", "week52_low", "yearly_low"),
-            "marketCap": market_cap,
-            "pe": pe, "eps": eps_val, "bookValue": bvps,
-            "dividendYield": div_yield, "roe": roe, "roce": roce,
-            "netProfitMargin": npm, "debtToEquity": de,
-            "promoterHolding": promoter, "fiiHolding": fii,
-            "diiHolding": dii, "publicHolding": public_h,
-            "ratios": extended_ratios,
-        }
+        return await _build_company_profile(sym, dict(request.query_params), rid)
     except HTTPException:
         raise
     except Exception as e:
