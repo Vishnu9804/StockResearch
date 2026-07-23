@@ -121,14 +121,11 @@ function* handleAddToWatchlist(action: any): Generator<any, void, any> {
 
 function* handleRemoveFromWatchlist(action: any): Generator<any, void, any> {
   try {
-    const state = yield select(selectWatchlistsState)
-    const wlId = action.payload.watchlistId || state.activeWatchlistId
-    const wl = state.watchlists.find((w: any) => w.id === wlId)
-    const item = wl?.items.find((i: any) => i.symbol === action.payload.symbol)
-
-    if (item && item.id) {
-      yield call(WatchlistService.removeStock, item.id)
-      // Slice reducer for removeFromWatchlist already removed item from local state.
+    // NOTE: itemId must come from action.payload, not a state lookup here —
+    // by the time this saga runs, the removeFromWatchlist reducer has already
+    // filtered the item out of local state, so it can no longer be found by symbol.
+    if (action.payload.itemId) {
+      yield call(WatchlistService.removeStock, action.payload.itemId)
     }
   } catch (err: any) {
     yield put(setError(err.message || 'Failed to remove stock.'))

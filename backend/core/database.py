@@ -7,7 +7,16 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(settings.DATABASE_URL, connect_args={"ssl": "require"})
+# pool_pre_ping validates a pooled connection before handing it out, so a
+# connection Supabase silently closed while idle is transparently replaced
+# instead of surfacing as a random error under load. pool_recycle proactively
+# retires connections older than 30 min for the same reason.
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    connect_args={"ssl": "require"},
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 

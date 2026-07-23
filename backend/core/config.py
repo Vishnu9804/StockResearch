@@ -23,6 +23,30 @@ class Settings(BaseSettings):
     FINEDGE_BASE_URL: str = "https://data.finedgeapi.com"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # ── FinEdge rate limit (Phase 0) ──────────────────────────────────────────
+    # FinEdge allows 300 API calls/minute. Every outbound FinEdge call passes
+    # through a global token bucket (core/rate_limiter.py) so this is never
+    # exceeded — across the proxy AND the background sync. SAFETY keeps us under
+    # the hard cap (bursts + retries need headroom); BURST is the bucket size
+    # that smooths short spikes.
+    FINEDGE_MAX_CALLS_PER_MINUTE: int = 300
+    FINEDGE_RATE_LIMIT_SAFETY: float = 0.9
+    FINEDGE_RATE_LIMIT_BURST: int = 10
+
+    # ── Shared cache (Phase 2) ────────────────────────────────────────────────
+    # When set (e.g. "redis://localhost:6379/0"), the FinEdge proxy cache is
+    # stored in Redis so every web worker/server shares ONE cache — a single
+    # upstream call serves all of them. When empty, or if Redis is unreachable,
+    # the service transparently falls back to a per-process in-memory cache.
+    REDIS_URL: str = ""
+
+    # ── Background sync ownership (Phase 1) ───────────────────────────────────
+    # The FinEdge → company_metrics sync must run in exactly ONE process. In
+    # local/single-process dev this can stay True. In production run the web
+    # app with ENABLE_BACKGROUND_SYNC=false (any number of workers) and run the
+    # dedicated `python sync_worker.py` process exactly once instead.
+    ENABLE_BACKGROUND_SYNC: bool = True
+
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:
         return [self.FINEDGE_API_KEY_1, self.FINEDGE_API_KEY_2, self.FINEDGE_API_KEY_3]

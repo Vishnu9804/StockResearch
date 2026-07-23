@@ -13,19 +13,21 @@ Production-grade features:
 
 import asyncio
 import logging
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import httpx
 
+from core.cache import cache_get, cache_set
 from core.config import settings
+from core.rate_limiter import acquire_finedge_slot
 
 logger = logging.getLogger("finedge")
 
-# ── 1. In-memory cache with stale-while-revalidate support ───────────────────
-# Each entry: { "data": <Any>, "expires_at": float, "stale_until": float }
-_cache: Dict[str, Dict[str, Any]] = {}
+# ── 1. Shared cache with stale-while-revalidate support ──────────────────────
+# Backed by Redis when configured (shared across all workers/servers) and by a
+# per-process in-memory store otherwise — see core/cache.py. Each entry carries
+# { "data": <Any>, "expires_at": float, "stale_until": float }.
 
 # ── 2. Request deduplication registry ─────────────────────────────────────────
 _active_requests: Dict[str, asyncio.Future] = {}
@@ -150,34 +152,6 @@ def _get_ttl(endpoint: str) -> tuple[int, int]:
     return 10 * 60, 20 * 60
 
 
-def _cache_get(key: str) -> tuple[Any | None, bool]:
-    """
-    Returns (data, is_stale).
-    data=None means no usable cache entry.
-    is_stale=True means data is stale → trigger background refresh.
-    """
-    entry = _cache.get(key)
-    if entry is None:
-        return None, False
-    now = time.time()
-    if now < entry["expires_at"]:
-        return entry["data"], False          # Fresh hit
-    if now < entry["stale_until"]:
-        return entry["data"], True           # Stale hit → serve but refresh async
-    # Expired beyond stale window — remove
-    _cache.pop(key, None)
-    return None, False
-
-
-def _cache_set(key: str, value: Any, fresh_ttl: int, stale_ttl: int):
-    now = time.time()
-    _cache[key] = {
-        "data": value,
-        "expires_at": now + fresh_ttl,
-        "stale_until": now + stale_ttl,
-    }
-
-
 # ── 8. Retry predicate — only on 5xx and network errors ──────────────────────
 def _should_retry(exc: Exception) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
@@ -223,6 +197,10 @@ async def _do_fetch(method: str, endpoint: str, query: dict, body: Any, request_
     params["token"] = api_key
 
     client = _get_http_client()
+
+    # Global throttle: block here until a slot is free so we never exceed
+    # FinEdge's 300 calls/min — shared across the proxy and the sync.
+    await acquire_finedge_slot()
 
     try:
         response = await client.request(
@@ -284,7 +262,7 @@ async def execute_proxy_request(
     )
 
     # 1. Check cache (fresh or stale)
-    cached_data, is_stale = _cache_get(cache_key)
+    cached_data, is_stale = await cache_get(cache_key)
     if cached_data is not None:
         if is_stale:
             logger.info(f"[FinEdge] Cache STALE — serving stale + triggering background refresh: {cache_key[:80]}")
@@ -311,7 +289,7 @@ async def execute_proxy_request(
     try:
         result = await _fetch_with_retry(method, endpoint, query, body, request_id)
         fresh_ttl, stale_ttl = _get_ttl(endpoint)
-        _cache_set(cache_key, result, fresh_ttl, stale_ttl)
+        await cache_set(cache_key, result, fresh_ttl, stale_ttl)
         future.set_result(result)
         return result
     except Exception as exc:
@@ -330,7 +308,7 @@ async def _background_refresh(
     try:
         result = await _fetch_with_retry(method, endpoint, query, body, request_id)
         fresh_ttl, stale_ttl = _get_ttl(endpoint)
-        _cache_set(cache_key, result, fresh_ttl, stale_ttl)
+        await cache_set(cache_key, result, fresh_ttl, stale_ttl)
         logger.info(f"[FinEdge] Background refresh DONE: {cache_key[:80]}")
     except Exception as exc:
         logger.warning(f"[FinEdge] Background refresh FAILED (stale still served): {exc}")

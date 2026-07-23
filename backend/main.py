@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
-from core.database import async_session_maker
+from core.cache import init_cache, close_cache
 from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison
 from middleware.auth import get_current_user, AuthenticatedUser
-from services.metrics_sync import sync_quote_data, sync_fundamentals_batch
+from services.sync_service import run_background_sync
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -17,50 +17,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-# ── Background sync loops ─────────────────────────────────────────────────────
-# FinEdge has no working screener endpoint of its own, so the screener filters
-# a local `company_metrics` cache instead. These loops keep it populated:
-# a cheap bulk quote refresh (market cap/price, ~2 calls total) and a gentle,
-# rate-limit-friendly rolling batch that fills in fundamentals (ROE/PE/etc.)
-# symbol-by-symbol, prioritizing the largest companies first.
-QUOTE_SYNC_INTERVAL_SECONDS = 20 * 60
-FUNDAMENTALS_SYNC_INTERVAL_SECONDS = 90
-FUNDAMENTALS_BATCH_SIZE = 30
-
-
-async def _quote_sync_loop():
-    while True:
-        try:
-            async with async_session_maker() as db:
-                await sync_quote_data(db)
-        except Exception:
-            logger.exception("[MetricsSync] Quote sync loop iteration failed")
-        await asyncio.sleep(QUOTE_SYNC_INTERVAL_SECONDS)
-
-
-async def _fundamentals_sync_loop():
-    while True:
-        try:
-            async with async_session_maker() as db:
-                await sync_fundamentals_batch(db, batch_size=FUNDAMENTALS_BATCH_SIZE)
-        except Exception:
-            logger.exception("[MetricsSync] Fundamentals sync loop iteration failed")
-        await asyncio.sleep(FUNDAMENTALS_SYNC_INTERVAL_SECONDS)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    quote_task = asyncio.create_task(_quote_sync_loop())
-    fundamentals_task = asyncio.create_task(_fundamentals_sync_loop())
+    # Initialise the shared proxy cache (Redis when configured, else in-memory).
+    await init_cache()
+
+    # Background sync keeps the local `company_metrics` cache populated from
+    # FinEdge. It must run in exactly one process — see services/sync_service.py.
+    # In production, disable it here (ENABLE_BACKGROUND_SYNC=false) and run the
+    # dedicated `python sync_worker.py` process once instead.
+    sync_task = None
+    if settings.ENABLE_BACKGROUND_SYNC:
+        sync_task = asyncio.create_task(run_background_sync())
+        logger.info("  [FinScreen FastAPI] Inline background sync ENABLED")
+    else:
+        logger.info(
+            "  [FinScreen FastAPI] Inline background sync DISABLED "
+            "(expecting a dedicated sync_worker process)"
+        )
+
     logger.info(f"  [FinScreen FastAPI] Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield
-    quote_task.cancel()
-    fundamentals_task.cancel()
-    for t in (quote_task, fundamentals_task):
+
+    if sync_task is not None:
+        sync_task.cancel()
         try:
-            await t
+            await sync_task
         except asyncio.CancelledError:
             pass
+    await close_cache()
     logger.info("  [FinScreen FastAPI] Shutting down")
 
 app = FastAPI(

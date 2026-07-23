@@ -207,7 +207,11 @@ export default function Watchlists() {
                         )}
 
                         <button
-                          onClick={() => dispatch(removeFromWatchlist({ symbol: item.symbol, watchlistId: wl.id }))}
+                          onClick={() =>
+                            dispatch(
+                              removeFromWatchlist({ symbol: item.symbol, watchlistId: wl.id, itemId: item.id })
+                            )
+                          }
                           className="text-textMuted hover:text-negative transition-colors"
                           aria-label="Remove"
                         >

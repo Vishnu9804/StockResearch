@@ -74,7 +74,7 @@ const watchlistSlice = createSlice({
     },
     removeFromWatchlist(
       state,
-      action: PayloadAction<{ watchlistId?: string; symbol: string }>
+      action: PayloadAction<{ watchlistId?: string; symbol: string; itemId?: string }>
     ) {
       const wlId = action.payload.watchlistId ?? state.activeWatchlistId
       const wl = state.watchlists.find((w) => w.id === wlId)
