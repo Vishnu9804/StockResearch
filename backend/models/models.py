@@ -348,6 +348,57 @@ class UserNewsAlert(Base):
     user_feedback: Mapped[int | None] = mapped_column(SmallInteger)
 
 
+class NewsThematicResearch(Base):
+    """Sparse second output of the Butterfly Effect workflow (O2) — most news
+    earns nothing here, and that is the expected, normal outcome, not a gap.
+
+    Distinct from NewsImpactAnalysis (O1: how does this affect a user's
+    holdings) in kind, not just detail: this describes a NEW real-world demand
+    or dependency the event creates — e.g. a government ethanol-diesel
+    blending mandate implies demand for a specific industrial input (an
+    oxygenate such as isobutane), which points at specific, verifiable Indian
+    producers of that input. ``candidate_companies`` entries must be
+    cross-checked against company_metrics/FinEdge before this row is written —
+    an unverifiable candidate is discarded, never stored with an invented
+    price. ``thesis`` is descriptive/analytical only, never a recommendation —
+    enforced by prompt and a code-level banned-phrase check before it is ever
+    populated."""
+
+    __tablename__ = "news_thematic_research"
+    __table_args__ = (
+        UniqueConstraint("news_id", "workflow_version", name="news_thematic_research_unique"),
+        Index("ix_thematic_research_news", "news_id"),
+        Index("ix_thematic_research_analysis", "analysis_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    news_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("news_items.id", ondelete="CASCADE"), nullable=False
+    )
+    analysis_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("news_impact_analyses.id", ondelete="SET NULL")
+    )
+    workflow_version: Mapped[str] = mapped_column(Text, nullable=False)
+
+    trigger_reasoning: Mapped[str] = mapped_column(Text, nullable=False)
+    derived_need: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    candidate_companies: Mapped[list] = mapped_column(JSONB, server_default="[]")
+    thesis: Mapped[str | None] = mapped_column(Text)
+
+    confidence: Mapped[float | None] = mapped_column(Numeric)
+    novelty: Mapped[float | None] = mapped_column(Numeric)
+    horizon: Mapped[str | None] = mapped_column(Text)
+    skeptic_verdict: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    evidence: Mapped[list] = mapped_column(JSONB, server_default="[]")
+
+    model_versions: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    token_usage: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(Text, server_default="OK")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class SavedQuery(Base):
     __tablename__ = "saved_queries"
 
