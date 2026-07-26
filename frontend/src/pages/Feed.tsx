@@ -22,6 +22,11 @@ import type { Announcement } from '@/lib/data/market-pulse'
 
 const CATEGORIES = ['All', 'Board Meeting', 'Concall', 'Annual Report', 'Dividend', 'Results']
 
+// Exactly the categories the backend assigns in routers/news.py::CATEGORY_COLORS —
+// kept in sync with that module so a chip here can never silently stop matching
+// real data.
+const NEWS_CATEGORIES = ['All', 'MACRO', 'MARKETS', 'COMMODITY', 'POLICY', 'GLOBAL', 'SECTOR', 'CORPORATE']
+
 const UPCOMING_RESULTS = [
   { day: "MON", date: "Oct 14", items: [] },
   { day: "TUE", date: "Oct 15", items: ["ICICI Bank", "Axis Bank"] },
@@ -70,6 +75,21 @@ export function Feed() {
   const activeCategory = searchParams.get('category') ?? 'All'
   const searchQuery    = searchParams.get('q') ?? ''
 
+  // 'news' (default) mirrors the central news_items store exactly, newest
+  // first. 'announcements' keeps the pre-existing FinEdge corp-announcements
+  // list — a real but distinct data type (regulatory filings, not news
+  // articles) that must never be blended into the same list as news.
+  const activeTab         = searchParams.get('tab') === 'announcements' ? 'announcements' : 'news'
+  const activeNewsCategory = searchParams.get('ncat') ?? 'All'
+
+  // ── News tab state (backend/routers/news.py — real ingested articles) ────
+  const [newsItems, setNewsItems]     = useState<any[]>([])
+  const [newsTotal, setNewsTotal]     = useState(0)
+  const [newsPage, setNewsPage]       = useState(1)
+  const [newsLimit, setNewsLimit]     = useState(25)
+  const [newsLoading, setNewsLoading] = useState(true)
+  const [newsError, setNewsError]     = useState<string | null>(null)
+
   // Sidebar state (still fetched locally — not paginated)
   const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
   const [liveNews, setLiveNews]               = useState<any[]>([])
@@ -88,6 +108,49 @@ export function Feed() {
   useEffect(() => {
     dispatch(fetchAnnouncementsStart({ page, limit }))
   }, [dispatch, page, limit])
+
+  // ── News tab fetch — straight from news_items, no client-side reordering ──
+  // Category AND search both happen server-side (routers/news.py) — a search
+  // box that only filtered the 25 items already on screen would wrongly
+  // report "no results" for a term that exists elsewhere in the table, which
+  // is exactly the bug this replaced. The list you get back is exactly the
+  // DB's published_at DESC order (or, when searching, every match regardless
+  // of recency — see routers/news.py::list_news for why).
+  useEffect(() => {
+    if (activeTab !== 'news') return
+    let cancelled = false
+    setNewsLoading(true)
+    setNewsError(null)
+    finscreenApi
+      .fetchNews({
+        page: newsPage,
+        limit: newsLimit,
+        ...(activeNewsCategory !== 'All' ? { category: activeNewsCategory } : {}),
+        ...(searchQuery ? { q: searchQuery } : {}),
+      })
+      .then((res: any) => {
+        if (cancelled) return
+        setNewsItems(Array.isArray(res?.data) ? res.data : [])
+        setNewsTotal(typeof res?.total === 'number' ? res.total : 0)
+      })
+      .catch((err: any) => {
+        if (cancelled) return
+        setNewsError(err?.message || 'Failed to load news')
+      })
+      .finally(() => {
+        if (!cancelled) setNewsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [activeTab, activeNewsCategory, searchQuery, newsPage, newsLimit])
+
+  // Reset to page 1 whenever the news search term changes — otherwise a
+  // search performed while sitting on, say, page 5 would silently query page
+  // 5 of the new, much smaller result set and could show nothing at all even
+  // when the term matches plenty of rows.
+  useEffect(() => {
+    if (activeTab === 'news') setNewsPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, activeTab])
 
   // ── Sidebar data (results calendar + news) ────────────────────────────────
   useEffect(() => {
@@ -138,6 +201,25 @@ export function Feed() {
       .map(date => ({ date, heading: formatDateHeading(date), items: groups[date] }))
   }, [filteredAnnouncements])
 
+  // Category and search are both applied server-side (the fetch effect above
+  // passes them to GET /api/news) precisely so this component never needs to
+  // re-filter — newsItems IS the already-matching, already-ordered result set.
+
+  // Grouped by calendar date for display only — items within each date group
+  // keep the exact order they arrived in (backend published_at DESC), so
+  // "latest to old" is never altered by this grouping step.
+  const groupedNews = useMemo(() => {
+    const groups: Record<string, any[]> = {}
+    newsItems.forEach((item: any) => {
+      const dateKey = (item.publishedAt || '').slice(0, 10) || 'unknown'
+      if (!groups[dateKey]) groups[dateKey] = []
+      groups[dateKey].push(item)
+    })
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .map(date => ({ date, heading: formatDateHeading(date), items: groups[date] }))
+  }, [newsItems])
+
   // ── Upcoming results calendar ─────────────────────────────────────────────
   const upcomingResultsList = useMemo(() => {
     if (!resultsCalendar || !Array.isArray(resultsCalendar)) return []
@@ -159,10 +241,23 @@ export function Feed() {
   const displayResults = upcomingResultsList.some(d => d.items.length > 0) ? upcomingResultsList : UPCOMING_RESULTS
 
   // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleTabChange = (tab: 'news' | 'announcements') => {
+    const p = new URLSearchParams(searchParams)
+    tab === 'news' ? p.delete('tab') : p.set('tab', tab)
+    setSearchParams(p)
+  }
+
   const handleCategoryChange = (cat: string) => {
     const p = new URLSearchParams(searchParams)
     cat === 'All' ? p.delete('category') : p.set('category', cat)
     setSearchParams(p)
+  }
+
+  const handleNewsCategoryChange = (cat: string) => {
+    const p = new URLSearchParams(searchParams)
+    cat === 'All' ? p.delete('ncat') : p.set('ncat', cat)
+    setSearchParams(p)
+    setNewsPage(1)
   }
 
   const handleSearchChange = (val: string) => {
@@ -172,6 +267,23 @@ export function Feed() {
   }
 
   const handleRetry = () => dispatch(fetchAnnouncementsStart({ page, limit }))
+  const refetchNews = () => {
+    setNewsLoading(true)
+    setNewsError(null)
+    finscreenApi
+      .fetchNews({
+        page: newsPage,
+        limit: newsLimit,
+        ...(activeNewsCategory !== 'All' ? { category: activeNewsCategory } : {}),
+        ...(searchQuery ? { q: searchQuery } : {}),
+      })
+      .then((res: any) => {
+        setNewsItems(Array.isArray(res?.data) ? res.data : [])
+        setNewsTotal(typeof res?.total === 'number' ? res.total : 0)
+      })
+      .catch((err: any) => setNewsError(err?.message || 'Failed to load news'))
+      .finally(() => setNewsLoading(false))
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -198,18 +310,37 @@ export function Feed() {
       <div className="max-w-[1400px] mx-auto px-6 py-6 select-none">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
 
-          {/* ── Left Column: Announcements list & controls ───────────────── */}
+          {/* ── Left Column: News / Announcements list & controls ─────────── */}
           <div className="space-y-4">
+
+            {/* Tab switcher — News (news_items, real ingested articles) is the
+                default; Announcements (FinEdge corp-announcements, regulatory
+                filings) is a distinct real data type kept on its own tab so
+                the two are never visually blended into one list. */}
+            <div className="flex items-center gap-1 bg-surfaceMuted p-1 rounded-lg border border-border/60 text-xs font-semibold text-textSecondary w-fit select-none">
+              <button
+                onClick={() => handleTabChange('news')}
+                className={`px-3.5 py-1.5 rounded-md transition-all cursor-pointer ${activeTab === 'news' ? 'bg-surface text-accent shadow-xs' : 'hover:text-textPrimary'}`}
+              >
+                News
+              </button>
+              <button
+                onClick={() => handleTabChange('announcements')}
+                className={`px-3.5 py-1.5 rounded-md transition-all cursor-pointer ${activeTab === 'announcements' ? 'bg-surface text-accent shadow-xs' : 'hover:text-textPrimary'}`}
+              >
+                Announcements
+              </button>
+            </div>
 
             {/* Filter controls */}
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-surface border border-border/40 p-4 rounded-xl shadow-xs">
               <div className="flex overflow-x-auto scrollbar-hide gap-1.5 w-full sm:w-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-                {CATEGORIES.map(cat => (
+                {(activeTab === 'news' ? NEWS_CATEGORIES : CATEGORIES).map(cat => (
                   <button
                     key={cat}
-                    onClick={() => handleCategoryChange(cat)}
+                    onClick={() => activeTab === 'news' ? handleNewsCategoryChange(cat) : handleCategoryChange(cat)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
-                      activeCategory === cat
+                      (activeTab === 'news' ? activeNewsCategory : activeCategory) === cat
                         ? 'bg-accent border-accent text-white shadow-sm'
                         : 'bg-background border-border/60 hover:bg-surfaceMuted/65 text-textSecondary'
                     }`}
@@ -262,87 +393,177 @@ export function Feed() {
               </div>
             )}
 
-            {/* ── Announcements card ─────────────────────────────────────── */}
-            <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
+            {activeTab === 'news' ? (
+              /* ── News card — mirrors news_items exactly: newest to oldest,
+                  straight from the DB, every headline links to its real
+                  source article so the primary source is always one click
+                  away. ──────────────────────────────────────────────────── */
+              <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
 
-              {error ? (
-                <div className="p-6">
-                  <InlineError message={error} onRetry={handleRetry} />
-                </div>
-              ) : loading ? (
-                <div className="p-4">
-                  <FeedCardSkeleton count={3} />
-                </div>
-              ) : filteredAnnouncements.length === 0 ? (
-                <Empty className="py-12 border-0">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon"><Inbox className="size-6 text-textMuted" /></EmptyMedia>
-                    <EmptyTitle className="text-textPrimary font-semibold">No announcements for this selection</EmptyTitle>
-                    <EmptyDescription className="text-textSecondary">
-                      Try changing filters or selecting a different page.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                <div className="divide-y divide-border/40 p-1">
-                  {groupedAnnouncements.map((group) => (
-                    <div key={group.date} className="p-3 space-y-2">
-                      <Heading level={3} className="text-xs font-semibold text-textSecondary uppercase tracking-widest px-1 pt-1">
-                        {group.heading}
-                      </Heading>
-                      <Card className="border-border/40 bg-surface shadow-xs rounded-xl overflow-hidden divide-y divide-border/40">
-                        {group.items.map((item) => (
-                          <AnnouncementItem
-                            key={item.id}
-                            item={item}
-                            density={density}
-                            actionButtons={
-                              <>
-                                <a
-                                  href="#"
-                                  onClick={(e) => e.preventDefault()}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
+                {newsError ? (
+                  <div className="p-6">
+                    <InlineError message={newsError} onRetry={refetchNews} />
+                  </div>
+                ) : newsLoading ? (
+                  <div className="p-4">
+                    <FeedCardSkeleton count={3} />
+                  </div>
+                ) : newsItems.length === 0 ? (
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon"><Inbox className="size-6 text-textMuted" /></EmptyMedia>
+                      <EmptyTitle className="text-textPrimary font-semibold">No news for this selection</EmptyTitle>
+                      <EmptyDescription className="text-textSecondary">
+                        Try changing filters or selecting a different page.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <div className="divide-y divide-border/40 p-1">
+                    {groupedNews.map((group) => (
+                      <div key={group.date} className="p-3 space-y-2">
+                        <Heading level={3} className="text-xs font-semibold text-textSecondary uppercase tracking-widest px-1 pt-1">
+                          {group.heading}
+                        </Heading>
+                        <Card className="border-border/40 bg-surface shadow-xs rounded-xl overflow-hidden divide-y divide-border/40">
+                          {group.items.map((item: any) => (
+                            <div key={item.id} className="p-4 flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  style={{ color: item.categoryColor || 'var(--fs-brand)' }}
+                                  className="text-[11px] font-semibold uppercase tracking-wider leading-none"
                                 >
-                                  <ExternalLink className="size-3.5 text-textSecondary" />
-                                  View report
-                                </a>
-                                <a
-                                  href="#"
-                                  onClick={(e) => e.preventDefault()}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
-                                >
-                                  <Bookmark className="size-3.5 text-textSecondary" />
-                                  Save for later
-                                </a>
-                                <Link
-                                  to={`/market-pulse/queries/new?query=${encodeURIComponent(item.category)}`}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
-                                >
-                                  <Search className="size-3.5 text-textSecondary" />
-                                  Create search filter
-                                </Link>
-                              </>
-                            }
-                          />
-                        ))}
-                      </Card>
-                    </div>
-                  ))}
-                </div>
-              )}
+                                  {item.category}
+                                </span>
+                                {item.symbols?.length > 0 && (
+                                  <div className="flex gap-1 flex-wrap justify-end">
+                                    {item.symbols.slice(0, 3).map((sym: string) => (
+                                      <span key={sym} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surfaceMuted text-textSecondary border border-border/40">
+                                        {sym}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-body font-semibold leading-snug text-textPrimary hover:text-accent transition-colors"
+                              >
+                                {item.headline}
+                              </a>
+                              {item.summary && (
+                                <p className="text-sm text-textSecondary leading-snug">{item.summary}</p>
+                              )}
+                              <span className="text-[12px] text-textMuted font-medium flex items-center gap-1">
+                                {item.time} · {item.source}
+                                <ExternalLink className="size-3 opacity-60" />
+                              </span>
+                            </div>
+                          ))}
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* ── Pagination bar ────────────────────────────────────────── */}
-              {!loading && !error && total > 0 && (
-                <PaginationBar
-                  total={total}
-                  page={page}
-                  limit={limit}
-                  onPageChange={(p) => dispatch(fetchAnnouncementsStart({ page: p, limit }))}
-                  onLimitChange={(l) => dispatch(fetchAnnouncementsStart({ page: 1, limit: l }))}
-                  limitOptions={[25, 50, 100]}
-                />
-              )}
-            </div>
+                {/* ── Pagination bar ──────────────────────────────────────── */}
+                {!newsLoading && !newsError && newsTotal > 0 && (
+                  <PaginationBar
+                    total={newsTotal}
+                    page={newsPage}
+                    limit={newsLimit}
+                    onPageChange={(p) => setNewsPage(p)}
+                    onLimitChange={(l) => { setNewsLimit(l); setNewsPage(1) }}
+                    limitOptions={[25, 50, 100]}
+                  />
+                )}
+              </div>
+            ) : (
+              /* ── Announcements card — unchanged: FinEdge corp-announcements,
+                  real regulatory filings, kept on their own tab. ──────────── */
+              <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
+
+                {error ? (
+                  <div className="p-6">
+                    <InlineError message={error} onRetry={handleRetry} />
+                  </div>
+                ) : loading ? (
+                  <div className="p-4">
+                    <FeedCardSkeleton count={3} />
+                  </div>
+                ) : filteredAnnouncements.length === 0 ? (
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon"><Inbox className="size-6 text-textMuted" /></EmptyMedia>
+                      <EmptyTitle className="text-textPrimary font-semibold">No announcements for this selection</EmptyTitle>
+                      <EmptyDescription className="text-textSecondary">
+                        Try changing filters or selecting a different page.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <div className="divide-y divide-border/40 p-1">
+                    {groupedAnnouncements.map((group) => (
+                      <div key={group.date} className="p-3 space-y-2">
+                        <Heading level={3} className="text-xs font-semibold text-textSecondary uppercase tracking-widest px-1 pt-1">
+                          {group.heading}
+                        </Heading>
+                        <Card className="border-border/40 bg-surface shadow-xs rounded-xl overflow-hidden divide-y divide-border/40">
+                          {group.items.map((item) => (
+                            <AnnouncementItem
+                              key={item.id}
+                              item={item}
+                              density={density}
+                              actionButtons={
+                                <>
+                                  <a
+                                    href="#"
+                                    onClick={(e) => e.preventDefault()}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
+                                  >
+                                    <ExternalLink className="size-3.5 text-textSecondary" />
+                                    View report
+                                  </a>
+                                  <a
+                                    href="#"
+                                    onClick={(e) => e.preventDefault()}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
+                                  >
+                                    <Bookmark className="size-3.5 text-textSecondary" />
+                                    Save for later
+                                  </a>
+                                  <Link
+                                    to={`/market-pulse/queries/new?query=${encodeURIComponent(item.category)}`}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border/60 hover:bg-surfaceMuted text-[11px] font-semibold text-textPrimary transition-colors outline-ring/45 focus-visible:outline decoration-none"
+                                  >
+                                    <Search className="size-3.5 text-textSecondary" />
+                                    Create search filter
+                                  </Link>
+                                </>
+                              }
+                            />
+                          ))}
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Pagination bar ────────────────────────────────────────── */}
+                {!loading && !error && total > 0 && (
+                  <PaginationBar
+                    total={total}
+                    page={page}
+                    limit={limit}
+                    onPageChange={(p) => dispatch(fetchAnnouncementsStart({ page: p, limit }))}
+                    onLimitChange={(l) => dispatch(fetchAnnouncementsStart({ page: 1, limit: l }))}
+                    limitOptions={[25, 50, 100]}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── Right Column: Sidebar Widgets ──────────────────────────────── */}

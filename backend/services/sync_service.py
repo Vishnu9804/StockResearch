@@ -11,17 +11,27 @@ It must run in exactly one process. Running the web app with multiple workers
 AND inline sync enabled would fan every FinEdge call out N times — in
 production, disable inline sync on the web tier and run one worker instead.
 
-Two independent loops (see services/metrics_sync.py for the actual work):
+Three independent loops:
   * quote loop        — one cheap bulk /quote call for the whole universe.
                         Cadence adapts to market hours (Phase 4): frequent while
                         the market is open, slow when it's closed.
+                        (see services/metrics_sync.py)
   * fundamentals loop — expensive per-symbol ratios, a gentle rolling batch that
                         works through the universe largest-company-first. Runs
                         an accelerated warmup first on a cold table (Phase 5).
+                        (see services/metrics_sync.py)
+  * news loop         — publisher RSS + GDELT into the central ``news_items``
+                        store, the input to the Butterfly Effect workflow.
+                        (see services/news_ingest.py)
+
+The news loop belongs here rather than in the web tier for the same reason as
+the other two: news is identical for every user, so it must be fetched once by
+one owner process, not once per worker or per request.
 """
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 
@@ -29,6 +39,7 @@ from core.database import async_session_maker
 from core.market_hours import is_market_open
 from models.models import CompanyMetric
 from services.metrics_sync import sync_fundamentals_batch, sync_quote_data
+from services.news_ingest import cleanup_stale_news, ingest_news
 
 logger = logging.getLogger("sync_service")
 
@@ -52,6 +63,22 @@ FUNDAMENTALS_SYNC_INTERVAL_CLOSED_SECONDS = 5    # market closed — work throug
 WARMUP_TARGET_ROWS = 200
 WARMUP_BATCHES = 5
 WARMUP_BATCH_SIZE = 100
+
+# ── News ingestion cadence ───────────────────────────────────────────────────
+# Publisher RSS feeds refresh on the order of minutes and the ingest is
+# idempotent (ON CONFLICT DO NOTHING on url_hash), so polling more often than
+# this buys nothing but load on other people's CDNs. Slower off-hours, since
+# Indian financial publishers post very little overnight — but never stopped,
+# because the global feeds that matter most for butterfly chains are on other
+# time zones and a US Fed decision lands while Indian markets are shut.
+NEWS_SYNC_INTERVAL_OPEN_SECONDS = 15 * 60
+NEWS_SYNC_INTERVAL_CLOSED_SECONDS = 45 * 60
+
+# Retention cleanup runs on its own daily cadence rather than every ingest
+# tick — a delete pass over the table on every 15-minute poll would be pure
+# waste, since "older than N days" can't have changed since the last check
+# less than a day ago.
+NEWS_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
 
 def _quote_interval_seconds() -> int:
@@ -131,8 +158,57 @@ async def _fundamentals_sync_loop() -> None:
         await asyncio.sleep(_fundamentals_interval_seconds())
 
 
+def _news_interval_seconds() -> int:
+    return (
+        NEWS_SYNC_INTERVAL_OPEN_SECONDS
+        if is_market_open()
+        else NEWS_SYNC_INTERVAL_CLOSED_SECONDS
+    )
+
+
+async def _news_sync_loop() -> None:
+    """Poll every registered news source into ``news_items``.
+
+    Runs immediately on start rather than after a sleep, so a fresh deploy has a
+    populated feed within a minute instead of a quarter of an hour. Individual
+    feed failures are swallowed inside the ingest itself — only a total failure
+    of the cycle reaches this handler.
+    """
+    while True:
+        try:
+            summary = await ingest_news()
+            logger.info(
+                "[SyncService] News ingest — %d fetched, %d new, %d queued for analysis",
+                summary["raw_fetched"], summary["inserted"], summary["queued_for_analysis"],
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[SyncService] News ingest iteration failed")
+        await asyncio.sleep(_news_interval_seconds())
+
+
+async def _news_cleanup_loop() -> None:
+    """Delete news past the retention window once a day. See
+    services/news_ingest.py::cleanup_stale_news for why this is time-based and
+    never count-based."""
+    while True:
+        try:
+            await cleanup_stale_news()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[SyncService] News cleanup iteration failed")
+        await asyncio.sleep(NEWS_CLEANUP_INTERVAL_SECONDS)
+
+
 async def run_background_sync() -> None:
-    """Run both sync loops until cancelled. This is the single entry point used
+    """Run all sync loops until cancelled. This is the single entry point used
     by both the inline app startup and the standalone worker."""
-    logger.info("[SyncService] Background sync starting (quote + fundamentals loops)")
-    await asyncio.gather(_quote_sync_loop(), _fundamentals_sync_loop())
+    logger.info("[SyncService] Background sync starting (quote + fundamentals + news + cleanup loops)")
+    await asyncio.gather(
+        _quote_sync_loop(),
+        _fundamentals_sync_loop(),
+        _news_sync_loop(),
+        _news_cleanup_loop(),
+    )

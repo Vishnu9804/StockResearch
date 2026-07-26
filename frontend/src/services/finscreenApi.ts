@@ -57,6 +57,10 @@ export const finscreenApi = {
   
   // --- Market & Feed Endpoints ---
   fetchMarketNews: () => finscreenClient.get('/market/news').then(r => r.data),
+  // Central news store (backend/routers/news.py) — real, deduped, ingested
+  // articles, ordered newest-first exactly as stored in `news_items`.
+  fetchNews: (params: { page?: number; limit?: number; category?: string; symbol?: string } = {}) =>
+    apiClient.get('/news', { params }).then(r => r.data),
   fetchMarketIndices: () => finscreenClient.get('/market/indices').then(r => r.data),
   fetchTopMovers: () => finscreenClient.get('/market/movers').then(r => r.data),
   fetchMarketMovers: () => finscreenClient.get('/market/movers').then(r => r.data),

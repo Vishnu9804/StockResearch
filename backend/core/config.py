@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     # dedicated `python sync_worker.py` process exactly once instead.
     ENABLE_BACKGROUND_SYNC: bool = True
 
+    # ── News retention ─────────────────────────────────────────────────────────
+    # Deliberately a TIME window, never a row-count cap. A count cap (e.g. "keep
+    # the newest 5000 rows") would let one unusually high-volume news day evict
+    # yesterday's stories entirely — a quiet news day right after a busy one
+    # would otherwise lose history that's still well within any sane retention
+    # window. Time-based retention makes "how old" the only thing that decides
+    # deletion, independent of how many articles arrived on any given day.
+    NEWS_RETENTION_DAYS: int = 21
+
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:
         return [self.FINEDGE_API_KEY_1, self.FINEDGE_API_KEY_2, self.FINEDGE_API_KEY_3]

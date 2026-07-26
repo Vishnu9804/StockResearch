@@ -1577,11 +1577,35 @@ async def get_announcements(request: Request):
 @router.get("/market/news")
 async def get_market_news(request: Request):
     """
-    Financial news feed — proxies to FinEdge corp-announcements (last 7 days),
-    then maps each announcement to a news-card shape.
-    Falls back to curated mock headlines if the upstream call fails.
+    Financial news feed.
+
+    Served from the central ``news_items`` store (publisher RSS + GDELT, see
+    services/news_ingest.py). FinEdge itself has no news product — it serves
+    fundamentals, filings and market data — so the previous behaviour here,
+    reshaping corp-announcements into news cards, was showing regulatory
+    disclosures rather than news.
+
+    That older path is kept as a fallback for the narrow window before the first
+    ingestion cycle has run. Every branch below returns either real ingested
+    news, a real FinEdge corp-announcement, or an empty list — never invented
+    headlines. An earlier version of this endpoint had a hardcoded array of
+    fabricated headlines (e.g. a made-up RBI rate decision) attributed to
+    "FinEdge" as a last-resort fallback; that was a real risk (fictitious
+    content presented to users as real financial news) and has been removed
+    outright rather than left dormant.
     """
     from datetime import datetime, timedelta
+
+    # Primary: the central store.
+    try:
+        from routers.news import latest_news
+        stored = await latest_news(limit=12)
+        if stored:
+            return stored
+        logger.info("[market/news] news store empty — falling back to corp-announcements")
+    except Exception as exc:
+        logger.warning("[market/news] news store unavailable (%s) — falling back", exc)
+
     rid = _req_id(request)
     now = datetime.now()
     q = {
@@ -1605,26 +1629,13 @@ async def get_market_news(request: Request):
         "Annual Report": ("ANNUAL REPORT", "#64748b"),
     }
 
-    _FALLBACK_NEWS = [
-        {"id": "n1", "category": "ECONOMY", "categoryColor": "var(--fs-brand)",
-         "headline": "RBI maintains status quo on repo rates for the 6th consecutive session.",
-         "summary": "The MPC voted 5:1 to keep the benchmark rate at 6.5%.", "time": "Today", "source": "FinEdge"},
-        {"id": "n2", "category": "MARKETS", "categoryColor": "var(--fs-positive)",
-         "headline": "NSE Nifty closes above 22,500 for the third consecutive session.",
-         "summary": "FII buying in banking and IT lifted the broader indices.", "time": "Today", "source": "FinEdge"},
-        {"id": "n3", "category": "COMMODITIES", "categoryColor": "#f59e0b",
-         "headline": "Crude oil slips 2% on US inventory build amid demand concerns.",
-         "summary": "Brent Crude dropped below $82/barrel in early trade.", "time": "Yesterday", "source": "FinEdge"},
-        {"id": "n4", "category": "CORPORATE", "categoryColor": "#8b5cf6",
-         "headline": "RIL board approves ₹5,000 Cr buyback at ₹3,000 per share.",
-         "summary": "The open-market buyback will run for 12 months.", "time": "Yesterday", "source": "FinEdge"},
-    ]
-
     try:
         raw = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
         items = raw if isinstance(raw, list) else (raw.get("data") or raw.get("results") or [])
         if not items:
-            return _FALLBACK_NEWS
+            # No fabricated placeholder content — an empty list is the honest
+            # answer here, and the frontend already has an empty state for it.
+            return []
 
         news_items = []
         for ann in items[:20]:
@@ -1665,10 +1676,10 @@ async def get_market_news(request: Request):
                 "source": symbol or "NSE",
             })
 
-        return news_items[:12] if news_items else _FALLBACK_NEWS
+        return news_items[:12]
     except Exception as e:
         _api_error(e, "market-news", rid)
-        return _FALLBACK_NEWS
+        return []
 
 @router.get("/market/commodity-list")
 async def get_commodity_list(request: Request):

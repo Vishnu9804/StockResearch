@@ -13,56 +13,12 @@ import {
   TriangleAlert, Zap, Activity, Clock, Newspaper, Search
 } from "lucide-react"
 
-// Fallback news when API hasn't loaded yet
-const FALLBACK_NEWS = [
-  {
-    id: "n1", category: "ECONOMY", categoryColor: "var(--fs-brand)",
-    headline: "RBI maintains status quo on repo rates for the 6th consecutive session.",
-    summary: "The MPC voted 5:1 to keep the benchmark rate at 6.5%.", time: "Today", source: "FinEdge"
-  },
-  {
-    id: "n2", category: "MARKETS", categoryColor: "var(--fs-positive)",
-    headline: "NSE Nifty closes above 22,500 for the third consecutive session.",
-    summary: "The benchmark Index has gained 1.2% in the last 3 days.", time: "Today", source: "FinEdge"
-  },
-  {
-    id: "n3", category: "COMMODITIES", categoryColor: "#f59e0b",
-    headline: "Crude oil slips 2% on US inventory build amid demand concerns.",
-    summary: "Brent Crude dropped below $82/barrel in early trade.", time: "Yesterday", source: "FinEdge"
-  },
-  {
-    id: "n4", category: "CORPORATE", categoryColor: "#8b5cf6",
-    headline: "RIL board approves ₹5,000 Cr buyback at ₹3,000 per share.",
-    summary: "The open-market buyback will run for 12 months.", time: "Yesterday", source: "FinEdge"
-  },
-]
-
-// Fallback feed items when announcements haven't loaded
-const FEED_ITEMS = [
-  {
-    id: 1, symbol: "TCS", name: "TCS", type: "document", icon: "file", time: "2h ago",
-    headline: "Annual Report Released: Detailed FY24 performance and strategic outlook.",
-    actions: [{ label: "View Report", icon: "external", href: "#" }, { label: "Save for later", icon: "bookmark", href: "#" }],
-  },
-  {
-    id: 2, symbol: "HDFCBANK", name: "HDFC Bank", type: "alert", icon: "trending-up", time: "5h ago",
-    headline: "Instrument hit a new 52-week high of ₹1,740.00 during the morning session.",
-    actions: [{ label: "Analyze Chart", icon: "chart", href: "/company/HDFCBANK" }, { label: "Compare peers", icon: "zap", href: "#" }],
-    highlight: "positive",
-  },
-  {
-    id: 3, symbol: "INFY", name: "Infosys", type: "event", icon: "calendar", time: "Tomorrow",
-    headline: "Upcoming Earnings Call: Q1 Financial Results & Management Commentary.",
-    sub: "Scheduled: 4:00 PM IST",
-    actions: [{ label: "Set Reminder", icon: "bell", href: "#" }],
-  },
-  {
-    id: 4, symbol: "RELIANCE", name: "Reliance Industries", type: "price-alert", icon: "alert", time: "Yesterday",
-    headline: "Price Alert: Stock dropped 2.1% below established support level (₹2,840).",
-    actions: [{ label: "Review Position", icon: "chart", href: "/company/RELIANCE" }, { label: "Dismiss", icon: "x", href: "#" }],
-    highlight: "negative",
-  },
-]
+// No fallback news/feed content by design. This dashboard shows real financial
+// data — a hardcoded array of plausible-looking headlines (a fake RBI rate
+// decision, a fake HDFC Bank 52-week-high price) is fabricated content
+// attributed to real companies, and showing it whenever the API is loading,
+// empty, or briefly unreachable is materially misleading. An empty/loading
+// state is the honest fallback, not invented numbers.
 
 const UPCOMING_RESULTS = [
   { day: "MON", date: "Oct 14", items: [] },
@@ -104,7 +60,7 @@ export function Home() {
   const [refreshedStocks, setRefreshedStocks] = useState<string[]>([])
   const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
   const [announcements, setAnnouncements] = useState<any[]>([])
-  const [news, setNews] = useState<any[]>(FALLBACK_NEWS)
+  const [news, setNews] = useState<any[]>([])
   const [savedScans, setSavedScans] = useState<any[]>([])
   const [scansLoading, setScansLoading] = useState(true)
 
@@ -373,7 +329,7 @@ export function Home() {
   }, [announcements])
 
 
-  const displayFeed = liveAnnouncements.length > 0 ? liveAnnouncements : FEED_ITEMS
+  const displayFeed = liveAnnouncements
   const filteredFeed = feedFilter === "alerts"
     ? displayFeed.filter(i => i.type === "price-alert" || i.type === "alert")
     : displayFeed
@@ -575,7 +531,9 @@ export function Home() {
           </div>
 
           <div className="flex flex-col w-full">
-            {filteredFeed.map((item, idx, arr) => {
+            {filteredFeed.length === 0 && !loading ? (
+              <p className="py-4 text-xs text-textMuted">No recent activity right now.</p>
+            ) : filteredFeed.map((item, idx, arr) => {
               const isPriceAlert = item.type === "price-alert";
               return (
                 <div
@@ -692,6 +650,8 @@ export function Home() {
                   <div className="w-1/3 h-2.5 bg-surfaceMuted/40 rounded animate-pulse" />
                 </div>
               ))
+            ) : news.length === 0 ? (
+              <p className="py-4 text-xs text-textMuted">No news available right now.</p>
             ) : news.slice(0, 4).map((item: any, idx: number, arr: any[]) => (
               <div
                 key={item.id ?? item.headline}
