@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
 from core.cache import init_cache, close_cache
-from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison, news
+from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison, news, butterfly
 from middleware.auth import get_current_user, AuthenticatedUser
 from services.sync_service import run_background_sync
+from agents.butterfly.worker import run_butterfly_worker
+from agents.company_profiler.worker import run_company_profiler_worker
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -37,15 +39,41 @@ async def lifespan(app: FastAPI):
             "(expecting a dedicated sync_worker process)"
         )
 
+    # Butterfly Effect multi-agent workflow — same single-owner rule as the
+    # FinEdge sync above. See agents/butterfly/worker.py + butterfly_worker.py.
+    butterfly_task = None
+    if settings.ENABLE_BUTTERFLY_WORKER:
+        butterfly_task = asyncio.create_task(run_butterfly_worker())
+        logger.info("  [FinScreen FastAPI] Inline Butterfly worker ENABLED")
+    else:
+        logger.info(
+            "  [FinScreen FastAPI] Inline Butterfly worker DISABLED "
+            "(expecting a dedicated butterfly_worker process, or not running yet)"
+        )
+
+    # Company Profiler workflow (Phase 2) — builds company_exposure_profiles
+    # for held symbols, offline, once per company. Same single-owner rule.
+    # See agents/company_profiler/worker.py + company_profiler_worker.py.
+    company_profiler_task = None
+    if settings.ENABLE_COMPANY_PROFILER_WORKER:
+        company_profiler_task = asyncio.create_task(run_company_profiler_worker())
+        logger.info("  [FinScreen FastAPI] Inline Company Profiler worker ENABLED")
+    else:
+        logger.info(
+            "  [FinScreen FastAPI] Inline Company Profiler worker DISABLED "
+            "(expecting a dedicated company_profiler_worker process, or not running yet)"
+        )
+
     logger.info(f"  [FinScreen FastAPI] Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield
 
-    if sync_task is not None:
-        sync_task.cancel()
-        try:
-            await sync_task
-        except asyncio.CancelledError:
-            pass
+    for task in (sync_task, butterfly_task, company_profiler_task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     await close_cache()
     logger.info("  [FinScreen FastAPI] Shutting down")
 
@@ -128,6 +156,7 @@ app.include_router(ratio_preferences.router)
 app.include_router(custom_ratios.router)
 app.include_router(peer_comparison.router)
 app.include_router(news.router)
+app.include_router(butterfly.router)
 
 if __name__ == "__main__":
     import uvicorn
