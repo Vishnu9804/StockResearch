@@ -16,7 +16,7 @@ Two independent filters happen here:
      from exposure_axes even if the Skeptic kept it, because the scorer could
      never join on it anyway.
 """
-from agents.butterfly.schemas import CausalAnalysisResult, SkepticResult, TriageResult
+from agents.butterfly.schemas import CausalAnalysisResult, DIRECTION_TO_INT, SkepticResult, TriageResult
 from agents.shared.taxonomy import is_valid_axis_key
 
 MIN_SURVIVING_CONFIDENCE = 0.15
@@ -50,7 +50,11 @@ def compile_analysis(
         exposure_axes.append({
             "axis": chain.axis,
             "key": chain.key,
-            "direction": chain.net_direction,
+            # exposure_axes feeds services/butterfly_scorer.py's sign arithmetic
+            # directly, so this is the one place the LLM's string label
+            # (schemas.DIRECTION_LABEL, forced by Gemini's string-only enum
+            # support) converts back to the -1/0/1 the scorer expects.
+            "direction": DIRECTION_TO_INT[chain.net_direction],
             "magnitude": chain.net_magnitude,
             "hops": len(chain.hops),
             "confidence": verdict.adjusted_confidence,

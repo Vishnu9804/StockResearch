@@ -1,0 +1,5311 @@
+{
+  "schemes": ["https"],
+  "swagger": "2.0",
+  "info": {
+    "description": "The **FinEdge Financial API** is designed around REST principles, making it simple and reliable to integrate into your applications. With predictable, resource-oriented URLs, JSON-encoded responses, and standard HTTP verbs, developers can get started quickly and scale with ease.\n**Our API Offers:**\n\n- **Profit \u0026 Loss**: 8+ years of historical data (with ongoing updates)\n- **Balance Sheet**: Up to 7 years of financial history and growing\n- **Cash Flow**: 4 years of cash flow statements, expanding over time\n- **Sector Insights**: Deep coverage across industries (insurance coming soon)\n- **Commodity \u0026 raw material prices**\n- **Revenue by Segment**\n- **Shareholding pattern**\n- **Financial ratios**\n- **Mutual Funds** – Coming soon\n- and much more.\n\n**Get Started in Minutes**\n\n- Explore with sample data from **ITC**, **Reliance**, **HDFC Bank**, **ICICIPRULI**.\n- Use the stock symbol for any company specific search. You can get the symbols from the following api [stock_symbols API](#/COMPANY/IDgetStockSymbols)\n- All the end-points support query using NSE or BSE code.",
+    "title": "FinEdge Financials API",
+    "contact": {
+      "name": "FinEdge Support",
+      "url": "https://www.finedgeapi.com/contact-us",
+      "email": "support@finedgeapi.com"
+    },
+    "version": "1.0"
+  },
+  "host": "data.finedgeapi.com",
+  "paths": {
+    "/api/v1/annual-price-ratios/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint calculates and provides annual updates on key stock price ratios, including Price-to-Earnings (P/E), Price-to-Book (P/B) etc. These ratios are fundamental indicators used by investors and analysts to assess a company's market valuation, financial health, and income potential.",
+        "produces": ["application/json"],
+        "tags": ["PRICE"],
+        "summary": "Price ratios annual",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.AnnualPriceRatios"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/basic-financials/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves key financial data from a company's profit and loss, balance sheet, and cash flow statements. This endpoint provides essential metrics for financial analysis and comparison.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIAL ANALYSIS"],
+        "summary": "Basic financials",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs", "cf"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid values the this parameter (use the code): \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecf\u003c/b\u003e\u003c/var\u003e : Cashflow \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the basic financial data for each statement",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.basicFinancials"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commodity-list": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint provides a comprehensive list of commodities supported by the API. It allows users to identify and retrieve details on various commodities available for analysis and trading through the platform. This list includes key commodities such as metals, energy resources, agricultural products, and other tradable assets.",
+        "produces": ["application/json"],
+        "tags": ["COMMODITIES"],
+        "summary": "Commodity lookup",
+        "parameters": [
+          {
+            "enum": ["monthly_index", "core_infra"],
+            "type": "string",
+            "example": "monthly_index",
+            "description": "index category. Following are the options:\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003emonthly_index\u003c/b\u003e\u003c/var\u003e : all commodity index \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecore_infra\u003c/b\u003e\u003c/var\u003e :  index of eight core industries \u003c/li\u003e\u003c/ul\u003e",
+            "name": "category",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "commodity list",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.commodity"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commodity-pct-change/{code}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Calculates the percentage change in a commodity's price over specified time periods (e.g., 1 month, 3 months, 6 months). This endpoint provides insights into price fluctuations and trends over different intervals.",
+        "produces": ["application/json"],
+        "tags": ["COMMODITIES"],
+        "summary": "Commodity percentage change",
+        "parameters": [
+          {
+            "type": "integer",
+            "example": 1301120000,
+            "description": "commodity code. You can get the list of code by using \u003cvar\u003ecommodity-list\u003c/var\u003e api",
+            "name": "code",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "commodity price trend by month",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.commodityPctChange"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commodity-price/{code}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves historical price trends for a specified commodity. Access detailed price data to analyze market trends and historical performance.",
+        "produces": ["application/json"],
+        "tags": ["COMMODITIES"],
+        "summary": "Commodity price trend",
+        "parameters": [
+          {
+            "type": "integer",
+            "example": 1301120000,
+            "description": "commodity code. You can get the list of code by using \u003cvar\u003eCommodity Lookup\u003c/var\u003e api",
+            "name": "code",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "commodity price trend by month",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.commodityPriceTrend"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/company-profile/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Get a comprehensive overview of a company. This endpoint provides detailed information about a company, including its business, sector, industry, and other relevant details.",
+        "produces": ["application/json"],
+        "tags": ["COMPANY"],
+        "summary": "Company profile",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.companyProfile"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corp-announcements": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "\u003cb\u003eAnnouncements daily\u003c/b\u003e\u003cbr/\u003e\u003cbr/\u003e\nThis API provides a consolidated daily feed of corporate announcements published by companies listed on the NSE and BSE stock exchanges. It allows you to retrieve announcements for up to the last 7 days from the current date.\n\u003cbr/\u003eThe API delivers structured, end of day access to disclosures including financial results, corporate actions, board meeting outcomes, regulatory filings, credit reports, call transcripts, investor presentation and other material announcements.\n\u003cbr/\u003eIf the company symbol is provided, this API enables users to track historical and recent disclosures including results, corporate actions, notices, and exchange filings for the selected company.\n\u003cbr/\u003eNote: The from_date and to_date cannot be more than 7 days apart, if symbol is not provided.",
+        "produces": ["application/json"],
+        "tags": ["CORPORATE ANNOUNCEMENTS"],
+        "summary": "Corporate annoucements",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "\u003cvar\u003estock symbol\u003c/var\u003e (optional), leave it blank for daily feed",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional) defaults to today-1",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional) defaults to today",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "corporate announcements",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.CorpAnnouncement"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corporate-actions/all": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint returns corporate action events (like stock splits, bonus, dividend, rights issues, etc.) for the specified company and date range.\nIf the company symbol is provided, data is returned only for that company; otherwise, corporate actions for all companies within the specified daterange are returned.\nNote: The from_date and to_date cannot be more than 30 days apart, if symbol is not provided.\nAll the query parameters are optional. If no parameters are provided, current and future corporate actions are returned.",
+        "tags": ["CORPORATE ACTION"],
+        "summary": "Corporate actions",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "\u003cvar\u003estock symbol\u003c/var\u003e (optional)",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "enum": ["split", "bonus", "rights", "dividend"],
+            "type": "string",
+            "example": "split",
+            "description": "\u003cvar\u003eaction\u003c/var\u003e (optional)",
+            "name": "action",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional) defaults to today-1",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional) defaults to today",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "corporate actions",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.corpAction"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corporate-actions/{corp_action}/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint fetches information about split/bonus/rights share issuances by a company.\n\u003cbr/\u003e\u003col\u003e\u003cli\u003eStock \u003cb\u003e\u003ci\u003esplit\u003c/i\u003e\u003c/b\u003e alter the number of shares outstanding and the share price, impacting both the company's capital structure and shareholder value. This data is essential for understanding changes in share distribution and assessing their impact on historical performance metrics.\u003c/li\u003e\n\u003cli\u003e\u003cb\u003e\u003ci\u003ebonus\u003c/i\u003e\u003c/b\u003e shares are additional shares given to existing shareholders at no extra cost, based on the number of shares they already own. This action increases the number of outstanding shares while reducing the stock price proportionally, without affecting the overall market capitalization.\u003c/li\u003e\n\u003cli\u003e\u003cb\u003e\u003ci\u003erights\u003c/i\u003e\u003c/b\u003e This endpoint fetches information about rights share issuances by a company. A rights issue gives existing shareholders the option to buy additional shares at a discount proportional to their current holdings. Unlike free bonus shares, rights issues require new investment but help companies raise capital while allowing shareholders to maintain their ownership stake.\u003c/li\u003e",
+        "produces": ["application/json"],
+        "tags": ["CORPORATE ACTION"],
+        "summary": "Split/Bonus/Rights",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["split", "bonus", "rights"],
+            "type": "string",
+            "example": "split",
+            "description": "corp_action should be one of the following: \u003cvar\u003esplit\u003c/var\u003e, \u003cvar\u003ebonus\u003c/var\u003e, \u003cvar\u003erights\u003c/var\u003e",
+            "name": "corp_action",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "split/bonus/rights information",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.stockBonus"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/credit-ratings": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Provides access to credit ratings assigned by recognized rating agencies such as CRISIL, ICRA, and CARE Ratings. The API delivers information on current ratings, outlooks, upgrades, downgrades, and historical rating actions, enabling users to assess creditworthiness and monitor changes in issuer risk profiles over time.\n\u003cbr/\u003eIf the company symbol is provided, data is returned only for that company; otherwise, credit ratings for all companies within the specified date range are returned.\n\u003cbr/\u003eNote: The from_date and to_date cannot be more than 7 days apart, if symbol is not provided.",
+        "tags": ["CORPORATE ANNOUNCEMENTS"],
+        "summary": "Credit ratings",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "\u003cvar\u003estock symbol\u003c/var\u003e (optional)",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional) defaults to today-1",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional) defaults to today",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "credit ratings",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.CorpAnnouncement"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/daily-price-ratios/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint calculates and provides daily updates on key stock price ratios, including Price-to-Earnings (P/E), Price-to-Book (P/B), Price-to-Sales (P/S), and Price-to-Free Cash Flow (P/FCF). These ratios are essential indicators used by investors and analysts to assess a company's financial health, market valuation, and investment potential.",
+        "produces": ["application/json"],
+        "tags": ["PRICE"],
+        "summary": "Price ratios daily",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "minimum": 2018,
+            "type": "integer",
+            "example": 2018,
+            "description": "from year, default \u003cvar\u003e2018\u003c/var\u003e",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "minimum": 2018,
+            "type": "integer",
+            "example": 2024,
+            "description": "to year, default \u003cvar\u003ecurrent_year\u003c/var\u003e",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.historicalPriceRatios"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/daily-quotes/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves historical adjusted stock prices for a company over a specified time period. This endpoint provides price data that accounts for corporate actions such as splits and dividends. You can optionally specify the \u003cvar\u003efrom\u003c/var\u003e (default 2018) and \u003cvar\u003eto\u003c/var\u003e (default current) years. The price data is returned from \u003cvar\u003e01-Jan-{from}\u003c/var\u003e to \u003cvar\u003e31-Dec-{to}\u003c/var\u003e.",
+        "produces": ["application/json"],
+        "tags": ["PRICE"],
+        "summary": "Historical adjusted price",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "minimum": 2013,
+            "type": "integer",
+            "example": 2013,
+            "description": "from year, default \u003cvar\u003e2013\u003c/var\u003e",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "minimum": 2013,
+            "type": "integer",
+            "example": 2025,
+            "description": "to year, default \u003cvar\u003ecurrent_year\u003c/var\u003e",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.historicalQuotePrice"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dividend/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint retrieves comprehensive information about dividend payments made by a company. Dividends are distributions of a portion of a company's earnings to its shareholders in the form of cash payments.",
+        "produces": ["application/json"],
+        "tags": ["CORPORATE ACTION"],
+        "summary": "Dividends",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "dividend information",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.stockDividend"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/financial-metrics/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint reflects the inclusive nature of the data provided, covering a broad spectrum of financial metrics, including \u003cb\u003egrowth\u003c/b\u003e, \u003cb\u003eaverage\u003c/b\u003e, and \u003cb\u003ecumulative figures\u003c/b\u003e, in addition to the standard financial ratios.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIAL ANALYSIS"],
+        "summary": "Financial metrics",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["gr", "av", "cu"],
+            "type": "string",
+            "example": "cu",
+            "description": "Following are the valid values the this parameter (use the code): \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecu\u003c/b\u003e\u003c/var\u003e : Cumulative \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003egr\u003c/b\u003e\u003c/var\u003e : Growth \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eav\u003c/b\u003e\u003c/var\u003e : Average \u003c/li\u003e\u003c/ul\u003e",
+            "name": "ratio_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A map of ratios for each stock symbol",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.financialMatrics"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/financials/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "The financial statements include Income statement, Balance sheet and Cash flow statement available in annual and quarterly format sourced directly from company filings.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eQuarterly \u0026 annual Profit \u0026 Loss\u003c/b\u003e\u003cbr/\u003eProfit and loss is a financial statement that summarizes a company's sales, expenses and profit over a specific period.\nThe API retrieves the quarterly and annual profit loss statements for a company.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eBalance Sheet\u003c/b\u003e\u003cbr/\u003eThe balance sheet is a financial statement that displays a company’s total assets, liabilities, and shareholder equity over a specific timeframe (quarterly or yearly).\nThe endpoint provides the balance sheet data for a company on quarterly and annual basis.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eCashflow Statement\u003c/b\u003e\u003cbr/\u003eThe cash flow statement is a financial statement that highlights how cash moves through the company, including both cash inflows and outflows.\nThis statement shows the cash flows in 3 main categories “Operating Cash Flows”, “Investing Cash Flows”, and “Financing Cash Flows” on annual basis. The endpoint provides the cash flow data for a company on annual basis.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIALS"],
+        "summary": "Financial statements",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs", "cf"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid statement codes: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecf\u003c/b\u003e\u003c/var\u003e : Cashflow \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["ttm", "annual", "quarterly", "halfyearly", "ytd"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can take 1 of the following values \u003cbr/\u003e\u003ctable border='1' class='swgTable'\u003e \u003ctr class='swgTableRow'\u003e\u003cth\u003e\u003cdiv  class='swgTableHead'\u003ecode\u003c/div\u003e \u003c/th\u003e \u003cth\u003e\u003cdiv  class='swgTableHead'\u003ecomments \u003c/div\u003e \u003c/th\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e annual \u003c/div\u003e   \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl, bs and cf  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e quarterly  \u003c/div\u003e  \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl, bs \u0026 cf \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e \u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e halfyearly \u003c/div\u003e \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e \u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e ttm \u003c/div\u003e \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e  ytd\u003c/div\u003e  \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for cf and bs\u003c/div\u003e \u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the financial data for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.financials"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/holidays-calendar": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves a list of market holidays for supported exchanges. Use this endpoint to access dates when exchanges are closed, aiding in planning and trading strategies.",
+        "produces": ["application/json"],
+        "tags": ["EXCHANGE"],
+        "summary": "Holiday calendar",
+        "responses": {
+          "200": {
+            "description": "holidays",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.holidays"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index/market-price/daily-feed": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Returns end of day price data for indices, including open, high, low, close, volume and percentage change.\nThis also includes valuation metrics for indices, including P/E, P/B, dividend yield, and market capitalization.",
+        "produces": ["application/json"],
+        "tags": ["INDEX"],
+        "summary": "Index current market price",
+        "responses": {
+          "200": {
+            "description": "index market price",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.IndexCurrentMarketPrice"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index/market-price/historical": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Returns historical price data for the index, including open, high, low, close, volume and percentage change",
+        "produces": ["application/json"],
+        "tags": ["INDEX"],
+        "summary": "Index historical market price",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "NIF50",
+            "description": "\u003cvar\u003eindex symbol\u003c/var\u003e you can get the symbol from Index master",
+            "name": "index_symbol",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e",
+            "name": "from_date",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e",
+            "name": "to_date",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "historical market price",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.IndexHistoricalMarketPrice"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index/master": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Provides master level metadata for NSE and BSE indices, including index classification, exchange, rebalance frequency, market capitalization, and constituent count. This API serves as a reference endpoint for index discovery and classification.",
+        "produces": ["application/json"],
+        "tags": ["INDEX"],
+        "summary": "Index master",
+        "responses": {
+          "200": {
+            "description": "index master",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.IndexMasterResp"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index/price-returns": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Return metrics for indices over multiple periods, including 1 month, 3 months, 6 months, 1 year, 3 years, 5 years, 7 years, and 10 years.\nThis API provides a comprehensive view of index performance across short-term and long-term horizons.",
+        "produces": ["application/json"],
+        "tags": ["INDEX"],
+        "summary": "Index price returns",
+        "responses": {
+          "200": {
+            "description": "index price returns",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.IndexPriceReturns"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index/valuation/historical": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Returns daily valuation metrics for indices, including P/E, P/B, dividend yield, and market capitalization.",
+        "produces": ["application/json"],
+        "tags": ["INDEX"],
+        "summary": "Index valuation",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "NIF50",
+            "description": "\u003cvar\u003eindex symbol\u003c/var\u003e you can get the symbol from Index master",
+            "name": "index_symbol",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e",
+            "name": "from_date",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e",
+            "name": "to_date",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "historical valuation",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.IndexHistoricalValuation"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investor-call-transcripts": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint returns Investor call transcripts issued by companies for the specified company and date range.\nIf the company symbol is provided, data is returned only for that company; otherwise, Investor call transcripts for all companies within the specified daterange are returned.\nThe from_date and to_date cannot be more than 7 days apart.",
+        "tags": ["CORPORATE ANNOUNCEMENTS"],
+        "summary": "Investor call transcripts",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "\u003cvar\u003estock symbol\u003c/var\u003e (optional)",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional) defaults to today-1",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional) defaults to today",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "credit ratings",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.CorpAnnouncement"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investor-presentations": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides access to investor presentations and related media published by listed companies.\nIf the company symbol is provided, data is returned only for that company; otherwise, Investor presentations for all companies within the specified daterange are returned.\nThe from_date and to_date cannot be more than 7 days apart.",
+        "tags": ["CORPORATE ANNOUNCEMENTS"],
+        "summary": "Investor presentations",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "\u003cvar\u003estock symbol\u003c/var\u003e (optional)",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional) defaults to today-1",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional) defaults to today",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "credit ratings",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.CorpAnnouncement"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ipo-calendar": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Access a comprehensive IPO calendar for NSE and BSE with our API, delivering data on upcoming and active IPOs, including issue timelines and pricing details.",
+        "produces": ["application/json"],
+        "tags": ["EXCHANGE"],
+        "summary": "IPO calendar",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e (optional)",
+            "name": "from_date",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e (optional)",
+            "name": "to_date",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ipo",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.IPOData"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/name-changes": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves historical name change records for a date range as disclosed in its regulatory filings. The response includes the old and new company names.",
+        "tags": ["COMPANY"],
+        "summary": "Name  change",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e",
+            "name": "from_date",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e",
+            "name": "to_date",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "name changes",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.NameChange"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notes/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves the standalone and consolidated financial statement notes of a company as disclosed in its regulatory filings. The response includes detailed explanatory notes and disclosures related to the income statement, balance sheet, cash flow statement, and segment reporting. Data is returned only when available in the filings.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIALS"],
+        "summary": "Notes",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : notes by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : notes annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the notes for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.Notes"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/peers/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint provides a comprehensive list of peer companies for a specified company. Peer companies are typically firms within the same industry or sector that share similar characteristics, such as size, market capitalization, and business model. This information is valuable for comparative analysis, benchmarking, and understanding the competitive landscape.",
+        "produces": ["application/json"],
+        "tags": ["PEERS"],
+        "summary": "Peers",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["sector", "industry", "sub_industry", "macro_sector"],
+            "type": "string",
+            "example": "sector",
+            "description": "Filter to choose peers. Folling are the options (default is \u003cvar\u003esector\u003c/var\u003e):\u003cul class='swgUL'\u003e\u003cli\u003e\u003cb\u003esector\u003c/b\u003e – Sector\u003c/li\u003e\u003cli\u003e\u003cb\u003eindustry\u003c/b\u003e – Industry\u003c/li\u003e\u003cli\u003e\u003cb\u003esub_industry\u003c/b\u003e – Sub Industry\u003c/li\u003e\u003cli\u003e\u003cb\u003emacro_sector\u003c/b\u003e – Macro Sector\u003c/li\u003e\u003c/ul\u003e",
+            "name": "group",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "peers",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.peers"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quote": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Fetches the daily opening, closing, high, low prices, and trading volume for a stock. This endpoint provides essential daily trading data for detailed market analysis.",
+        "produces": ["application/json"],
+        "tags": ["PRICE"],
+        "summary": "Daily quote",
+        "parameters": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
+            "example": "ITC",
+            "description": "stock symbols. max 100 can be queried at a time. Premium users get all symbols (no need to send this query parameter)",
+            "name": "symbol",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.dailyPriceExample"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ratios/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Ratios are computed to scale the numbers to common denominator, compare companies across industries and size, comparison across time and compare performance against the benchmark. \u003cbr/\u003eThis endpoint calculates various financial ratios for a company, such as \u003cb\u003eprofitability\u003c/b\u003e, \u003cb\u003eliquidity\u003c/b\u003e, \u003cb\u003eefficiency\u003c/b\u003e, and \u003cb\u003eleverage \u003c/b\u003e ratios summarizing the essential financial health indicators.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIAL ANALYSIS"],
+        "summary": "Financial ratios",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pr", "le", "li", "ef"],
+            "type": "string",
+            "example": "pr",
+            "description": "ratio_type can take 1 of these values (pass the code as the parameter):\u003cbr/\u003e\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eef\u003c/b\u003e\u003c/var\u003e : efficiency \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ele\u003c/b\u003e\u003c/var\u003e : leverage \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eli\u003c/b\u003e\u003c/var\u003e : liquidity \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epr\u003c/b\u003e\u003c/var\u003e : profitability \u003c/li\u003e\u003c/ul\u003e\u003cbr/\u003e",
+            "name": "ratio_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the ratio data for each ratio type",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.ratios"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/refreshed-stocks": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "API to identify which symbols and datasets have changed on last number of days, allowing profressional users to perform incremental refreshes instead of full data reloads.",
+        "produces": ["application/json"],
+        "tags": ["Daily data refresh"],
+        "summary": "Daily data refresh",
+        "parameters": [
+          {
+            "maximum": 7,
+            "minimum": 1,
+            "type": "integer",
+            "default": 1,
+            "example": 1,
+            "description": "number of days in the past. max 7 days",
+            "name": "days",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "refresh data",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.LastUpdatedSymbol"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/results-calendar": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Delivers both past and upcoming earnings announcement dates for listed companies, enabling users to monitor and prepare for key financial disclosures and earnings reports.\u003c/br\u003eNote: Earnings announcement dates are indicative and may change; the actual result date can vary.",
+        "produces": ["application/json"],
+        "tags": ["EXCHANGE"],
+        "summary": "Results calendar",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "date",
+            "default": "2025-12-01",
+            "example": "2025-12-01",
+            "description": "from date, default \u003cvar\u003etoday - 7 days\u003c/var\u003e",
+            "name": "from_date",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "default": "2025-12-31",
+            "example": "2025-12-31",
+            "description": "to date, default \u003cvar\u003etoday + 15 days\u003c/var\u003e",
+            "name": "to_date",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "results calendar",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.ResultsCalendar"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/segment-revenue/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint provides the breakdown of a company's revenue \u0026 profit according to different business segments or divisions. This API will return results only for the companies that reports revenue \u0026 profit by segment.",
+        "produces": ["application/json"],
+        "tags": ["FINANCIALS"],
+        "summary": "Revenue by segment",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid statement codes: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual", "halfyearly", "ttm"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : revenue by segment by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : revenue by segment annual\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ehalfyearly\u003c/b\u003e\u003c/var\u003e :  half-yealy revenue by segment\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ettm\u003c/b\u003e\u003c/var\u003e : revenue by segment trailing 12 months\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of revenue by segment for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.segResp"
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/beneficial-owners/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieve detailed information on significant beneficial owners of a company. This API provides comprehensive data on key individuals who hold substantial shares, including share quantities, ownership percentages, and other relevant details. Access crucial insights into the stakeholders with major equity interests.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Significant beneficial owners",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : beneficial owners by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : beneficial owners annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "summary",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.beneficialOwners"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/declaration/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides a comprehensive overview of a listed entity’s securities and shareholding details, such as the issuance of partly paid-up shares, convertible securities, or warrants, and shares against which depository receipts are issued. It also includes information on locked-in shares, pledged promoter shares, differential voting rights, and significant beneficial ownership, ensuring a thorough understanding of the entity's current financial and regulatory status.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Submission of declarations",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : Submission of declarations by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : Submission of declarations annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "declarations",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.declarations"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/distribution/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides detailed ownership and control information across key shareholder categories, including public shareholders, promoter \u0026 promoter group holdings, and non-promoter non-public shareholders. The API includes metrics such as number of shares held, shareholder count, pledged shares \u0026 pledge percentage, voting rights, and other regulatory shareholding disclosures.\nThe API helps users analyze promoter participation, public ownership trends, pledge exposure, and overall shareholding structure for listed companies.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Shareholding distribution",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : shareholding pattern by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : shareholding pattern annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "shareholding-distribution",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.ShareholdingDistribution"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/ownership-current/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API retrieve a comprehensive list of a company's shareholders, sorted in descending order by the number of shares held, including detailed information on share quantities, ownership percentages, and shareholder categories etc.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Shareholding ownerships current",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ownerships",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.currentOwnerships"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/ownership-history/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API retrieve historical view of a comprehensive list of a company's shareholders (by quarter or by annual as per request), sorted in descending order by the number of shares held, including detailed information on share quantities, ownership percentages, and shareholder categories etc.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Shareholding ownerships history",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : ownerships history by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : ownerships history annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ownership histories",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.ownershipHistories"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/pattern/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides quarterly and annual disclosures of a company’s shareholding pattern, offering a granular breakdown of ownership across key investor categoriessuch as Promoter (Indian and Foreign), Domestic Institutions, Foreign Institutions, Government bodies, Non-Institutional Investors (public), and Non-Promoter Non-Public entities.\nIt not only highlights the percentage shareholding of broad categories but also drills down to show the contributions of specific institutions, entities, and individuals within each group for every reporting period.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Shareholding pattern",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : shareholding pattern by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : shareholding pattern annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "shareholding-pattern",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.stockShHistoricalData"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shareholdings/summary/{symbol}": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint offers comprehensive information on shares, shareholders, voting rights, equity shares, and more, presented on a historical basis. It is designed to help users gain a clear understanding of ownership structures and shareholder rights.",
+        "produces": ["application/json"],
+        "tags": ["SHAREHOLDINGS"],
+        "summary": "Ownership structure",
+        "parameters": [
+          {
+            "type": "string",
+            "example": "ITC",
+            "description": "stock symbol",
+            "name": "symbol",
+            "in": "path",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : ownership summary by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : ownership summary annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "summary",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.overallSummaries"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stock-search": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Search for companies based on their sector or industry classification. This endpoint is useful for identifying potential investment opportunities within specific sectors or industries. For parameters, you can refer to the below link for comprehensive list of Sector, Industry, Sub-Industry and Macro-Sector. You can get the classification details of a stock from the following api [company_profile API](#/COMPANY/get_company_profile__symbol_)",
+        "produces": ["application/json"],
+        "tags": ["COMPANY"],
+        "summary": "Company search by sector or industry",
+        "parameters": [
+          {
+            "enum": ["sector", "industry", "sub_industry", "macro_sector"],
+            "type": "string",
+            "example": "sector",
+            "description": "classification to search companies. Following are the valid values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003esector\u003c/b\u003e\u003c/var\u003e : companies by their sector \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eindustry\u003c/b\u003e\u003c/var\u003e : companies by their industry\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003esub_industry\u003c/b\u003e\u003c/var\u003e : companies by their sub industry \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003emacro_sector\u003c/b\u003e\u003c/var\u003e : companies by their macro sector\u003c/li\u003e\u003c/ul\u003e",
+            "name": "group",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "example": "Diversified FMCG",
+            "description": "classification value",
+            "name": "value",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "companies list",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.companyList"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stock-symbols": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieve a comprehensive list of over 5,000 stock symbols traded on BSE or NSE. This endpoint is for investors and traders seeking detailed information on publicly listed stocks.",
+        "produces": ["application/json"],
+        "tags": ["COMPANY"],
+        "summary": "Stock symbols",
+        "operationId": "IDgetStockSymbols",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.stock"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/symbol-changes": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves information about historical symbol changes for a date range. This endpoint returns the old and new symbols enabling tracking of corporate rebranding or restructuring events.",
+        "tags": ["COMPANY"],
+        "summary": "Symbol change",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-01",
+            "description": "\u003cvar\u003efrom date\u003c/var\u003e",
+            "name": "from_date",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "date",
+            "example": "2025-12-31",
+            "description": "\u003cvar\u003eto date\u003c/var\u003e",
+            "name": "to_date",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "symbol changes",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.SymbolChange"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/annual-price-ratios": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint calculates and provides annual updates on key stock price ratios, including Price-to-Earnings (P/E), Price-to-Book (P/B) etc. These ratios are fundamental indicators used by investors and analysts to assess a company's market valuation, financial health, and income potential.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Price"],
+        "summary": "Price ratios annual",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.AnnualPriceRatios"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/basic-financials": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves key financial data from a company's profit and loss, balance sheet, and cash flow statements. This endpoint provides essential metrics for financial analysis and comparison.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financial analysis"],
+        "summary": "Basic financials",
+        "parameters": [
+          {
+            "description": "stock symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs", "cf"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid values the this parameter (use the code): \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecf\u003c/b\u003e\u003c/var\u003e : Cashflow \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the basic financial data for each statement",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.basicFinancials"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/company-profile": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Get a comprehensive overview of a company. This endpoint provides detailed information about a company, including its business, sector, industry, and other relevant details.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Company"],
+        "summary": "Company profile",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.companyProfile"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/corp-announcements": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "\u003cb\u003eAnnouncements daily\u003c/b\u003e\u003cbr/\u003e\u003cbr/\u003e\nThis API provides the recent corporate announcements published by companies listed on the NSE and BSE stock exchanges.",
+        "produces": ["application/json"],
+        "tags": ["ENTERPRISE-Corporate annoucements"],
+        "summary": "Corporate annoucements",
+        "responses": {
+          "200": {
+            "description": "corporate announcements",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.CorpAnnouncement"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/daily-price-ratios": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint calculates and provides daily updates on key stock price ratios, including Price-to-Earnings (P/E), Price-to-Book (P/B), Price-to-Sales (P/S), and Price-to-Free Cash Flow (P/FCF). These ratios are essential indicators used by investors and analysts to assess a company's financial health, market valuation, and investment potential.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Price"],
+        "summary": "Price ratios daywise",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "minimum": 2018,
+            "type": "integer",
+            "example": 2018,
+            "description": "from year, default \u003cvar\u003e2018\u003c/var\u003e",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "minimum": 2018,
+            "type": "integer",
+            "example": 2024,
+            "description": "to year, default \u003cvar\u003ecurrent_year\u003c/var\u003e",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.historicalPriceRatios"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/daily-quotes": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves historical adjusted stock prices for a company over a specified time period. This endpoint provides price data that accounts for corporate actions such as splits and dividends. You can optionally specify the \u003cvar\u003efrom\u003c/var\u003e (default 2018) and \u003cvar\u003eto\u003c/var\u003e (default current) years. The price data is returned from \u003cvar\u003e01-Jan-{from}\u003c/var\u003e to \u003cvar\u003e31-Dec-{to}\u003c/var\u003e.",
+        "consumes": ["application/json"],
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Price"],
+        "summary": "Historical adjusted price",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "minimum": 2013,
+            "type": "integer",
+            "example": 2013,
+            "description": "from year, default \u003cvar\u003e2013\u003c/var\u003e",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "minimum": 2013,
+            "type": "integer",
+            "example": 2025,
+            "description": "to year, default \u003cvar\u003ecurrent_year\u003c/var\u003e",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.historicalQuotePrice"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/financial-metrics": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint reflects the inclusive nature of the data provided, covering a broad spectrum of financial metrics, including \u003cb\u003egrowth\u003c/b\u003e, \u003cb\u003eaverage\u003c/b\u003e, and \u003cb\u003ecumulative figures\u003c/b\u003e, in addition to the standard financial ratios.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financial analysis"],
+        "summary": "Financial metrics",
+        "parameters": [
+          {
+            "description": "stock symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["gr", "av", "cu"],
+            "type": "string",
+            "example": "cu",
+            "description": "Following are the valid values the this parameter (use the code): \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecu\u003c/b\u003e\u003c/var\u003e : Cumulative \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003egr\u003c/b\u003e\u003c/var\u003e : Growth \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eav\u003c/b\u003e\u003c/var\u003e : Average \u003c/li\u003e\u003c/ul\u003e",
+            "name": "ratio_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A map of ratios for each stock symbol",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.financialMatrics"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/financials": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "The financial statements include Income statement, Balance sheet and Cash flow statement available in annual and quarterly format sourced directly from company filings.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eQuarterly \u0026 annual Profit \u0026 Loss\u003c/b\u003e\u003cbr/\u003eProfit and loss is a financial statement that summarizes a company's sales, expenses and profit over a specific period.\nThe API retrieves the quarterly and annual profit loss statements for a company.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eBalance Sheet\u003c/b\u003e\u003cbr/\u003eThe balance sheet is a financial statement that displays a company’s total assets, liabilities, and shareholder equity over a specific timeframe (quarterly or yearly).\nThe endpoint provides the balance sheet data for a company on annual basis.\u003cbr/\u003e\u003cbr/\u003e\u003cb\u003eCashflow Statement\u003c/b\u003e\u003cbr/\u003eThe cash flow statement is a financial statement that highlights how cash moves through the company, including both cash inflows and outflows.\nThis statement shows the cash flows in 3 main categories “Operating Cash Flows”, “Investing Cash Flows”, and “Financing Cash Flows” on annual basis. The endpoint provides the cash flow data for a company on annual basis.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financials"],
+        "summary": "Financial statements",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs", "cf"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid statement codes: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecf\u003c/b\u003e\u003c/var\u003e : Cashflow \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["ttm", "annual", "quarterly", "ytd"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can take 1 of the following values \u003cbr/\u003e\u003ctable border='1' class='swgTable'\u003e \u003ctr class='swgTableRow'\u003e\u003cth\u003e\u003cdiv  class='swgTableHead'\u003ecode\u003c/div\u003e \u003c/th\u003e \u003cth\u003e\u003cdiv  class='swgTableHead'\u003ecomments \u003c/div\u003e \u003c/th\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e annual \u003c/div\u003e   \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl, bs and cf  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e quarterly  \u003c/div\u003e  \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl, bs \u0026 pl  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e \u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e ttm \u003c/div\u003e \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for pl  \u003c/div\u003e  \u003c/td\u003e\u003c/tr\u003e\u003ctr class='swgTableRow'\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowHead'\u003e  ytd\u003c/div\u003e  \u003c/td\u003e\u003ctd\u003e\u003cdiv  class='swgTableRowDetails'\u003eavailable for cf and bs\u003c/div\u003e \u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the financial data for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.financials"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/index-quotes": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Returns the current price data for indices, including open, high, low, close and percentage change. NOTE: The data is not real-time. expect a 10 to 15 minutes delay",
+        "produces": ["application/json"],
+        "tags": ["ENTERPRISE-Price"],
+        "summary": "Index current market price",
+        "responses": {
+          "200": {
+            "description": "index market price",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.IndexCurrentMarketPrice"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/notes": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieves the standalone and consolidated financial statement notes of a company as disclosed in its regulatory filings. The response includes detailed explanatory notes and disclosures related to the income statement, balance sheet, cash flow statement, and segment reporting. Data is returned only when available in the filings.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financials"],
+        "summary": "Notes",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : notes by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : notes annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the notes for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.Notes"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/quotes": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Fetches the current, opening, high, low prices, and trading volume for a stock. This endpoint supports both streaming and non-streaming responses.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Price"],
+        "summary": "Current quotes",
+        "parameters": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
+            "example": "ITC",
+            "description": "stock symbols. max 500 can be queried at a time. enterprise users get all symbols (no need to send this query parameter)",
+            "name": "symbol",
+            "in": "query"
+          },
+          {
+            "enum": [true, false],
+            "type": "boolean",
+            "default": false,
+            "example": false,
+            "description": "indicates whether to stream the data. \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003etrue\u003c/b\u003e\u003c/var\u003e : stream data\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003efalse\u003c/b\u003e\u003c/var\u003e : return data\u003c/li\u003e\u003c/ul\u003e",
+            "name": "stream",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.dailyPriceStream"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/ratios": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Ratios are computed to scale the numbers to common denominator, compare companies across industries and size, comparison across time and compare performance against the benchmark. \u003cbr/\u003eThis endpoint calculates various financial ratios for all companyies, such as \u003cb\u003eprofitability\u003c/b\u003e, \u003cb\u003eliquidity\u003c/b\u003e, \u003cb\u003eefficiency\u003c/b\u003e, and \u003cb\u003eleverage \u003c/b\u003e ratios summarizing the essential financial health indicators.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financial analysis"],
+        "summary": "Financial ratios",
+        "parameters": [
+          {
+            "description": "stock symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pr", "le", "li", "ef"],
+            "type": "string",
+            "example": "pr",
+            "description": "ratio_type can take 1 of these values (pass the code as the parameter):\u003cbr/\u003e\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eef\u003c/b\u003e\u003c/var\u003e : efficiency \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ele\u003c/b\u003e\u003c/var\u003e : leverage \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eli\u003c/b\u003e\u003c/var\u003e : liquidity \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epr\u003c/b\u003e\u003c/var\u003e : profitability \u003c/li\u003e\u003c/ul\u003e\u003cbr/\u003e",
+            "name": "ratio_type",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of dictionary or map of key, value pairs containing the ratio data for each ratio type",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.ratios"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/refreshed-stocks": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "API to identify which symbols and datasets have changed on last number of days, allowing enterprise clients to perform incremental refreshes instead of full data reloads.",
+        "produces": ["application/json"],
+        "tags": ["ENTERPRISE-Daily data refresh"],
+        "summary": "Daily data refresh",
+        "parameters": [
+          {
+            "maximum": 7,
+            "minimum": 1,
+            "type": "integer",
+            "default": 1,
+            "example": 1,
+            "description": "number of days in the past. max 7 days",
+            "name": "days",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "refresh data",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/fin_api_controller.LastUpdatedSymbol"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/segment-revenue": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint provides the breakdown of a company's revenue \u0026 profit according to different business segments or divisions. This API will return results only for the companies that reports revenue \u0026 profit by segment.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Financials"],
+        "summary": "Revenue by segment",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["s", "c"],
+            "type": "string",
+            "example": "s",
+            "description": "indicates the statement type.\u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003es\u003c/b\u003e\u003c/var\u003e : standalone\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ec\u003c/b\u003e\u003c/var\u003e : consolidated\u003c/li\u003e\u003c/ul\u003e \u003cbr/\u003eNote: all companies may not have consolidated statements. In such cases empty response will be returned.",
+            "name": "statement_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["pl", "bs", "cf"],
+            "type": "string",
+            "example": "pl",
+            "description": "Following are the valid statement codes: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003epl\u003c/b\u003e\u003c/var\u003e : profit-loss \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ebs\u003c/b\u003e\u003c/var\u003e : balance sheet \u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ecf\u003c/b\u003e\u003c/var\u003e : Cashflow \u003c/li\u003e\u003c/ul\u003e",
+            "name": "statement_code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "enum": ["quarterly", "annual", "ttm"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : revenue by segment by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : revenue by segment annual\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003ettm\u003c/b\u003e\u003c/var\u003e : revenue by segment trailing 12 months\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of revenue by segment for each statement and period",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.segResp"
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/beneficial-owners": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Retrieve detailed information on significant beneficial owners of a company. This API provides comprehensive data on key individuals who hold substantial shares, including share quantities, ownership percentages, and other relevant details. Access crucial insights into the stakeholders with major equity interests.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Significant beneficial owners",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : beneficial owners by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : beneficial owners annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "summary",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.beneficialOwners"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/declaration": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides a comprehensive overview of a listed entity’s securities and shareholding details, such as the issuance of partly paid-up shares, convertible securities, or warrants, and shares against which depository receipts are issued. It also includes information on locked-in shares, pledged promoter shares, differential voting rights, and significant beneficial ownership, ensuring a thorough understanding of the entity's current financial and regulatory status.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Submission of declarations",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : Submission of declarations by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : Submission of declarations annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "declarations",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.declarations"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/distribution": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides detailed ownership and control information across key shareholder categories, including public shareholders, promoter \u0026 promoter group holdings, and non-promoter non-public shareholders. The API includes metrics such as number of shares held, shareholder count, pledged shares \u0026 pledge percentage, voting rights, and other regulatory shareholding disclosures.\nThe API helps users analyze promoter participation, public ownership trends, pledge exposure, and overall shareholding structure for listed companies.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Shareholding distribution",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : shareholding pattern by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : shareholding pattern annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "shareholding-distribution",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.stockShHistoricalData"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/ownership-current": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API retrieve a comprehensive list of a company's shareholders, sorted in descending order by the number of shares held, including detailed information on share quantities, ownership percentages, and shareholder categories etc.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Shareholding ownerships current",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ownerships",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.currentOwnerships"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/ownership-history": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API retrieve historical view of a comprehensive list of a company's shareholders (by quarter or by annual as per request), sorted in descending order by the number of shares held, including detailed information on share quantities, ownership percentages, and shareholder categories etc.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Shareholding ownerships history",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : ownerships history by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : ownerships history annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ownership histories",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.ownershipHistories"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/pattern": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This API provides quarterly and annual disclosures of a company’s shareholding pattern, offering a granular breakdown of ownership across key investor categoriessuch as Promoter (Indian and Foreign), Domestic Institutions, Foreign Institutions, Government bodies, Non-Institutional Investors (public), and Non-Promoter Non-Public entities.\nIt not only highlights the percentage shareholding of broad categories but also drills down to show the contributions of specific institutions, entities, and individuals within each group for every reporting period.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Shareholding pattern",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : shareholding pattern by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : shareholding pattern annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "shareholding-pattern",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.stockShHistoricalData"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/enterprise/api/shareholdings/summary": {
+      "post": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "This endpoint offers comprehensive information on shares, shareholders, voting rights, equity shares, and more, presented on a historical basis. It is designed to help users gain a clear understanding of ownership structures and shareholder rights.",
+        "produces": ["application/x-ndjson"],
+        "tags": ["ENTERPRISE-Shareholdings"],
+        "summary": "Ownership structure",
+        "parameters": [
+          {
+            "description": "stock_symbols",
+            "name": "symbols",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.symbolsRequest"
+            }
+          },
+          {
+            "enum": ["quarterly", "annual"],
+            "type": "string",
+            "example": "annual",
+            "description": "period can be one of the following values: \u003cul class='swgUL'\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003equarterly\u003c/b\u003e\u003c/var\u003e : ownership summary by quarter\u003c/li\u003e\u003cli\u003e\u003cvar\u003e\u003cb\u003eannual\u003c/b\u003e\u003c/var\u003e : ownership summary annual\u003c/li\u003e\u003c/ul\u003e",
+            "name": "period",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "summary",
+            "schema": {
+              "$ref": "#/definitions/fin_api_controller.overallSummaries"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/healthcheck": {
+      "get": {
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "description": "Check the health of the API",
+        "produces": ["application/json"],
+        "tags": ["HEALTHCHECK"],
+        "summary": "Healthcheck",
+        "responses": {
+          "200": {
+            "description": "price data",
+            "schema": {
+              "$ref": "#/definitions/fin_api_routers.Health"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "fin_api_controller.AnnualPriceRatios": {
+      "type": "object",
+      "properties": {
+        "price_ratios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.annualPriceRatio"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.CorpAnnouncement": {
+      "type": "object",
+      "properties": {
+        "bse_code": {
+          "type": "string",
+          "example": "500875"
+        },
+        "category": {
+          "type": "string",
+          "example": "Trading Window"
+        },
+        "description": {
+          "type": "string",
+          "example": "ITC Limited has informed the Exchange regarding the Trading Window closure pursuant to SEBI (Prohibition of Insider Trading) Regulations, 2015"
+        },
+        "ex_date": {
+          "type": "string",
+          "example": "2025-12-24 16:59:24"
+        },
+        "nse_code": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "pdf_file_link": {
+          "type": "string",
+          "example": "https://nsearchives.nseindia.com/corporate/ITC_24122025165910_ClosureofTradingWindow24122025.pdf"
+        },
+        "pdf_file_link_hist": {
+          "type": "string"
+        },
+        "stock_symbol": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "sub_category": {
+          "type": "string",
+          "example": ""
+        },
+        "timestamp_unix": {
+          "type": "integer",
+          "example": 1766575764
+        }
+      }
+    },
+    "fin_api_controller.IPOCalendar": {
+      "type": "object",
+      "properties": {
+        "company_name": {
+          "type": "string",
+          "example": "Central Mine Planning \u0026 Design Institute Limited"
+        },
+        "current_bids": {
+          "type": "string",
+          "example": "33,98,960"
+        },
+        "end_date": {
+          "type": "string",
+          "example": "24-Mar-2026"
+        },
+        "exchange": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["NSE", "BSE"]
+        },
+        "ipo_status": {
+          "type": "string",
+          "example": "Live"
+        },
+        "issue_size": {
+          "type": "string",
+          "example": "7,97,89,500"
+        },
+        "price_range": {
+          "type": "string",
+          "example": "Rs.163 to Rs.172"
+        },
+        "security_type": {
+          "type": "string",
+          "example": "Equity"
+        },
+        "start_date": {
+          "type": "string",
+          "example": "20-Mar-2026"
+        },
+        "subscription": {
+          "type": "string",
+          "example": "0.043"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "CMPDI"
+        }
+      }
+    },
+    "fin_api_controller.IPOData": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.IPOCalendar"
+          }
+        }
+      }
+    },
+    "fin_api_controller.IndexCurrentMarketPrice": {
+      "type": "object",
+      "properties": {
+        "change_pct": {
+          "type": "number",
+          "example": 0.42
+        },
+        "close_price": {
+          "type": "number",
+          "example": 25790.25
+        },
+        "div_yield": {
+          "type": "number",
+          "example": 1.3
+        },
+        "high_price": {
+          "type": "number",
+          "example": 25813.15
+        },
+        "index_name": {
+          "type": "string",
+          "example": "Nifty 50"
+        },
+        "index_symbol": {
+          "type": "string",
+          "example": "NIF50"
+        },
+        "low_price": {
+          "type": "number",
+          "example": 25473.4
+        },
+        "market_cap": {
+          "type": "number",
+          "example": 20766295.02
+        },
+        "open_price": {
+          "type": "number",
+          "example": 25669.05
+        },
+        "pb": {
+          "type": "number",
+          "example": 3.51
+        },
+        "pe": {
+          "type": "number",
+          "example": 22.45
+        },
+        "points_change": {
+          "type": "number",
+          "example": 106.95
+        },
+        "turnover": {
+          "type": "number",
+          "example": 23874.45
+        },
+        "volume": {
+          "type": "number",
+          "example": 275757280
+        }
+      }
+    },
+    "fin_api_controller.IndexHistoricalMarketPrice": {
+      "type": "object",
+      "properties": {
+        "index_symbol": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.IndexHistoricalMarketPriceRow"
+          }
+        }
+      }
+    },
+    "fin_api_controller.IndexHistoricalMarketPriceRow": {
+      "type": "object",
+      "properties": {
+        "change_pct": {
+          "type": "number",
+          "example": 0.42
+        },
+        "close_price": {
+          "type": "number",
+          "example": 25790.25
+        },
+        "high_price": {
+          "type": "number",
+          "example": 25813.15
+        },
+        "index_symbol": {
+          "type": "string",
+          "example": "NIF50"
+        },
+        "low_price": {
+          "type": "number",
+          "example": 25473.4
+        },
+        "open_price": {
+          "type": "number",
+          "example": 25669.05
+        },
+        "points_change": {
+          "type": "number",
+          "example": 106.95
+        },
+        "quote_date": {
+          "type": "string",
+          "example": "2026-01-12"
+        },
+        "timestamp": {
+          "type": "integer",
+          "example": 20260112
+        },
+        "turnover": {
+          "type": "number",
+          "example": 23874.45
+        },
+        "volume": {
+          "type": "number",
+          "example": 275757280
+        }
+      }
+    },
+    "fin_api_controller.IndexHistoricalValuation": {
+      "type": "object",
+      "properties": {
+        "index_symbol": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.IndexHistoricalValuationRow"
+          }
+        }
+      }
+    },
+    "fin_api_controller.IndexHistoricalValuationRow": {
+      "type": "object",
+      "properties": {
+        "div_yield": {
+          "type": "number",
+          "example": 1.3
+        },
+        "pb": {
+          "type": "number",
+          "example": 3.51
+        },
+        "pe": {
+          "type": "number",
+          "example": 22.45
+        },
+        "quote_date": {
+          "type": "string",
+          "example": "2026-01-12"
+        },
+        "timestamp": {
+          "type": "integer",
+          "example": 20260112
+        }
+      }
+    },
+    "fin_api_controller.IndexMasterResp": {
+      "type": "object",
+      "properties": {
+        "constituents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["RELIANCE", "HDFCBANK", "BHARTIARTL", "TCS", "ICICIBANK", "SBIN", "INFY"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "exchange": {
+          "type": "string",
+          "example": "NSE"
+        },
+        "index_name": {
+          "type": "string",
+          "example": "Nifty 50"
+        },
+        "index_sub_type": {
+          "type": "string",
+          "example": "Broad Market Indices"
+        },
+        "index_symbol": {
+          "type": "string",
+          "example": "NIF50"
+        },
+        "index_type": {
+          "type": "string",
+          "example": "equity"
+        },
+        "market_cap": {
+          "type": "number",
+          "example": 20766295.02
+        },
+        "rebalance_frequency": {
+          "type": "string"
+        }
+      }
+    },
+    "fin_api_controller.IndexPriceReturns": {
+      "type": "object",
+      "properties": {
+        "10Y": {
+          "type": "number",
+          "example": 13.13
+        },
+        "1M": {
+          "type": "number",
+          "example": 0.99
+        },
+        "1Y": {
+          "type": "number",
+          "example": 9.62
+        },
+        "3M": {
+          "type": "number",
+          "example": -2.42
+        },
+        "3Y": {
+          "type": "number",
+          "example": 13.03
+        },
+        "5Y": {
+          "type": "number",
+          "example": 12.11
+        },
+        "6M": {
+          "type": "number",
+          "example": -2.55
+        },
+        "7Y": {
+          "type": "number",
+          "example": 13.25
+        },
+        "dates": {
+          "$ref": "#/definitions/fin_api_controller.returnDates"
+        },
+        "index_name": {
+          "type": "string",
+          "example": "Nifty 50"
+        },
+        "index_symbol": {
+          "type": "string",
+          "example": "NIF50"
+        }
+      }
+    },
+    "fin_api_controller.LastUpdatedStatements": {
+      "type": "object",
+      "properties": {
+        "last_updated_unix": {
+          "description": "Periods         []string  `json:\"periods\"`\nLastUpdatedAt   time.Time `json:\"last_updated_at\"`",
+          "type": "integer",
+          "example": 1769466233
+        }
+      }
+    },
+    "fin_api_controller.LastUpdatedSymbol": {
+      "type": "object",
+      "properties": {
+        "balance-sheet": {
+          "$ref": "#/definitions/fin_api_controller.LastUpdatedStatements"
+        },
+        "cash-flow": {
+          "$ref": "#/definitions/fin_api_controller.LastUpdatedStatements"
+        },
+        "profit-loss": {
+          "$ref": "#/definitions/fin_api_controller.LastUpdatedStatements"
+        },
+        "quarterly": {
+          "$ref": "#/definitions/fin_api_controller.LastUpdatedStatements"
+        },
+        "shareholdings": {
+          "$ref": "#/definitions/fin_api_controller.LastUpdatedStatements"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.NameChange": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "example": "2026-02-03"
+        },
+        "new_name": {
+          "type": "string",
+          "example": "AvenuesAI Limited"
+        },
+        "old_name": {
+          "type": "string",
+          "example": "Infibeam Avenues Limited"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "CCAVENUE"
+        }
+      }
+    },
+    "fin_api_controller.Notes": {
+      "type": "object",
+      "properties": {
+        "notes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          }
+        }
+      }
+    },
+    "fin_api_controller.ResultsCalendar": {
+      "type": "object",
+      "properties": {
+        "company_name": {
+          "type": "string",
+          "example": "ITC Ltd"
+        },
+        "expected_result_date": {
+          "type": "string",
+          "example": "2024-08-16"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.ShDistData": {
+      "type": "object",
+      "properties": {
+        "dematEquityShares": {
+          "type": "integer",
+          "example": 11190718000
+        },
+        "paidUpEquityShares": {
+          "type": "integer",
+          "example": 12463842000
+        },
+        "sameClassVotingRights": {
+          "type": "integer",
+          "example": 12463842000
+        },
+        "shareholdingPct": {
+          "type": "number",
+          "example": 100
+        },
+        "shareholdingPctConv": {
+          "type": "number",
+          "example": 100
+        },
+        "subCategory1Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory2Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory3Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "totalShareholders": {
+          "type": "integer",
+          "example": 3274358
+        },
+        "totalShares": {
+          "type": "integer",
+          "example": 12463842000
+        },
+        "totalVotingRights": {
+          "type": "integer",
+          "example": 12463842000
+        },
+        "totalVotingRightsPct": {
+          "type": "number",
+          "example": 99.94
+        }
+      }
+    },
+    "fin_api_controller.ShDistribution": {
+      "type": "object",
+      "properties": {
+        "date_header": {
+          "type": "string",
+          "example": "Mar 2026"
+        },
+        "distributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ShDistributionGrp"
+          }
+        }
+      }
+    },
+    "fin_api_controller.ShDistributionGrp": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/fin_api_controller.ShDistData"
+        },
+        "group": {
+          "type": "string",
+          "example": "publicShareholding"
+        }
+      }
+    },
+    "fin_api_controller.ShHistoriesRows": {
+      "type": "object",
+      "properties": {
+        "catagory": {
+          "type": "string",
+          "example": "Indian"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "example": {
+            "Dec 2023": 20,
+            "Jun 2024": 0,
+            "Mar 2024": 20,
+            "Sep 2023": 10,
+            "Sep 2024": -100
+          }
+        },
+        "name": {
+          "type": "string",
+          "example": "Promoter Indian"
+        },
+        "shareholders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ShHistoriesShareholders"
+          }
+        }
+      }
+    },
+    "fin_api_controller.ShHistoriesShareholders": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "example": {
+            "Dec 2023": 2,
+            "Jun 2024": 0,
+            "Mar 2024": 20,
+            "Sep 2023": 1,
+            "Sep 2024": -30
+          }
+        },
+        "name": {
+          "type": "string",
+          "example": "Other"
+        }
+      }
+    },
+    "fin_api_controller.ShareholdingDistribution": {
+      "type": "object",
+      "properties": {
+        "distributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ShDistribution"
+          }
+        },
+        "period": {
+          "type": "string",
+          "example": "quarterly"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.SymbolChange": {
+      "type": "object",
+      "properties": {
+        "company_name": {
+          "type": "string",
+          "example": "Arisinfra Solutions Limited"
+        },
+        "date": {
+          "type": "string",
+          "example": "2026-02-09"
+        },
+        "new_symbol": {
+          "type": "string",
+          "example": "ARIS"
+        },
+        "old_symbol": {
+          "type": "string",
+          "example": "ARISINFRA"
+        }
+      }
+    },
+    "fin_api_controller.annualPriceRatio": {
+      "type": "object",
+      "properties": {
+        "average_price": {
+          "type": "number",
+          "example": 440.22
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "pb": {
+          "type": "number",
+          "example": 7.38
+        },
+        "pe": {
+          "type": "number",
+          "example": 26.88
+        },
+        "pfcf": {
+          "type": "number",
+          "example": 40.24
+        },
+        "ps": {
+          "type": "number",
+          "example": 6.91
+        },
+        "ptb": {
+          "type": "number",
+          "example": 7.66
+        },
+        "year": {
+          "type": "integer",
+          "example": 2024
+        }
+      }
+    },
+    "fin_api_controller.basicFinancial": {
+      "type": "object",
+      "properties": {
+        "adjustedEquityShareCapital": {
+          "type": "number",
+          "example": 12484700000
+        },
+        "adjustedFaceValue": {
+          "type": "number",
+          "example": 1
+        },
+        "costOfGoodsSold": {
+          "type": "number",
+          "example": 272472100000
+        },
+        "dilutedSharesOutstanding": {
+          "type": "number",
+          "example": 12490097680
+        },
+        "ebit": {
+          "type": "number",
+          "example": 271582300000
+        },
+        "ebitda": {
+          "type": "number",
+          "example": 289746200000
+        },
+        "grossIncome": {
+          "type": "number",
+          "example": 523211200000
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "operatingExpenses": {
+          "type": "number",
+          "example": 524025300000
+        },
+        "operatingProfit": {
+          "type": "number",
+          "example": 271658000000
+        },
+        "operatingRevenue": {
+          "type": "number",
+          "example": 795683300000
+        },
+        "salesPerShare": {
+          "type": "number",
+          "example": 63.71
+        },
+        "sharesOutstanding": {
+          "type": "number",
+          "example": 12484700000
+        },
+        "tax": {
+          "type": "number",
+          "example": 0.2356
+        },
+        "year": {
+          "type": "integer",
+          "example": 2024
+        }
+      }
+    },
+    "fin_api_controller.basicFinancials": {
+      "type": "object",
+      "properties": {
+        "basic_financials": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.basicFinancial"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.beneficialOwnerExample": {
+      "type": "object",
+      "properties": {
+        "registeredOwnerName": {
+          "type": "string",
+          "example": "Tattvam Enterprises LLP"
+        },
+        "registeredOwnerNationality": {
+          "type": "string",
+          "example": ""
+        },
+        "registeredOwnerOtherNationality": {
+          "type": "string",
+          "example": ""
+        },
+        "registeredOwnerPAN": {
+          "type": "string",
+          "example": "PAN1234567"
+        },
+        "registeredOwnerPassport": {
+          "type": "string",
+          "example": ""
+        },
+        "sBODateOfAcquisition": {
+          "type": "string",
+          "example": "2019-02-08"
+        },
+        "sBOExerciseByControl": {
+          "type": "boolean",
+          "example": false
+        },
+        "sBOExerciseByDividend": {
+          "type": "number",
+          "example": 8.06
+        },
+        "sBOExerciseByInfluence": {
+          "type": "boolean",
+          "example": false
+        },
+        "sBOExerciseByShares": {
+          "type": "number",
+          "example": 0
+        },
+        "sBOExerciseByVotingRights": {
+          "type": "number",
+          "example": 0
+        },
+        "significantOwnersName": {
+          "type": "string",
+          "example": "Mukesh Ambani Nita Ambani Isha Ambani Akash Ambani and Anant Ambani"
+        },
+        "significantOwnersNationality": {
+          "type": "string",
+          "example": "India"
+        },
+        "significantOwnersOtherNationality": {
+          "type": "string",
+          "example": "India"
+        },
+        "significantOwnersPAN": {
+          "type": "string",
+          "example": "PAN1234567"
+        },
+        "significantOwnersPassport": {
+          "type": "string",
+          "example": ""
+        }
+      }
+    },
+    "fin_api_controller.beneficialOwnerMap": {
+      "type": "object",
+      "properties": {
+        "beneficial_owners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.beneficialOwnerExample"
+          }
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        }
+      }
+    },
+    "fin_api_controller.beneficialOwners": {
+      "type": "object",
+      "properties": {
+        "beneficial_owners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.beneficialOwnerMap"
+          }
+        },
+        "period": {
+          "type": "string",
+          "example": "annual"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "RELIANCE"
+        }
+      }
+    },
+    "fin_api_controller.bonus": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "example": "Bonus issue 1:2"
+        },
+        "date": {
+          "type": "string",
+          "example": "01-Jul-2016"
+        }
+      }
+    },
+    "fin_api_controller.commodity": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 1301120000
+        },
+        "name": {
+          "type": "string",
+          "example": "Manufacture of Tea \u0026 Coffee products"
+        },
+        "weight": {
+          "type": "number",
+          "example": 0.37
+        }
+      }
+    },
+    "fin_api_controller.commodityPctChange": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 1301120000
+        },
+        "name": {
+          "type": "string",
+          "example": "Manufacture of Tea \u0026 Coffee products"
+        },
+        "pct_changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.pctChange"
+          }
+        }
+      }
+    },
+    "fin_api_controller.commodityPriceTrend": {
+      "type": "object",
+      "properties": {
+        "date_header": {
+          "type": "string",
+          "example": "Apr-2024"
+        },
+        "timestamp": {
+          "type": "integer",
+          "example": 202400430
+        },
+        "value": {
+          "type": "number",
+          "example": 195.9
+        }
+      }
+    },
+    "fin_api_controller.companyList": {
+      "type": "object",
+      "properties": {
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["HINDUNILVR", " ITC", " HNDFDS"]
+        }
+      }
+    },
+    "fin_api_controller.companyProfile": {
+      "type": "object",
+      "properties": {
+        "bse_code": {
+          "type": "string",
+          "example": "500875"
+        },
+        "description": {
+          "type": "string",
+          "example": "ITC Ltd. operates as a holding company, which engages in the manufacturing and trading of consumer products..."
+        },
+        "industry": {
+          "type": "string",
+          "example": "Fast Moving Consumer Goods"
+        },
+        "macro_sector": {
+          "type": "string",
+          "example": "Fast Moving Consumer Goods"
+        },
+        "market_cap": {
+          "type": "number",
+          "example": 618332.49
+        },
+        "name": {
+          "type": "string",
+          "example": "ITC Ltd"
+        },
+        "nse_code": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "sector": {
+          "type": "string",
+          "example": "Diversified FMCG"
+        },
+        "sub_industry": {
+          "type": "string",
+          "example": "Diversified FMCG"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "website": {
+          "type": "string",
+          "example": "https://www.itcportal.com/"
+        }
+      }
+    },
+    "fin_api_controller.corpAction": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "example": "dividend"
+        },
+        "adj_amount": {
+          "type": "number",
+          "example": 7.5
+        },
+        "amount": {
+          "type": "number",
+          "example": 7.5
+        },
+        "dividend_type": {
+          "type": "string",
+          "example": "final dividend"
+        },
+        "ex_date": {
+          "type": "string",
+          "example": "04-Jun-2024"
+        },
+        "subject": {
+          "type": "string",
+          "example": "Final Dividend - Rs. - 7.5"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "timestamp_unix": {
+          "type": "integer",
+          "example": 1717459200
+        }
+      }
+    },
+    "fin_api_controller.currentOwnerships": {
+      "type": "object",
+      "properties": {
+        "ownerships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ownershipExample"
+          }
+        },
+        "quarter": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.dailyPrice": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "type": "string",
+          "example": "0.28%"
+        },
+        "high52": {
+          "type": "number",
+          "example": 510.65
+        },
+        "low52": {
+          "type": "number",
+          "example": 399.35
+        },
+        "market_cap": {
+          "type": "number",
+          "example": 620774.18
+        },
+        "price": {
+          "type": "number",
+          "example": 496.15
+        },
+        "shares": {
+          "type": "integer",
+          "example": 12245059584
+        },
+        "tradetime": {
+          "type": "string",
+          "example": "2024-08-09T15:30:00Z"
+        },
+        "volume": {
+          "type": "integer",
+          "example": 9201793
+        }
+      }
+    },
+    "fin_api_controller.dailyPriceExample": {
+      "type": "object",
+      "properties": {
+        "ITC": {
+          "$ref": "#/definitions/fin_api_controller.dailyPrice"
+        }
+      }
+    },
+    "fin_api_controller.dailyPriceStream": {
+      "type": "object",
+      "properties": {
+        "high52": {
+          "type": "number",
+          "example": 510.65
+        },
+        "high_price": {
+          "type": "number",
+          "example": 504.2
+        },
+        "low52": {
+          "type": "number",
+          "example": 399.35
+        },
+        "low_price": {
+          "type": "number",
+          "example": 492.65
+        },
+        "market_cap": {
+          "type": "number",
+          "example": 620774.18
+        },
+        "open_price": {
+          "type": "number",
+          "example": 494.5
+        },
+        "price": {
+          "type": "number",
+          "example": 496.15
+        },
+        "shares": {
+          "type": "integer",
+          "example": 12245059584
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "tradetime": {
+          "type": "string",
+          "example": "2024-08-09T15:30:00Z"
+        },
+        "volume": {
+          "type": "integer",
+          "example": 9201793
+        }
+      }
+    },
+    "fin_api_controller.declarationExample": {
+      "type": "object",
+      "properties": {
+        "differentialVotingRightsNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "differentialVotingRightsPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "differentialVotingRightsPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "equitySharesWithDifferentialVotingRights": {
+          "type": "boolean",
+          "example": false
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "issuedConvertibleSecurities": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedConvertibleSecuritiesNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedConvertibleSecuritiesPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedConvertibleSecuritiesPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedPartlyPaidShares": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedPartlyPaidSharesNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedPartlyPaidSharesPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedPartlyPaidSharesPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedWarrants": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedWarrantsNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedWarrantsPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "issuedWarrantsPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "lockedInShares": {
+          "type": "boolean",
+          "example": false
+        },
+        "lockedInSharesNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "lockedInSharesPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "lockedInSharesPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "pledgedSharesForPromoterAndGroup": {
+          "type": "boolean",
+          "example": false
+        },
+        "pledgedSharesNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "pledgedSharesPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "pledgedSharesPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "sharesAgainstDepositoryReceipts": {
+          "type": "boolean",
+          "example": false
+        },
+        "sharesAgainstDepositoryReceiptsNonPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "sharesAgainstDepositoryReceiptsPromoter": {
+          "type": "boolean",
+          "example": false
+        },
+        "sharesAgainstDepositoryReceiptsPublic": {
+          "type": "boolean",
+          "example": false
+        },
+        "significantBeneficialOwner": {
+          "type": "boolean",
+          "example": false
+        }
+      }
+    },
+    "fin_api_controller.declarations": {
+      "type": "object",
+      "properties": {
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.declarationExample"
+          }
+        },
+        "period": {
+          "type": "string",
+          "example": "annual"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.dividend": {
+      "type": "object",
+      "properties": {
+        "adj_amount": {
+          "type": "number",
+          "example": 7.5
+        },
+        "amount": {
+          "type": "number",
+          "example": 7.5
+        },
+        "date": {
+          "type": "string",
+          "example": "04-Jun-2024"
+        },
+        "dividend_type": {
+          "type": "string",
+          "example": "Final Dividend"
+        },
+        "subject": {
+          "type": "string",
+          "example": "Final Dividend - Rs. - 7.5000"
+        }
+      }
+    },
+    "fin_api_controller.fMatrixGrowthExample": {
+      "type": "object",
+      "properties": {
+        "financingCashFlow3yearsTotal": {
+          "type": "number",
+          "example": -451374900000
+        },
+        "freeCashFlow3yearsTotal": {
+          "type": "number",
+          "example": 436094700000
+        },
+        "investingCashFlow3yearsTotal": {
+          "type": "number",
+          "example": -64080100000
+        },
+        "operatingCashFlow3yearsTotal": {
+          "type": "number",
+          "example": 518319200000
+        }
+      }
+    },
+    "fin_api_controller.financialMatrics": {
+      "type": "object",
+      "properties": {
+        "financial_metrics": {
+          "$ref": "#/definitions/fin_api_controller.fMatrixGrowthExample"
+        },
+        "ratio_type": {
+          "type": "string",
+          "example": "Cummulative"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.financials": {
+      "type": "object",
+      "properties": {
+        "financials": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.statement"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.historicalPriceRatios": {
+      "type": "object",
+      "properties": {
+        "price_ratios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.priceRatio"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.historicalQuotePrice": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.price"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.holidays": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "example": "Republic Day"
+        },
+        "trading_date": {
+          "type": "string",
+          "example": "26-Jan-2024"
+        },
+        "week_day": {
+          "type": "string",
+          "example": "Friday"
+        }
+      }
+    },
+    "fin_api_controller.overallSummaries": {
+      "type": "object",
+      "properties": {
+        "period": {
+          "type": "string",
+          "example": "annual"
+        },
+        "summary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.overallSummaryExample"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.overallSummaryExample": {
+      "type": "object",
+      "properties": {
+        "convertibleSecWarrants": {
+          "type": "integer",
+          "example": 0
+        },
+        "dematEquityShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "differentialVotingRights": {
+          "type": "integer",
+          "example": 0
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "indianShareholders": {
+          "type": "integer",
+          "example": 0
+        },
+        "lockedInShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "lockedInSharesPct": {
+          "type": "number",
+          "example": 0
+        },
+        "outstandingConvertibleSecurities": {
+          "type": "integer",
+          "example": 0
+        },
+        "outstandingDepositoryRcpts": {
+          "type": "integer",
+          "example": 0
+        },
+        "pANShareholder": {
+          "type": "integer",
+          "example": 0
+        },
+        "paidUpEquityShares": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "partlyPaidUpEquity": {
+          "type": "integer",
+          "example": 0
+        },
+        "pledgedShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "pledgedSharesPct": {
+          "type": "number",
+          "example": 0
+        },
+        "promoterShareholding": {
+          "type": "integer",
+          "example": 0
+        },
+        "sameClassVotingRights": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "shareholdingPct": {
+          "type": "number",
+          "example": 0.12
+        },
+        "shareholdingPctConv": {
+          "type": "number",
+          "example": 0.12
+        },
+        "subCategory1Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory2Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory3Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "totalShareholders": {
+          "type": "integer",
+          "example": 0
+        },
+        "totalShares": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "totalVotingRights": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "totalVotingRightsPct": {
+          "type": "integer",
+          "example": 0
+        },
+        "warrants": {
+          "type": "integer",
+          "example": 0
+        }
+      }
+    },
+    "fin_api_controller.ownershipExample": {
+      "type": "object",
+      "properties": {
+        "bankName": {
+          "type": "string",
+          "example": ""
+        },
+        "categoryOrMoreThan1Pct": {
+          "type": "string",
+          "example": "Category"
+        },
+        "convertibleSecWarrants": {
+          "type": "integer",
+          "example": 0
+        },
+        "dematEquityShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "differentialVotingRights": {
+          "type": "integer",
+          "example": 0
+        },
+        "foreignShareholders": {
+          "type": "string",
+          "example": ""
+        },
+        "group": {
+          "type": "string",
+          "example": "publicShareholding"
+        },
+        "indianShareholders": {
+          "type": "integer",
+          "example": 0
+        },
+        "institutions": {
+          "type": "string",
+          "example": ""
+        },
+        "lockedInShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "lockedInSharesPct": {
+          "type": "number",
+          "example": 0
+        },
+        "otherNonInstitutions": {
+          "type": "string",
+          "example": ""
+        },
+        "outstandingConvertibleSecurities": {
+          "type": "integer",
+          "example": 0
+        },
+        "outstandingDepositoryRcpts": {
+          "type": "integer",
+          "example": 0
+        },
+        "pANShareholder": {
+          "type": "integer",
+          "example": 0
+        },
+        "paidUpEquityShares": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "partlyPaidUpEquity": {
+          "type": "integer",
+          "example": 0
+        },
+        "pledgedShares": {
+          "type": "integer",
+          "example": 0
+        },
+        "pledgedSharesPct": {
+          "type": "number",
+          "example": 0
+        },
+        "promoterShareholding": {
+          "type": "integer",
+          "example": 0
+        },
+        "sameClassVotingRights": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "sh_axis": {
+          "type": "string",
+          "example": "otherInstitutionsDomestic"
+        },
+        "sh_index": {
+          "type": "string",
+          "example": "SH1000132"
+        },
+        "shareholder_name": {
+          "type": "string",
+          "example": "Insurance Funds- Dept of Post India"
+        },
+        "shareholdingPct": {
+          "type": "number",
+          "example": 0.12
+        },
+        "shareholdingPctConv": {
+          "type": "number",
+          "example": 0.12
+        },
+        "subCategory1Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory2Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "subCategory3Shares": {
+          "type": "integer",
+          "example": 0
+        },
+        "sub_group": {
+          "type": "string",
+          "example": "institutionsDomestic"
+        },
+        "totalShareholders": {
+          "type": "integer",
+          "example": 0
+        },
+        "totalShares": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "totalVotingRights": {
+          "type": "integer",
+          "example": 14890741
+        },
+        "totalVotingRightsPct": {
+          "type": "integer",
+          "example": 0
+        },
+        "typeDepositoryRcpts": {
+          "type": "string",
+          "example": ""
+        },
+        "warrants": {
+          "type": "integer",
+          "example": 0
+        }
+      }
+    },
+    "fin_api_controller.ownershipHistories": {
+      "type": "object",
+      "properties": {
+        "ownership_histories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.periodExample"
+          }
+        },
+        "period": {
+          "type": "string",
+          "example": "annual"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.pctChange": {
+      "type": "object",
+      "properties": {
+        "change_pct": {
+          "type": "string",
+          "example": "1.57%"
+        },
+        "index": {
+          "type": "string",
+          "example": "1 month"
+        }
+      }
+    },
+    "fin_api_controller.peers": {
+      "type": "object",
+      "properties": {
+        "peers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["HINDUNILVR", " ITC", " HNDFDS"]
+        }
+      }
+    },
+    "fin_api_controller.periodExample": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ownershipExample"
+          }
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        }
+      }
+    },
+    "fin_api_controller.price": {
+      "type": "object",
+      "properties": {
+        "close_price": {
+          "type": "number",
+          "example": 502.05
+        },
+        "high_price": {
+          "type": "number",
+          "example": 504.2
+        },
+        "low_price": {
+          "type": "number",
+          "example": 492.65
+        },
+        "open_price": {
+          "type": "number",
+          "example": 494.5
+        },
+        "quote_date": {
+          "type": "string",
+          "example": "2024-08-16"
+        },
+        "volume": {
+          "type": "integer",
+          "example": 13137392
+        }
+      }
+    },
+    "fin_api_controller.priceRatio": {
+      "type": "object",
+      "properties": {
+        "pb": {
+          "type": "number",
+          "example": 8.18
+        },
+        "pe": {
+          "type": "number",
+          "example": 29.78
+        },
+        "pfcf": {
+          "type": "number",
+          "example": 44.59
+        },
+        "ps": {
+          "type": "number",
+          "example": 7.66
+        },
+        "ptb": {
+          "type": "number",
+          "example": 8.48
+        },
+        "quote_date": {
+          "type": "string",
+          "example": "2024-08-02"
+        }
+      }
+    },
+    "fin_api_controller.ratio": {
+      "type": "object",
+      "properties": {
+        "dividendPayout": {
+          "type": "number",
+          "example": 0.9615
+        },
+        "ebitMargin": {
+          "type": "number",
+          "example": 0.3413
+        },
+        "ebitdaMargin": {
+          "type": "number",
+          "example": 0.3641
+        },
+        "effectiveTaxRate": {
+          "type": "number",
+          "example": 0.2356
+        },
+        "grossMargin": {
+          "type": "number",
+          "example": 0.6576
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "netMargin": {
+          "type": "number",
+          "example": 0.2571
+        },
+        "operatingMargin": {
+          "type": "number",
+          "example": 0.3414
+        },
+        "preTaxMargin": {
+          "type": "number",
+          "example": 0.3407
+        },
+        "retentionRatio": {
+          "type": "number",
+          "example": 0.0385
+        },
+        "returnOnAsset": {
+          "type": "number",
+          "example": 0.2228
+        },
+        "returnOnCapital": {
+          "type": "number",
+          "example": 0.3476
+        },
+        "returnOnEquity": {
+          "type": "number",
+          "example": 0.2746
+        },
+        "returnOnTangibleAssets": {
+          "type": "number",
+          "example": 0.2295
+        },
+        "year": {
+          "type": "integer",
+          "example": 2024
+        }
+      }
+    },
+    "fin_api_controller.ratios": {
+      "type": "object",
+      "properties": {
+        "ratios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ratio"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.returnDates": {
+      "type": "object",
+      "properties": {
+        "10Y": {
+          "type": "string",
+          "example": "2016-01-12"
+        },
+        "1M": {
+          "type": "string",
+          "example": "2025-12-12"
+        },
+        "1Y": {
+          "type": "string",
+          "example": "2025-01-09"
+        },
+        "3M": {
+          "type": "string",
+          "example": "2025-10-09"
+        },
+        "3Y": {
+          "type": "string",
+          "example": "2023-01-12"
+        },
+        "5Y": {
+          "type": "string",
+          "example": "2021-01-12"
+        },
+        "6M": {
+          "type": "string",
+          "example": "2025-07-11"
+        },
+        "7Y": {
+          "type": "string",
+          "example": "2019-01-11"
+        },
+        "last_date": {
+          "type": "string",
+          "example": "2026-01-12"
+        }
+      }
+    },
+    "fin_api_controller.segDataMain": {
+      "type": "object",
+      "properties": {
+        "interSegmentRevenue": {
+          "type": "integer",
+          "example": 15175700000
+        },
+        "netOtherUnallocableExpense": {
+          "type": "integer",
+          "example": -4843800000
+        },
+        "segmentFinanceCosts": {
+          "type": "integer",
+          "example": 85100000
+        },
+        "segmentProfitBeforeTax": {
+          "type": "integer",
+          "example": 64168500000
+        },
+        "segmentProfitLossBeforeTaxAndFinanceCosts": {
+          "type": "integer",
+          "example": 59409800000
+        },
+        "segmentRevenue": {
+          "type": "integer",
+          "example": 197837400000
+        },
+        "segmentRevenueFromOperations": {
+          "type": "integer",
+          "example": 182661700000
+        }
+      }
+    },
+    "fin_api_controller.segDataSub": {
+      "type": "object",
+      "properties": {
+        "segmentProfitLossBeforeTaxAndFinanceCosts": {
+          "type": "integer",
+          "example": 51178600000
+        },
+        "segmentRevenue": {
+          "type": "integer",
+          "example": 83996100000
+        }
+      }
+    },
+    "fin_api_controller.segResp": {
+      "type": "object",
+      "properties": {
+        "segment_revenues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.segmentRev"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.segment": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/fin_api_controller.segDataSub"
+        },
+        "name": {
+          "type": "string",
+          "example": "FMCG - Cigarettes"
+        }
+      }
+    },
+    "fin_api_controller.segmentRev": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/fin_api_controller.segDataMain"
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2025"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.segment"
+          }
+        }
+      }
+    },
+    "fin_api_controller.statement": {
+      "type": "object",
+      "properties": {
+        "EPS": {
+          "type": "number",
+          "example": 16.35
+        },
+        "adjustedEquityShareCapital": {
+          "type": "number",
+          "example": 12484700000
+        },
+        "adjustedFaceValue": {
+          "type": "number",
+          "example": 1
+        },
+        "changesInInventories": {
+          "type": "number",
+          "example": -3707100000
+        },
+        "costOfMaterialsConsumed": {
+          "type": "number",
+          "example": 213098400000
+        },
+        "costofGoodsSold": {
+          "type": "number",
+          "example": 269821000000
+        },
+        "currentTax": {
+          "type": "number",
+          "example": 56612100000
+        },
+        "deferredTax": {
+          "type": "number",
+          "example": 2325900000
+        },
+        "depreciationAndAmortisation": {
+          "type": "number",
+          "example": 16478200000
+        },
+        "dilutedSharesOutstanding": {
+          "type": "number",
+          "example": 12490501529.051987
+        },
+        "employeeBenefitExpense": {
+          "type": "number",
+          "example": 37322300000
+        },
+        "exceptionalItemsBeforeTax": {
+          "type": "number",
+          "example": -75700000
+        },
+        "expenses": {
+          "type": "number",
+          "example": 473202300000
+        },
+        "extraordinaryItems": {
+          "type": "number",
+          "example": 0
+        },
+        "financeCosts": {
+          "type": "number",
+          "example": 457300000
+        },
+        "header": {
+          "type": "string",
+          "example": "Mar 2024"
+        },
+        "income": {
+          "type": "number",
+          "example": 736435700000
+        },
+        "nonControllingInterests": {
+          "type": "number",
+          "example": 0
+        },
+        "otherExpenses": {
+          "type": "number",
+          "example": 149123500000
+        },
+        "otherIncome": {
+          "type": "number",
+          "example": 35382800000
+        },
+        "profitBeforeTax": {
+          "type": "number",
+          "example": 263157700000
+        },
+        "profitLossForEPS": {
+          "type": "number",
+          "example": 204219700000
+        },
+        "profitLossForPeriod": {
+          "type": "number",
+          "example": 204219700000
+        },
+        "profitOrLossAttributableToOwners": {
+          "type": "number",
+          "example": 0
+        },
+        "profitOrLossOfAssociates": {
+          "type": "number",
+          "example": 0
+        },
+        "purchasesOfStockInTrade": {
+          "type": "number",
+          "example": 60429700000
+        },
+        "revenueFromOperations": {
+          "type": "number",
+          "example": 701052900000
+        },
+        "taxExpense": {
+          "type": "number",
+          "example": 58938000000
+        },
+        "year": {
+          "type": "integer",
+          "example": 2024
+        }
+      }
+    },
+    "fin_api_controller.stock": {
+      "type": "object",
+      "properties": {
+        "bse_code": {
+          "type": "string",
+          "example": "500875"
+        },
+        "consolidated_ind": {
+          "type": "boolean",
+          "example": true
+        },
+        "name": {
+          "type": "string",
+          "example": "ITC Ltd"
+        },
+        "nse_code": {
+          "type": "string",
+          "example": "ITC"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.stockBonus": {
+      "type": "object",
+      "properties": {
+        "bonus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.bonus"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.stockDividend": {
+      "type": "object",
+      "properties": {
+        "dividend": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.dividend"
+          }
+        },
+        "symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.stockShHistoricalData": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["Sep 2023", "Dec 2023", "Mar 2024", "Jun 2024", "Sep 2024"]
+        },
+        "company_name": {
+          "type": "string",
+          "example": "ITC Ltd"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/fin_api_controller.ShHistoriesRows"
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "Success"
+        },
+        "stock_symbol": {
+          "type": "string",
+          "example": "ITC"
+        }
+      }
+    },
+    "fin_api_controller.symbolsRequest": {
+      "type": "object",
+      "properties": {
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["ITC", "HDFCBANK", "TCS"]
+        }
+      }
+    },
+    "fin_api_routers.Health": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "example": "OK"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "description": "Our API uses API keys to authenticate the requests. You can view and manage your API keys in the Profile. All GET request require a token parameter token=apiKey in the URL.",
+      "type": "apiKey",
+      "name": "token",
+      "in": "query"
+    }
+  },
+  "tags": [
+    {
+      "name": "COMPANY"
+    },
+    {
+      "name": "FINANCIALS"
+    },
+    {
+      "name": "FINANCIAL ANALYSIS"
+    },
+    {
+      "name": "PRICE"
+    },
+    {
+      "name": "PEERS"
+    },
+    {
+      "name": "SHAREHOLDINGS"
+    },
+    {
+      "name": "CORPORATE ACTION"
+    },
+    {
+      "name": "CORPORATE ANNOUNCEMENTS"
+    },
+    {
+      "name": "COMMODITIES"
+    },
+    {
+      "name": "INDEX"
+    },
+    {
+      "name": "EXCHANGE"
+    },
+    {
+      "name": "Daily data refresh"
+    },
+    {
+      "description": "The following end-points require `Enterprise` subscription",
+      "name": "ENTERPRISE"
+    },
+    {
+      "name": "ENTERPRISE-Company"
+    },
+    {
+      "name": "ENTERPRISE-Financials"
+    },
+    {
+      "name": "ENTERPRISE-Financial analysis"
+    },
+    {
+      "name": "ENTERPRISE-Price"
+    },
+    {
+      "name": "ENTERPRISE-Shareholdings"
+    },
+    {
+      "name": "ENTERPRISE-Daily data refresh"
+    },
+    {
+      "name": "ENTERPRISE-Corporate annoucements"
+    },
+    {
+      "name": "HEALTHCHECK"
+    }
+  ]
+}

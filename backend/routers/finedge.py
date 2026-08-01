@@ -322,16 +322,19 @@ async def _compute_extended_ratios(
         except Exception:
             return None
 
-    pl_annual, pl_quarterly, bs_annual, cf_annual, price_ratios, price_hist, ownership_data = await asyncio.gather(
+    pl_annual, pl_quarterly, bs_annual, cf_annual, price_ratios, price_hist, summary_data = await asyncio.gather(
         safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "pl"}, None, rid)),
         safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "quarterly", "statement_code": "pl"}, None, rid)),
         safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "bs"}, None, rid)),
         safe(execute_proxy_request("GET", f"financials/{sym}", {"statement_type": st, "period": "annual", "statement_code": "cf"}, None, rid)),
         safe(execute_proxy_request("GET", f"annual-price-ratios/{sym}", {"statement_type": st, "period": "annual"}, None, rid)),
         safe(execute_proxy_request("GET", f"daily-quotes/{sym}", {}, None, rid)),
-        # shareholdings/declaration is compliance booleans only (no numeric pledge %) —
-        # ownership-current's per-holder pledgedSharesPct is the real source.
-        safe(execute_proxy_request("GET", f"shareholdings/ownership-current/{sym}", {}, None, rid)),
+        # shareholdings/declaration is compliance booleans only (no numeric pledge %), and
+        # ownership-current's per-holder pledgedSharesPct field is empty for every company
+        # (verified live against ZEEL/ADANIENT, both known to carry real promoter pledges) —
+        # shareholdings/summary's aggregate pledgedSharesPct is the only field that's
+        # actually populated, and it's already a plain percentage (0.21 == 0.21%).
+        safe(execute_proxy_request("GET", f"shareholdings/summary/{sym}", {"period": "quarterly"}, None, rid)),
     )
 
     def sorted_periods(data):
@@ -479,15 +482,11 @@ async def _compute_extended_ratios(
                 if c6:
                     out["return6m"] = round((latest_close - c6) / c6 * 100, 2)
 
-    # ── Pledged % — shareholdings/declaration only has compliance booleans (no
-    #    numeric %); the real figure is the sum of pledgedSharesPct across
-    #    ownership-current's named significant shareholders (FinEdge reports it as
-    #    a fraction, e.g. 0.05 == 0.05%, consistent with shareholdingPct there). ──
-    if not isinstance(ownership_data, Exception) and ownership_data and isinstance(ownership_data.get("ownerships"), list):
-        pledge_total = sum(
-            (o.get("pledgedSharesPct") or 0) for o in ownership_data["ownerships"]
-        )
-        out["pledgedPercentage"] = round(pledge_total * 100, 4)
+    # ── Pledged % — shareholdings/summary's most recent quarter, already a
+    #    plain percentage (0.21 == 0.21% of total share capital pledged). ──
+    if not isinstance(summary_data, Exception) and summary_data and isinstance(summary_data.get("summary"), list) and summary_data["summary"]:
+        latest_summary = summary_data["summary"][0]
+        out["pledgedPercentage"] = round(latest_summary.get("pledgedSharesPct") or 0, 4)
 
     # ── Change in promoter holding: compare last two quarters of shareholding pattern ──
     if sh_data and not isinstance(sh_data, Exception):
@@ -940,6 +939,86 @@ async def get_ownership_history(symbol: str, request: Request):
         _api_error(e, f"shareholdings/ownership-history/{symbol}", rid)
 
 
+_DIST_GROUP_LABEL = {
+    "promoterAndPromoterGroup": "Promoter & Promoter Group",
+    "publicShareholding": "Public",
+    "nonPromoterNonPublic": "Non-Promoter, Non-Public",
+}
+
+
+def _latest_by_header(rows: list, header_key: str) -> Optional[dict]:
+    """FinEdge already returns these lists most-recent-first, but that's an
+    observed behaviour, not a documented guarantee — parse the 'Mon YYYY'
+    header so a future ordering change can't silently swap in a stale row."""
+    from datetime import datetime as _dt
+    if not rows:
+        return None
+
+    def _key(r):
+        try:
+            return _dt.strptime(r.get(header_key, ""), "%b %Y")
+        except (ValueError, TypeError):
+            return _dt.min
+    return max(rows, key=_key)
+
+
+@router.get("/company/{symbol}/shareholding/base-stats")
+async def get_shareholding_base_stats(symbol: str, request: Request):
+    """Shareholder count, pledge %, and locked-in % for the latest reported
+    quarter — sourced from FinEdge's shareholdings/summary (overall) and
+    shareholdings/distribution (per Promoter/Public/Non-Promoter-Non-Public
+    group), both of which carry the real, populated fields that ownership-
+    current's per-holder pledgedSharesPct does not (see _compute_extended_ratios)."""
+    import asyncio
+    sym = symbol.upper()
+    rid = _req_id(request)
+    period = request.query_params.get("period", "quarterly")
+    try:
+        summary_data, distribution_data = await asyncio.gather(
+            execute_proxy_request("GET", f"shareholdings/summary/{sym}", {"period": period}, None, rid),
+            execute_proxy_request("GET", f"shareholdings/distribution/{sym}", {"period": period}, None, rid),
+            return_exceptions=True,
+        )
+
+        result: Dict[str, Any] = {
+            "symbol": sym, "period": None,
+            "totalShareholders": None, "totalShareholdersPrev": None,
+            "pledgedSharesPct": None, "lockedInSharesPct": None,
+            "categories": {},
+        }
+
+        if not isinstance(summary_data, Exception) and summary_data and isinstance(summary_data.get("summary"), list):
+            rows = summary_data["summary"]
+            latest = _latest_by_header(rows, "header")
+            if latest:
+                result["period"] = latest.get("header")
+                result["totalShareholders"] = latest.get("totalShareholders")
+                result["pledgedSharesPct"] = round(latest.get("pledgedSharesPct") or 0, 4)
+                result["lockedInSharesPct"] = round(latest.get("lockedInSharesPct") or 0, 4)
+                others = [r for r in rows if r.get("header") != result["period"]]
+                prev = _latest_by_header(others, "header")
+                if prev:
+                    result["totalShareholdersPrev"] = prev.get("totalShareholders")
+
+        if not isinstance(distribution_data, Exception) and distribution_data and isinstance(distribution_data.get("distributions"), list):
+            latest_group = _latest_by_header(distribution_data["distributions"], "date_header")
+            if latest_group:
+                for grp in latest_group.get("distributions", []):
+                    key = grp.get("group")
+                    data = grp.get("data") or {}
+                    if not key:
+                        continue
+                    result["categories"][key] = {
+                        "label": _DIST_GROUP_LABEL.get(key, key),
+                        "shareholders": data.get("totalShareholders"),
+                        "lockedInSharesPct": round(data.get("lockedInSharesPct") or 0, 4),
+                    }
+
+        return result
+    except Exception as e:
+        _api_error(e, f"shareholdings/base-stats/{symbol}", rid)
+
+
 # ── Shareholding category drill-down (Promoter/FII/DII/Public → named holders) ──
 # Uses standard SEBI shareholding-pattern category definitions:
 #   Promoter        = entities/individuals named in the SBO (beneficial-owners) filing
@@ -1292,54 +1371,83 @@ async def get_corporate_actions(symbol: str, request: Request):
 
 @router.get("/company/{symbol}/documents")
 async def get_documents(symbol: str, request: Request):
+    import asyncio
     from datetime import datetime, timedelta
     rid = _req_id(request)
     today = datetime.now().strftime("%Y-%m-%d")
     two_years_ago = (datetime.now() - timedelta(days=2*365)).strftime("%Y-%m-%d")
     q = {"from_date": two_years_ago, "to_date": today, **dict(request.query_params), "symbol": symbol.upper()}
-    try:
-        data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        if not isinstance(data, list):
-            return {"documents": []}
 
-        documents = []
-        for i, item in enumerate(data):
-            title = (item.get("description") or item.get("category") or "Regulatory Filing")[:120]
-            date = (item.get("announcement_date") or "").split(" ")[0]
-            text = f"{item.get('category','')} {item.get('description','')}".lower()
+    async def safe(coro):
+        try:
+            return await coro
+        except Exception:
+            return None
 
-            if "annual report" in text:
-                cat = "annual-report"
-            elif any(x in text for x in [
-                "concall", "con. call", "conference call", "earnings call",
-                "institutional investor meet", "analyst meet", "investor meet",
-                "earnings press conference", "audio and video recording",
-                "transcript of the analyst",
-            ]):
-                cat = "concall"
-            elif any(x in text for x in [
-                "credit rating", "crisil", "icra", "care ratings", "care edge",
-                "india ratings", "ind-ra", "rating agency", "rating action",
-            ]):
-                cat = "credit-rating"
-            else:
-                cat = "announcement"
-
-            # No real audio/duration or file-size data exists in this feed —
-            # FinEdge/NSE only ever provide a PDF (transcript, filing, rating
-            # notice), never a playable recording. Don't fabricate one.
-            doc = {
-                "id": f"doc-{item.get('timestamp_unix', i)}",
-                "title": title,
-                "date": date,
-                "category": cat,
-                "fileUrl": item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
-            }
-            documents.append(doc)
-
-        return {"documents": documents}
-    except Exception:
+    data, presentations = await asyncio.gather(
+        safe(execute_proxy_request("GET", "corp-announcements", q, None, rid)),
+        safe(execute_proxy_request("GET", "investor-presentations", q, None, rid)),
+    )
+    if not isinstance(data, list):
         return {"documents": []}
+
+    documents = []
+    seen_urls = set()
+    for i, item in enumerate(data):
+        title = (item.get("description") or item.get("category") or "Regulatory Filing")[:120]
+        date = (item.get("announcement_date") or "").split(" ")[0]
+        text = f"{item.get('category','')} {item.get('description','')}".lower()
+
+        if "annual report" in text:
+            cat = "annual-report"
+        elif any(x in text for x in [
+            "concall", "con. call", "conference call", "earnings call",
+            "institutional investor meet", "analyst meet", "investor meet",
+            "earnings press conference", "audio and video recording",
+            "transcript of the analyst",
+        ]):
+            cat = "concall"
+        elif any(x in text for x in [
+            "credit rating", "crisil", "icra", "care ratings", "care edge",
+            "india ratings", "ind-ra", "rating agency", "rating action",
+        ]):
+            cat = "credit-rating"
+        else:
+            cat = "announcement"
+
+        # No real audio/duration or file-size data exists in this feed —
+        # FinEdge/NSE only ever provide a PDF (transcript, filing, rating
+        # notice), never a playable recording. Don't fabricate one.
+        file_url = item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
+        if file_url:
+            seen_urls.add(file_url)
+        doc = {
+            "id": f"doc-{item.get('timestamp_unix', i)}",
+            "title": title,
+            "date": date,
+            "category": cat,
+            "fileUrl": file_url,
+        }
+        documents.append(doc)
+
+    # Investor presentations come from their own dedicated FinEdge endpoint
+    # (richer/more reliable than keyword-matching corp-announcements text) and
+    # get their own tab — skip any already pulled in above via fileUrl so the
+    # same filing never shows twice across tabs.
+    if isinstance(presentations, list):
+        for i, item in enumerate(presentations):
+            file_url = item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
+            if file_url and file_url in seen_urls:
+                continue
+            documents.append({
+                "id": f"pres-{item.get('timestamp_unix', i)}",
+                "title": (item.get("description") or item.get("category") or "Investor Presentation")[:120],
+                "date": (item.get("announcement_date") or "").split(" ")[0],
+                "category": "presentation",
+                "fileUrl": file_url,
+            })
+
+    return {"documents": documents}
 
 @router.get("/company/{symbol}/credit-ratings")
 async def get_credit_ratings(symbol: str, request: Request):
@@ -1503,7 +1611,13 @@ async def get_commodities(request: Request):
 
     async def fetch_and_map(c):
         try:
-            prices = await execute_proxy_request("GET", f"commodity-price/{c['code']}", {}, None, rid)
+            prices, pct_change_data = await asyncio.gather(
+                execute_proxy_request("GET", f"commodity-price/{c['code']}", {}, None, rid),
+                execute_proxy_request("GET", f"commodity-pct-change/{c['code']}", {}, None, rid),
+                return_exceptions=True,
+            )
+            if isinstance(prices, Exception):
+                raise prices
             if isinstance(prices, list) and len(prices) >= 2:
                 latest = prices[0]
                 prev = prices[1]
@@ -1512,7 +1626,7 @@ async def get_commodities(request: Request):
                 change = 0.0
                 if prev_price > 0:
                     change = ((price - prev_price) / prev_price) * 100
-                
+
                 # Format date header e.g. "Mar-2026"
                 date_str = latest.get("date_header", "")
                 dt = datetime.now()
@@ -1522,13 +1636,29 @@ async def get_commodities(request: Request):
                         dt = datetime.strptime(date_str, "%b-%Y")
                     except Exception:
                         pass
-                
+
+                # Longer-horizon trend (1/3/6 month, 1/2/3/5 year) — the live
+                # response key is "pct_change" (singular), not the "pct_changes"
+                # name in FinEdge's own Swagger spec; verified against the real
+                # API rather than trusting the doc.
+                trend = []
+                if not isinstance(pct_change_data, Exception) and isinstance(pct_change_data, dict):
+                    for item in (pct_change_data.get("pct_change") or []):
+                        try:
+                            trend.append({
+                                "period": item.get("index"),
+                                "changePct": float(str(item.get("change_pct", "0")).replace("%", "")),
+                            })
+                        except (TypeError, ValueError):
+                            continue
+
                 return {
                     "name": c["name"],
                     "price": round(price, 2),
                     "unit": c["unit"],
                     "change": round(change, 2),
-                    "updatedAt": dt.isoformat() + "Z"
+                    "updatedAt": dt.isoformat() + "Z",
+                    "trend": trend,
                 }
         except Exception as e:
             logger.error(f"Error fetching commodity {c['name']}: {e}")
@@ -1553,7 +1683,8 @@ async def get_commodities(request: Request):
                 "price": info["price"],
                 "unit": info["unit"],
                 "change": info["change"],
-                "updatedAt": datetime.now().isoformat() + "Z"
+                "updatedAt": datetime.now().isoformat() + "Z",
+                "trend": [],
             })
     return data
 

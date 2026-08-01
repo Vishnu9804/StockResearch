@@ -13,7 +13,7 @@ interface DocumentItem {
   id: string
   title: string
   date: string
-  category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating'
+  category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating' | 'presentation'
   size?: string
   fileUrl?: string
 }
@@ -26,6 +26,7 @@ const CATEGORY_ACTION_LABEL: Record<string, string> = {
   'annual-report': 'Download Report',
   'concall': 'View Transcript',
   'credit-rating': 'View Rating',
+  'presentation': 'View Presentation',
 }
 
 const DOCUMENTS: DocumentItem[] = [
@@ -48,6 +49,7 @@ const TABS = [
   { id: 'announcements', label: 'Announcements' },
   { id: 'annual-reports', label: 'Annual Reports' },
   { id: 'concalls', label: 'Concalls' },
+  { id: 'presentations', label: 'Presentations' },
   { id: 'credit-ratings', label: 'Credit Ratings' },
 ]
 
@@ -56,6 +58,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   'annual-report': 'REPORTS',
   'concall': 'CONCALL',
   'credit-rating': 'RATINGS',
+  'presentation': 'DECK',
 }
 
 const CATEGORY_STYLE: Record<string, string> = {
@@ -63,6 +66,7 @@ const CATEGORY_STYLE: Record<string, string> = {
   'annual-report': 'bg-positive-soft text-positive border-positive/20',
   'concall': 'bg-accentSoft text-accent border-accent/20',
   'credit-rating': 'bg-warning-soft text-warning border-warning/20',
+  'presentation': 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
 }
 
 export function DocumentsList() {
@@ -91,7 +95,8 @@ export function DocumentsList() {
         (activeTab === 'announcements' && doc.category === 'announcement') ||
         (activeTab === 'annual-reports' && doc.category === 'annual-report') ||
         (activeTab === 'concalls' && doc.category === 'concall') ||
-        (activeTab === 'credit-ratings' && doc.category === 'credit-rating')
+        (activeTab === 'credit-ratings' && doc.category === 'credit-rating') ||
+        (activeTab === 'presentations' && doc.category === 'presentation')
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase())
       return matchesTab && matchesSearch
     })

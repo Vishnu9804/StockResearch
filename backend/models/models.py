@@ -74,7 +74,7 @@ class PortfolioHolding(Base):
     company_name: Mapped[str | None] = mapped_column(Text)
     quantity: Mapped[float] = mapped_column(Numeric, server_default="0.0")
     avg_buy_price: Mapped[float] = mapped_column(Numeric, server_default="0.0")
-    buy_date: Mapped[date | None] = mapped_column(Date)
+    buy_date: Mapped[date | None] = mapped_column("first_buy_date", Date)
     extra_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

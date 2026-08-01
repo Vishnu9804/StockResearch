@@ -82,10 +82,19 @@ async def score_analysis_for_users(news: NewsItem, analysis_id, compiled: dict) 
 
     candidates = await _find_candidate_symbols(news.mentioned_symbols, exposure_axes, affected_sectors)
     if not candidates:
+        logger.info("[butterfly.scorer] news_id=%s no candidate symbols (no named/axis/sector match)", news.id)
         return
+    logger.info(
+        "[butterfly.scorer] news_id=%s candidates=%s",
+        # Mirrors _score_one's own precedence (VERIFIED checked before NAMED)
+        # — a symbol that is both named AND has a matching profile should log
+        # as VERIFIED, since that's the tier _score_one will actually use.
+        news.id, {sym: (c["profile"] and "VERIFIED") or (c["is_named"] and "NAMED") or "SECTOR" for sym, c in candidates.items()},
+    )
 
     holdings_by_user = await _holdings_for_symbols(list(candidates.keys()))
     if not holdings_by_user:
+        logger.info("[butterfly.scorer] news_id=%s no user holds any candidate symbol", news.id)
         return
 
     portfolio_values = await _portfolio_values(list(holdings_by_user.keys()))
@@ -106,15 +115,25 @@ async def score_analysis_for_users(news: NewsItem, analysis_id, compiled: dict) 
                 rows_by_user.setdefault(user_id, []).append(row)
 
     if not rows_by_user:
+        logger.info(
+            "[butterfly.scorer] news_id=%s every candidate scored below YELLOW threshold — no alerts",
+            news.id,
+        )
         return
 
     async with async_session_maker() as session:
+        total_written = 0
         for user_id, rows in rows_by_user.items():
             rows = _apply_flood_cap(rows)
             rows = await _apply_daily_red_cap(session, user_id, rows)
             for row in rows:
                 await _upsert_alert(session, user_id, news, analysis_id, row)
+                total_written += 1
         await session.commit()
+        logger.info(
+            "[butterfly.scorer] news_id=%s wrote %d alert(s) across %d user(s)",
+            news.id, total_written, len(rows_by_user),
+        )
 
 
 # ── Candidate discovery ──────────────────────────────────────────────────────

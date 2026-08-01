@@ -296,8 +296,15 @@ export function Home() {
         icon = "calendar"
         type = "event"
       } else {
-        icon = "alert"
-        type = "price-alert"
+        // Any other announcement category is still just a filing/announcement
+        // — not a danger signal. This used to fall through to a fabricated
+        // "price-alert" (red, "Review position"/"Dismiss") styling with no
+        // actual price data or agent output behind it, which is exactly the
+        // false red coloring that real severity (RED/ORANGE/YELLOW) only
+        // ever comes from the Butterfly Effect workflow now — see the
+        // Alerts tab on /feed (routers/butterfly.py's /api/butterfly/alerts).
+        icon = "file"
+        type = "document"
       }
 
       const symbol = ann.stock_symbol || ann.nse_code || ann.symbol || ''

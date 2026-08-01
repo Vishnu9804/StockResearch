@@ -17,11 +17,13 @@ dedicated process (company_profiler_worker.py) in production.
 """
 import asyncio
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
 from agents.company_profiler.pipeline import build_profile
+from agents.shared.adk_runner import is_quota_error
 from core.config import settings
 from core.database import async_session_maker
 from models.models import CompanyExposureProfile, PortfolioHolding
@@ -60,8 +62,21 @@ async def run_company_profiler_worker() -> None:
             "[company_profiler.worker] GEMINI_API_KEY is not set — idling without "
             "building any profiles until a key is configured in .env"
         )
+    else:
+        # Staggered from agents/butterfly/worker.py's own startup on purpose:
+        # both workers share the cheap model's per-MINUTE request limit (a
+        # separate, much smaller cap than the per-day one), and both used to
+        # fire their first call within a second of each other at app boot —
+        # enough on its own to trip that per-minute limit before either had
+        # done any real work. Starting a beat apart avoids that collision
+        # without touching either worker's steady-state cadence.
+        logger.info(
+            "[company_profiler.worker] starting — waiting %ds first so it doesn't "
+            "collide with the butterfly worker's own startup burst",
+            settings.COMPANY_PROFILER_STARTUP_STAGGER_SECONDS,
+        )
+        await asyncio.sleep(settings.COMPANY_PROFILER_STARTUP_STAGGER_SECONDS)
 
-    logger.info("[company_profiler.worker] starting")
     while True:
         if not settings.GEMINI_API_KEY:
             await asyncio.sleep(settings.COMPANY_PROFILER_POLL_INTERVAL_IDLE_SECONDS)
@@ -75,13 +90,33 @@ async def run_company_profiler_worker() -> None:
             continue
 
         if not symbols:
+            logger.info(
+                "[company_profiler.worker] idle — every held symbol already has a "
+                "profile younger than %d days", settings.COMPANY_PROFILER_REFRESH_DAYS,
+            )
             await asyncio.sleep(settings.COMPANY_PROFILER_POLL_INTERVAL_IDLE_SECONDS)
             continue
 
+        quota_hit = False
         for symbol in symbols:
             try:
                 await build_profile(symbol)
-            except Exception:
+            except Exception as exc:
+                if is_quota_error(exc):
+                    # agents/shared/adk_runner.py already logged exactly which
+                    # model hit its limit — stop working through the rest of
+                    # this batch against the same exhausted quota.
+                    quota_hit = True
+                    break
                 logger.exception("[company_profiler.worker] unhandled error symbol=%s", symbol)
 
-        await asyncio.sleep(settings.COMPANY_PROFILER_POLL_INTERVAL_IDLE_SECONDS)
+        if quota_hit:
+            # Randomised so this worker and agents/butterfly/worker.py, if they
+            # ever collide on the same per-minute limit once, don't then retry
+            # in lockstep forever after — see the startup-stagger comment above
+            # for the fuller version of this reasoning.
+            cooldown = settings.GEMINI_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
+            logger.warning("[company_profiler.worker] quota exhausted — cooling down %.0fs", cooldown)
+            await asyncio.sleep(cooldown)
+        else:
+            await asyncio.sleep(settings.COMPANY_PROFILER_POLL_INTERVAL_IDLE_SECONDS)

@@ -23,6 +23,19 @@ from pydantic import BaseModel, Field
 
 from agents.shared.taxonomy import HORIZON, MECHANISM
 
+# Gemini's structured-output schema (the google.genai.types.Schema the ADK
+# builds from a Pydantic model's `output_schema`) only accepts STRING enum
+# members. A field typed `Literal[-1, 0, 1]` (ints) makes ADK's own schema
+# object fail Pydantic validation with a cryptic "6 validation errors for
+# Schema ... Input should be a valid string" the moment the agent is built —
+# before any request ever reaches the network, and identically on every
+# model/API key. Every directional field is therefore a string label at the
+# LLM boundary, converted back to the -1/0/1 convention the rest of the
+# codebase (compiler.py, services/butterfly_scorer.py) does arithmetic on via
+# DIRECTION_TO_INT immediately after parsing.
+DIRECTION_LABEL = Literal["UP", "FLAT", "DOWN"]
+DIRECTION_TO_INT: dict[str, int] = {"UP": 1, "FLAT": 0, "DOWN": -1}
+
 
 # ── 1. Triage ────────────────────────────────────────────────────────────────
 class TriageResult(BaseModel):
@@ -47,9 +60,9 @@ class TriageResult(BaseModel):
 class CausalHop(BaseModel):
     mechanism: MECHANISM
     description: str = Field(description="One sentence. Must never name a specific company or ticker.")
-    direction: Literal[-1, 0, 1] = Field(
-        description="The FACTOR's own movement: +1 = rising/strengthening (price up, demand up, "
-        "currency stronger), -1 = falling/weakening, 0 = unclear or roughly flat. This is NOT "
+    direction: DIRECTION_LABEL = Field(
+        description="The FACTOR's own movement: UP = rising/strengthening (price up, demand up, "
+        "currency stronger), DOWN = falling/weakening, FLAT = unclear or roughly flat. This is NOT "
         "'good or bad for a company' — no company is known yet at this step."
     )
     magnitude: float = Field(ge=0, le=1, description="How big this single hop's effect is, on its own.")
@@ -62,7 +75,7 @@ class CausalChain(BaseModel):
     key: str = Field(description="PREFIX:IDENTIFIER, e.g. 'COMMODITY:NICKEL', 'FX:USD', 'RATE:INDIA'. "
                       "Allowed prefixes: COMMODITY, FX, RATE, REGION, REGULATORY, SECTOR, CUSTOMER, SUPPLIER.")
     hops: list[CausalHop] = Field(min_length=1, max_length=4)
-    net_direction: Literal[-1, 0, 1] = Field(
+    net_direction: DIRECTION_LABEL = Field(
         description="The overall FACTOR movement this chain describes (see CausalHop.direction) — "
         "still not 'good or bad for a company'."
     )
@@ -113,7 +126,7 @@ class ThematicTriggerResult(BaseModel):
     need_type: NEED_TYPE = "NONE"
     need_key: str | None = Field(default=None, description="PREFIX:IDENTIFIER, e.g. 'CHEMICAL:ISOBUTANE'.")
     need_description: str | None = None
-    demand_direction: Literal[-1, 0, 1] = 0
+    demand_direction: DIRECTION_LABEL = "FLAT"
     search_queries: list[str] = Field(
         default_factory=list, max_length=4,
         description="Concrete web search queries the researcher should run to verify this and find real companies.",

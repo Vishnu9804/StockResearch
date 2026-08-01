@@ -14,6 +14,11 @@ risk of hidden cross-run state on a shared agent instance.
 google_search cannot share an agent with other tools/output_schema in ADK, which is
 exactly why the Researcher (step 5) and Extractor (step 6) are two separate agents
 rather than one.
+
+Every agent passes generate_content_config=cheap/smart_generation_config() — see
+agents/shared/llm.py — so thinking stays bounded (cost-predictable, and avoids
+the unbounded-thinking-eats-the-output-budget failure mode) instead of each
+agent silently inheriting the model's unbounded default.
 """
 from google.adk.agents import LlmAgent
 from google.adk.tools import google_search
@@ -26,7 +31,7 @@ from agents.butterfly.schemas import (
     ThematicTriggerResult,
     TriageResult,
 )
-from agents.shared.llm import cheap_model, smart_model
+from agents.shared.llm import cheap_generation_config, cheap_model, smart_generation_config, smart_model
 
 
 def triage_agent() -> LlmAgent:
@@ -35,6 +40,7 @@ def triage_agent() -> LlmAgent:
         model=cheap_model(),
         instruction=prompts.TRIAGE_INSTRUCTION,
         output_schema=TriageResult,
+        generate_content_config=cheap_generation_config(),
     )
 
 
@@ -44,6 +50,7 @@ def causal_analyst_agent() -> LlmAgent:
         model=smart_model(),
         instruction=prompts.CAUSAL_ANALYST_INSTRUCTION,
         output_schema=CausalAnalysisResult,
+        generate_content_config=smart_generation_config(),
     )
 
 
@@ -53,6 +60,7 @@ def skeptic_agent() -> LlmAgent:
         model=smart_model(),
         instruction=prompts.SKEPTIC_INSTRUCTION,
         output_schema=SkepticResult,
+        generate_content_config=smart_generation_config(),
     )
 
 
@@ -62,6 +70,7 @@ def thematic_trigger_agent() -> LlmAgent:
         model=cheap_model(),
         instruction=prompts.THEMATIC_TRIGGER_INSTRUCTION,
         output_schema=ThematicTriggerResult,
+        generate_content_config=cheap_generation_config(),
     )
 
 
@@ -71,6 +80,7 @@ def researcher_agent() -> LlmAgent:
         model=smart_model(),
         instruction=prompts.RESEARCHER_INSTRUCTION,
         tools=[google_search],
+        generate_content_config=smart_generation_config(),
     )
 
 
@@ -80,4 +90,5 @@ def thematic_extractor_agent() -> LlmAgent:
         model=cheap_model(),
         instruction=prompts.EXTRACTOR_INSTRUCTION,
         output_schema=ThematicExtractorResult,
+        generate_content_config=cheap_generation_config(),
     )

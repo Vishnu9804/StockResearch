@@ -26,13 +26,14 @@ from agents.butterfly import prompts
 from agents.butterfly.compiler import compile_analysis
 from agents.butterfly.schemas import (
     CausalAnalysisResult,
+    DIRECTION_TO_INT,
     SkepticResult,
     ThematicExtractorResult,
     ThematicTriggerResult,
     TriageResult,
 )
 from agents.butterfly.verifier import verify_thematic_result
-from agents.shared.adk_runner import run_agent_text
+from agents.shared.adk_runner import QuotaExhaustedError, is_quota_error, run_agent_text
 from agents.shared.json_utils import parse_structured
 from core.config import settings
 from services.butterfly_scorer import score_analysis_for_users
@@ -46,24 +47,51 @@ async def analyze_news_item(news_id) -> None:
     async with async_session_maker() as session:
         news = await session.get(NewsItem, news_id)
         if news is None:
+            logger.warning("[butterfly.pipeline] news_id=%s not found — skipping", news_id)
             return
+        title = news.title
         news.analysis_status = "ANALYZING"
         await session.commit()
+
+    logger.info("[butterfly.pipeline] news_id=%s START — %r", news_id, title[:80])
 
     try:
         result = await _run_pipeline(news)
     except Exception as exc:
-        logger.exception("[butterfly.pipeline] news_id=%s failed", news_id)
+        quota_hit = is_quota_error(exc)
+        if quota_hit:
+            # agents/shared/adk_runner.py already logged exactly which model
+            # hit its limit — a second, full-traceback dump of the same
+            # (very long) Gemini error here would just be noise.
+            logger.info("[butterfly.pipeline] news_id=%s paused — waiting on quota", news_id)
+        else:
+            logger.exception("[butterfly.pipeline] news_id=%s FAILED — %s", news_id, exc)
         async with async_session_maker() as session:
             news = await session.get(NewsItem, news_id)
             if news is None:
                 return
-            news.analysis_attempts += 1
             news.analysis_error = str(exc)[:2000]
-            news.analysis_status = (
-                "FAILED" if news.analysis_attempts >= settings.BUTTERFLY_MAX_ANALYSIS_ATTEMPTS else "PENDING"
-            )
+            if quota_hit:
+                # Not this item's fault — don't spend one of its limited
+                # attempts on an infra/quota failure. Left as PENDING so the
+                # next healthy cycle retries it first, same as before ANALYZING.
+                news.analysis_status = "PENDING"
+            else:
+                news.analysis_attempts += 1
+                news.analysis_status = (
+                    "FAILED" if news.analysis_attempts >= settings.BUTTERFLY_MAX_ANALYSIS_ATTEMPTS else "PENDING"
+                )
             await session.commit()
+            logger.info(
+                "[butterfly.pipeline] news_id=%s attempt %d/%d — status now %s%s",
+                news_id, news.analysis_attempts, settings.BUTTERFLY_MAX_ANALYSIS_ATTEMPTS,
+                news.analysis_status, " (quota — attempt not charged)" if quota_hit else "",
+            )
+        if quota_hit:
+            # Propagate so the worker loop stops burning through the rest of
+            # this batch against a quota that's already at zero, and cools
+            # down instead — see agents/shared/adk_runner.py.
+            raise QuotaExhaustedError(str(exc)) from exc
         return
 
     async with async_session_maker() as session:
@@ -74,6 +102,8 @@ async def analyze_news_item(news_id) -> None:
         news.analysis_error = None
         await session.commit()
 
+    logger.info("[butterfly.pipeline] news_id=%s DONE — status=%s", news_id, result["news_status"])
+
 
 async def _run_pipeline(news: NewsItem) -> dict:
     article_text = prompts.format_article(news)
@@ -82,8 +112,16 @@ async def _run_pipeline(news: NewsItem) -> dict:
     started = time.monotonic()
     triage_raw = await run_agent_text(butterfly_agents.triage_agent(), article_text)
     triage = parse_structured(triage_raw, TriageResult)
+    logger.info(
+        "[butterfly.pipeline] news_id=%s triage — relevant=%s significance=%.2f event_type=%s",
+        news.id, triage.is_market_relevant, triage.significance, triage.event_type,
+    )
 
     if not triage.is_market_relevant or triage.significance < settings.BUTTERFLY_TRIAGE_SIGNIFICANCE_FLOOR:
+        logger.info(
+            "[butterfly.pipeline] news_id=%s SKIPPED at triage (floor=%.2f)",
+            news.id, settings.BUTTERFLY_TRIAGE_SIGNIFICANCE_FLOOR,
+        )
         return {"news_status": "SKIPPED"}
 
     # ── Step 2: Causal Analyst ───────────────────────────────────────────
@@ -92,6 +130,10 @@ async def _run_pipeline(news: NewsItem) -> dict:
         prompts.format_causal_input(article_text, triage),
     )
     causal = parse_structured(causal_raw, CausalAnalysisResult)
+    logger.info(
+        "[butterfly.pipeline] news_id=%s causal analyst — %d chain(s): %s",
+        news.id, len(causal.chains), [c.key for c in causal.chains],
+    )
 
     # ── Step 3: Skeptic ──────────────────────────────────────────────────
     if causal.chains:
@@ -100,20 +142,37 @@ async def _run_pipeline(news: NewsItem) -> dict:
             prompts.format_skeptic_input(article_text, causal),
         )
         skeptic = parse_structured(skeptic_raw, SkepticResult)
+        logger.info(
+            "[butterfly.pipeline] news_id=%s skeptic — %s",
+            news.id, [(v.chain_id, v.verdict) for v in skeptic.verdicts],
+        )
     else:
         skeptic = SkepticResult(verdicts=[])
 
     compiled = compile_analysis(triage, causal, skeptic)
     latency_ms = int((time.monotonic() - started) * 1000)
+    logger.info(
+        "[butterfly.pipeline] news_id=%s compiled — %d surviving chain(s), "
+        "%d exposure axis(es), confidence=%.2f, latency_ms=%d",
+        news.id, len(compiled["causal_chains"]), len(compiled["exposure_axes"]),
+        compiled["confidence"], latency_ms,
+    )
 
     analysis_id = await _write_analysis(news, compiled, latency_ms)
+    logger.info("[butterfly.pipeline] news_id=%s wrote news_impact_analyses id=%s", news.id, analysis_id)
 
     # ── Workflow B: score this analysis against every user's portfolio ──
     if compiled["exposure_axes"] or news.mentioned_symbols:
         try:
             await score_analysis_for_users(news, analysis_id, compiled)
+            logger.info("[butterfly.pipeline] news_id=%s scoring pass complete", news.id)
         except Exception:
             logger.exception("[butterfly.pipeline] scoring failed news_id=%s", news.id)
+    else:
+        logger.info(
+            "[butterfly.pipeline] news_id=%s scoring skipped — no exposure axes and no named symbols",
+            news.id,
+        )
 
     # ── Steps 4-6: Thematic research (sparse — most news earns nothing) ──
     await _run_thematic_research(news, analysis_id, article_text)
@@ -158,8 +217,22 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
     started = time.monotonic()
     trigger_raw = await run_agent_text(butterfly_agents.thematic_trigger_agent(), article_text)
     trigger = parse_structured(trigger_raw, ThematicTriggerResult)
+    logger.info(
+        "[butterfly.pipeline] news_id=%s thematic trigger — opportunity=%s need_key=%s",
+        news.id, trigger.has_thematic_opportunity, trigger.need_key,
+    )
 
     if not trigger.has_thematic_opportunity:
+        return
+
+    if settings.BUTTERFLY_SKIP_GROUNDED_RESEARCH:
+        logger.warning(
+            "[butterfly.pipeline] news_id=%s thematic trigger fired (need_key=%s) but "
+            "BUTTERFLY_SKIP_GROUNDED_RESEARCH is set — skipping the google_search-grounded "
+            "researcher_agent call rather than retrying a 429 it can't clear. No "
+            "news_thematic_research row written this pass.",
+            news.id, trigger.need_key,
+        )
         return
 
     research_text = await run_agent_text(
@@ -183,7 +256,7 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
             "need_type": trigger.need_type,
             "key": trigger.need_key,
             "description": trigger.need_description,
-            "demand_direction": trigger.demand_direction,
+            "demand_direction": DIRECTION_TO_INT[trigger.demand_direction],
         },
         candidate_companies=verified["candidate_companies"],
         thesis=verified["thesis"],
@@ -209,3 +282,8 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
         )
         await session.execute(stmt)
         await session.commit()
+
+    logger.info(
+        "[butterfly.pipeline] news_id=%s wrote news_thematic_research — %d candidate company(ies)",
+        news.id, len(verified["candidate_companies"]),
+    )

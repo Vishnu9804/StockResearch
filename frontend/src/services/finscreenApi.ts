@@ -45,6 +45,7 @@ export const finscreenApi = {
   fetchCompanyRatios: (symbol: string) => finscreenClient.get(`/company/${symbol}/ratios`).then(r => r.data),
   fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
   fetchShareholdingBreakdown: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/breakdown`).then(r => r.data),
+  fetchShareholdingBaseStats: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/base-stats`).then(r => r.data),
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
   fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
   fetchPeers: (symbol: string) => finscreenClient.get(`/company/${symbol}/peers`).then(r => r.data),
@@ -112,6 +113,44 @@ export const customRatiosApi = {
   remove: (id: string) => apiClient.delete(`/custom-ratios/${id}`).then(r => r.data),
   evaluate: (formula: string, symbol: string) =>
     apiClient.post('/custom-ratios/evaluate', { formula, symbol }).then(r => r.data as EvaluateFormulaResult),
+}
+
+// --- Butterfly Effect alerts (backend/routers/butterfly.py) — per-user,
+// portfolio-aware RED/ORANGE/YELLOW severity, requires auth. ---
+export interface ButterflyAlertDto {
+  id: string
+  newsId: string
+  symbol: string
+  companyName: string | null
+  severity: 'RED' | 'ORANGE' | 'YELLOW'
+  score: number | null
+  direction: number | null
+  scoreComponents: Record<string, unknown> | null
+  chain: unknown[] | null
+  explanation: string | null
+  hops: number | null
+  exposureValue: number | null
+  exposurePct: number | null
+  createdAt: string
+  readAt: string | null
+  dismissedAt: string | null
+  userFeedback: number | null
+  news: {
+    title: string
+    summary: string | null
+    url: string
+    sourceName: string
+    publishedAt: string
+  } | null
+}
+
+export const butterflyApi = {
+  listAlerts: (params: { severity?: string; includeDismissed?: boolean; page?: number; limit?: number } = {}) =>
+    apiClient.get('/butterfly/alerts', { params }).then(r => r.data as { data: ButterflyAlertDto[]; total: number; page: number; limit: number }),
+  alertsSummary: () =>
+    apiClient.get('/butterfly/alerts/summary').then(r => r.data as { unread: Record<string, number>; unreadTotal: number }),
+  markRead: (alertId: string) => apiClient.patch(`/butterfly/alerts/${alertId}/read`).then(r => r.data),
+  dismiss: (alertId: string) => apiClient.patch(`/butterfly/alerts/${alertId}/dismiss`).then(r => r.data),
 }
 
 // Default export to satisfy components importing it directly

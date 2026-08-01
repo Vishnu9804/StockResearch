@@ -13,10 +13,49 @@ from services.sync_service import run_background_sync
 from agents.butterfly.worker import run_butterfly_worker
 from agents.company_profiler.worker import run_company_profiler_worker
 
+# Quiet by default, agent logs opted IN explicitly — the opposite of trying to
+# name every noisy source one by one (FinEdge sync, news ingestion, uvicorn,
+# sqlalchemy, the raw Gemini SDK, ...). logging.basicConfig sets the ROOT
+# logger, and every logger in the process that never calls its own
+# .setLevel() inherits whatever level its nearest ancestor has — so setting
+# root to WARNING silences everything in the app EXCEPT the loggers in
+# _AGENT_LOGGERS below, which are bumped back up to INFO right after. Add a
+# logger name to that tuple the day a new agent module needs to be heard from
+# — nothing else needs to change.
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)-8s - %(name)s - %(message)s"
 )
+
+_AGENT_LOG_LEVEL = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+_AGENT_LOGGERS = (
+    "agents.runner",                       # agents/shared/adk_runner.py — clean quota-limit lines
+    "agents.butterfly.pipeline",           # per-news-item workflow progress
+    "agents.butterfly.worker",             # batch claiming, idle, quota cooldown
+    "agents.company_profiler.pipeline",    # per-symbol workflow progress
+    "agents.company_profiler.worker",      # batch claiming, idle, quota cooldown
+    "services.butterfly_scorer",           # candidate matching + alert-write results
+)
+for _name in _AGENT_LOGGERS:
+    logging.getLogger(_name).setLevel(_AGENT_LOG_LEVEL)
+
+# Belt-and-braces for google_adk/google_genai specifically: they log the FULL
+# raw Gemini error at ERROR level on every failed call, and ERROR is ABOVE
+# WARNING — root's WARNING default would not hide it. Our own code already
+# logs a clean one-line equivalent for every failure that matters (see
+# agents/shared/adk_runner.py), so nothing real is lost by silencing these.
+#
+# "finedge" is the same story but for a different reason: it's a REAL,
+# unrelated system (the stock-price/fundamentals proxy, see services/
+# finedge_service.py) that logs its own retries/timeouts at WARNING/ERROR —
+# root's WARNING default would let those through. By explicit request this
+# terminal should show agent-workflow logs and nothing else, so it's fully
+# silenced too. Trade-off, on purpose: a genuine FinEdge outage won't be
+# visible here anymore — if that visibility is ever needed again, drop
+# "finedge" out of this tuple.
+for _silent_logger in ("google_adk", "google_genai", "finedge"):
+    logging.getLogger(_silent_logger).setLevel(logging.CRITICAL)
+
 logger = logging.getLogger("main")
 
 

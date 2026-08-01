@@ -100,6 +100,11 @@ def _clamp_query_dates(endpoint: str, query: Dict[str, Any]) -> None:
         max_days = 730 if has_symbol else 7
     elif "corp-announcements" in ep:
         max_days = 730 if has_symbol else 7
+    elif "investor-presentations" in ep:
+        # Verified live against the real API: a symbol-scoped query accepts a
+        # multi-year range same as the two endpoints above; the "7 days apart"
+        # note in FinEdge's docs only bites the market-wide (no-symbol) mode.
+        max_days = 730 if has_symbol else 7
     else:
         return
 
@@ -129,7 +134,8 @@ def _get_ttl(endpoint: str) -> tuple[int, int]:
 
     # Announcements, results, insider → 30 min fresh, 60 min stale
     if any(x in ep for x in ["corp-announcements", "credit-ratings", "results-calendar",
-                               "investor-call", "insider", "block-deal", "bulk-deal", "sast"]):
+                               "investor-call", "investor-presentations",
+                               "insider", "block-deal", "bulk-deal", "sast"]):
         return 30 * 60, 60 * 60
 
     # Corporate actions, IPO → 2h fresh, 4h stale
@@ -144,8 +150,8 @@ def _get_ttl(endpoint: str) -> tuple[int, int]:
 
     # Master/reference → 24h fresh, 48h stale
     if any(x in ep for x in ["company-profile", "stock-symbols", "stock-search",
-                               "index/master", "commodity-list", "holidays-calendar",
-                               "name-changes", "symbol-changes"]):
+                               "index/master", "commodity-list", "commodity-pct-change",
+                               "holidays-calendar", "name-changes", "symbol-changes"]):
         return 24 * 60 * 60, 48 * 60 * 60
 
     # Default → 10 min fresh, 20 min stale

@@ -43,6 +43,8 @@ async def build_profile(symbol: str) -> None:
     started = time.monotonic()
     brief = prompts.format_company_brief(company.symbol, company.name, company.sector, company.industry)
 
+    logger.info("[company_profiler.pipeline] symbol=%s START — %s", symbol, company.name)
+
     research_text = await run_agent_text(profiler_agents.profiler_agent(), brief)
     extraction_raw = await run_agent_text(
         profiler_agents.extractor_agent(),
@@ -86,7 +88,9 @@ async def _write_profile(symbol: str, company_name: str, sector: str | None, ind
         evidence_refs=shaped["evidence_refs"],
         confidence=shaped["confidence"],
         profile_version=WORKFLOW_VERSION,
-        model_version=f"{settings.GEMINI_MODEL_SMART}+{settings.GEMINI_MODEL_CHEAP}",
+        # Both stages run on the cheap model — see agents/company_profiler/
+        # agents.py for why (keeps the smart-model budget free for butterfly).
+        model_version=settings.GEMINI_MODEL_CHEAP,
     )
     # updated_at is maintained by the trg_exposure_updated_at DB trigger
     # (migrations/001_news_and_butterfly_effect.sql) — never set it here.

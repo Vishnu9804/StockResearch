@@ -47,9 +47,9 @@ PRICING_POWER, CAPEX, LOGISTICS) and must never name a specific company or stock
 the mechanism generically: "nickel becomes more expensive to source", never "Company X will be
 hurt" — you do not know who is affected, and must not guess.
 
-`direction` is about the FACTOR ITSELF, not who it helps or hurts: +1 means the factor's own value
-is rising (a price going up, demand increasing, a currency strengthening), -1 means it's falling,
-0 means unclear or roughly flat. Whether a rising nickel price is good or bad news depends entirely
+`direction` is about the FACTOR ITSELF, not who it helps or hurts: UP means the factor's own value
+is rising (a price going up, demand increasing, a currency strengthening), DOWN means it's falling,
+FLAT means unclear or roughly flat. Whether a rising nickel price is good or bad news depends entirely
 on whether a specific company buys nickel or sells it — that is decided later, by a different
 system, from real company data. You are only ever describing the nickel price itself.
 

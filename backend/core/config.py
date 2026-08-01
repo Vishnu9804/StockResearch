@@ -62,11 +62,69 @@ class Settings(BaseSettings):
     # every worker below checks this and idles (with a log warning) until it's set.
     GEMINI_API_KEY: str = ""
 
-    # Model ids every workflow shares — see agents/shared/llm.py. Verified
-    # live (not on any announced Gemini deprecation schedule) as of July
-    # 2026. Re-verify before ever changing these.
+    # Model ids every workflow shares — see agents/shared/llm.py.
+    #
+    # Published free-tier tables are NOT reliable here — this project's own
+    # AI Studio rate-limit dashboard (checked directly, Aug 2026) showed wildly
+    # different real per-model daily caps than generic docs suggest:
+    #   gemini-2.5-flash        20 RPD
+    #   gemini-2.5-flash-lite   20 RPD
+    #   gemini-3.6-flash        20 RPD
+    #   gemini-3.5-flash-lite  500 RPD   <- the real outlier, verified live
+    # gemini-3.5-flash-lite's real 500 RPD (25x the others on THIS account) is
+    # why it's the cheap/high-volume model despite 3.x's generic free-tier
+    # flakiness reports — always re-check the live dashboard
+    # (aistudio.google.com/rate-limit) before assuming a number from docs.
+    #
+    # gemini-3.6-flash over gemini-2.5-flash for the smart tier because
+    # 2.5-flash is scheduled for deprecation 2026-10-16 (verified live,
+    # Aug 2026) — no reason to build fresh reliance on a model with a set
+    # expiry date when a same-quota, non-deprecating alternative exists.
+    #
+    # Once the client's billed key is in place, RPD stops being the
+    # constraint and this can be revisited purely on $/token and quality —
+    # see the cost comment on THINKING_LEVEL_SMART below for the other half
+    # of that tradeoff.
     GEMINI_MODEL_CHEAP: str = "gemini-3.5-flash-lite"
-    GEMINI_MODEL_SMART: str = "gemini-3.6-flash"
+    GEMINI_MODEL_SMART: str = "gemini-3.5-flash-lite"
+
+    # ── Thinking budget (cost + reliability control) ─────────────────────────
+    # Both models think by default with an unbounded/dynamic budget, and
+    # thinking tokens bill as output tokens — on the smart model in
+    # particular this makes real cost unpredictable (verified live: Gemini's
+    # own docs confirm "Auto" thinking on Flash-tier models, billed at the
+    # output-token rate). agents/shared/llm.py applies these via
+    # generate_content_config on every LlmAgent so it's one switch for the
+    # whole workflow, not something to remember per-agent.
+    #
+    # MINIMAL for the cheap model: every cheap-tier step (triage, thematic
+    # trigger, both extractors) is classification/extraction, not judgment —
+    # thinking adds cost and latency without adding accuracy here, and a
+    # bounded-low level also avoids the known failure mode where an
+    # unbounded thinking pass consumes the entire output-token budget and
+    # returns an empty response (github.com/valentinfrlch/ha-llmvision#609).
+    #
+    # MEDIUM for the smart model: causal-chain analysis and adversarial
+    # skepticism are exactly the judgment calls thinking helps with, so this
+    # is deliberately NOT disabled — just bounded, so cost stays predictable
+    # instead of "however much the model decides."
+    #
+    # NOTE — model-family coupling: `thinking_level` (MINIMAL/LOW/MEDIUM/HIGH)
+    # is the Gemini 3.x mechanism. The 2.x family (e.g. gemini-2.5-flash)
+    # does NOT support it and errors on "thinking_level not supported" — if
+    # GEMINI_MODEL_CHEAP/SMART ever point back at a 2.x model, agents/shared/
+    # llm.py's generation configs must switch to the numeric `thinking_budget`
+    # field instead (0 = disabled, -1 = automatic, else a fixed token count).
+    THINKING_LEVEL_CHEAP: str = "MINIMAL"
+    THINKING_LEVEL_SMART: str = "MEDIUM"
+
+    # How long ANY worker that calls Gemini (butterfly, company profiler) pauses
+    # after hitting a 429 RESOURCE_EXHAUSTED before trying again — long enough
+    # to stop hammering a quota that's already at zero (see agents/shared/
+    # adk_runner.py), short enough that a transient/short-lived throttle still
+    # recovers within a session. Shared across workflows since they draw on the
+    # same per-model daily quota.
+    GEMINI_QUOTA_COOLDOWN_SECONDS: int = 90
 
     # ── Butterfly Effect workflow: per-news causal analysis (O1) + thematic
     # research (O2), scored against portfolios in plain Python. ──────────────
@@ -90,6 +148,29 @@ class Settings(BaseSettings):
     # mass backfill that burns through your token/API budget. Same code path
     # in dev and prod — only the value differs.
     BUTTERFLY_ANALYSIS_MIN_INGESTED_AT: str = ""
+
+    # Manual test-mode allowlist — comma-separated news_items.id UUIDs.
+    # Empty (default, production behaviour) means this does nothing at all;
+    # every filter above (status/attempts/cutoff/batch size/ordering) applies
+    # exactly as written. When set, agents/butterfly/worker.py's _claim_batch
+    # skips those filters entirely and claims ONLY the listed rows (still
+    # respecting analysis_status so an already-ANALYZED test row isn't
+    # reprocessed every poll) — for manually exercising the full pipeline
+    # against a small, known set of news items without the worker picking up
+    # anything else from the table and burning quota on it. Clear this env var
+    # to instantly return to real production behaviour; no code edit needed.
+    BUTTERFLY_TEST_NEWS_IDS: str = ""
+
+    # False (default) = real production behaviour: thematic research always
+    # runs its full researcher_agent (google_search grounded) step. Set True
+    # only when the Gemini key's project has no grounding quota available
+    # (grounding requires billing enabled on the project — see agents/
+    # butterfly/pipeline.py:_run_thematic_research) — the pipeline still runs
+    # the free thematic_trigger_agent classification (no search tool, no
+    # billing needed) and logs its verdict, it just stops BEFORE the
+    # guaranteed-to-429 grounded call instead of retrying it forever. Flip
+    # back to False the moment the key's project has real grounding quota.
+    BUTTERFLY_SKIP_GROUNDED_RESEARCH: bool = False
 
     # Second, smarter gate after the ingestion-time heuristic floor — a cheap
     # model reads the actual article and kills anything the heuristic let
@@ -121,6 +202,14 @@ class Settings(BaseSettings):
     # A profile older than this is treated as stale and re-built. Company
     # cost/revenue structure genuinely doesn't change week to week.
     COMPANY_PROFILER_REFRESH_DAYS: int = 90
+
+    # Both this worker and agents/butterfly/worker.py share the cheap model's
+    # per-MINUTE request limit — a separate, much smaller cap than the daily
+    # one. Without this, both workers fire their first call within a second of
+    # each other at app boot, which is on its own enough to trip that
+    # per-minute limit before either has done any real work. See agents/
+    # company_profiler/worker.py.
+    COMPANY_PROFILER_STARTUP_STAGGER_SECONDS: int = 20
 
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:

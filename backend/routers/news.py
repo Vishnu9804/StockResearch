@@ -95,8 +95,19 @@ async def list_news(
     25 items already on screen will report "no results" for a search term that
     exists in row 400 of 629, which is a real accuracy problem for a page
     whose whole point is "does this term appear in the news," not a UI nicety.
+
+    The ``since_hours`` window is a freshness *preference*, not a hard content
+    filter: if nothing in the store falls inside it — the ingestion loop
+    hasn't completed its first cycle yet on a fresh deploy, a feed source is
+    down, or it's simply a quiet stretch — we fall back to the newest rows
+    regardless of age rather than reporting an empty inbox the DB doesn't
+    actually agree with (news_items is already bounded to
+    ``NEWS_RETENTION_DAYS`` days by the daily cleanup pass, so "no cutoff" here
+    still can't mean "arbitrarily old"). The response's ``stale`` flag tells
+    the frontend when that fallback fired, so it can say so instead of quietly
+    presenting old stories as if they were live.
     """
-    filters = [
+    base_filters = [
         NewsItem.duplicate_of_id.is_(None),
         # A source can mislabel its own language (verified live: PIB serves
         # Hindi while its feed URL claims English) — services/news_ingest.py
@@ -106,23 +117,36 @@ async def list_news(
         NewsItem.language == "en",
     ]
     if category:
-        filters.append(NewsItem.category == category.upper())
+        base_filters.append(NewsItem.category == category.upper())
     if symbol:
-        filters.append(NewsItem.mentioned_symbols.any(symbol.upper()))
+        base_filters.append(NewsItem.mentioned_symbols.any(symbol.upper()))
+
+    stale = False
     if q:
         # An explicit search means "find it anywhere in the store" — a term
         # that exists but falls just outside the default recency window
         # reporting "no results" would be a second, independent way to wrongly
-        # tell a user something isn't there when it is.
+        # tell a user something isn't there when it is. Search therefore never
+        # applies the recency window (or the staleness fallback below — a
+        # search is either found or it isn't, at any age).
         like = f"%{q.strip()}%"
-        filters.append(or_(
+        filters = base_filters + [or_(
             NewsItem.title.ilike(like),
             NewsItem.summary.ilike(like),
             NewsItem.source_name.ilike(like),
-        ))
+        )]
     else:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
-        filters.append(NewsItem.published_at >= cutoff)
+        windowed_filters = base_filters + [NewsItem.published_at >= cutoff]
+        async with async_session_maker() as session:
+            windowed_total = await session.scalar(
+                select(func.count()).select_from(NewsItem).where(*windowed_filters)
+            )
+        if windowed_total:
+            filters = windowed_filters
+        else:
+            filters = base_filters
+            stale = True
 
     async with async_session_maker() as session:
         total = await session.scalar(
@@ -137,34 +161,56 @@ async def list_news(
                 .limit(limit)
             )
         ).scalars().all()
+        newest = (
+            await session.scalar(select(func.max(NewsItem.published_at)).where(*base_filters))
+            if stale else None
+        )
 
     return {
         "data": [_to_card(row) for row in rows],
         "total": total or 0,
         "page": page,
         "limit": limit,
+        # True when nothing matched within `since_hours` and the response
+        # below is the newest available items regardless of age instead.
+        "stale": stale,
+        "newestPublishedAt": newest.isoformat() if newest else None,
     }
 
 
 @router.get("/latest")
 async def latest_news(limit: int = Query(12, ge=1, le=50)):
     """Flat array for sidebar widgets — matches the legacy /market/news shape so
-    existing frontend callers keep working unchanged."""
+    existing frontend callers keep working unchanged.
+
+    Same fallback as ``list_news``: the 7-day window is a preference, not a
+    hard filter, so a quiet week can't blank out the widget while rows still
+    sit in the table."""
+    base_filters = [
+        NewsItem.duplicate_of_id.is_(None),
+        NewsItem.language == "en",
+    ]
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
     async with async_session_maker() as session:
         rows = (
             await session.execute(
                 select(NewsItem)
-                .where(
-                    NewsItem.published_at >= cutoff,
-                    NewsItem.duplicate_of_id.is_(None),
-                    NewsItem.language == "en",
-                )
+                .where(*base_filters, NewsItem.published_at >= cutoff)
                 .order_by(NewsItem.published_at.desc())
                 .limit(limit)
             )
         ).scalars().all()
+
+        if not rows:
+            rows = (
+                await session.execute(
+                    select(NewsItem)
+                    .where(*base_filters)
+                    .order_by(NewsItem.published_at.desc())
+                    .limit(limit)
+                )
+            ).scalars().all()
 
     return [_to_card(row) for row in rows]
 

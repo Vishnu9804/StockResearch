@@ -7,13 +7,23 @@ import { Text } from '@/components/ui/Text'
 import finscreenApi from '@/services/finscreenApi'
 import { AppFooter } from '@/components/shared/AppFooter'
 
+interface CommodityTrendPoint {
+  period: string
+  changePct: number
+}
+
 interface Commodity {
   name: string
   price: number
   unit: string
   change: number
   updatedAt: string
+  trend?: CommodityTrendPoint[]
 }
+
+// Only the short/medium horizons — the API also carries 2yr/3yr/5yr figures,
+// which belong on a dedicated drill-down rather than this at-a-glance board.
+const TREND_PERIODS_SHOWN = ['1 month', '3 months', '6 months', '1 year']
 
 export function Commodities() {
   const [commodities, setCommodities] = useState<Commodity[]>([])
@@ -96,6 +106,24 @@ export function Commodities() {
                         {positive ? '+' : ''}{c.change.toFixed(2)}%
                       </span>
                     </div>
+                    {c.trend && c.trend.length > 0 && (
+                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                        {c.trend
+                          .filter((t) => TREND_PERIODS_SHOWN.includes(t.period))
+                          .map((t) => {
+                            const trendPositive = t.changePct >= 0
+                            return (
+                              <span
+                                key={t.period}
+                                title={`${t.period} change`}
+                                className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded ${trendPositive ? 'text-positive bg-positive-soft' : 'text-negative bg-negative-soft'}`}
+                              >
+                                {t.period.replace(' months', 'M').replace(' month', 'M').replace(' year', 'Y')} {trendPositive ? '+' : ''}{t.changePct.toFixed(1)}%
+                              </span>
+                            )
+                          })}
+                      </div>
+                    )}
                     <span className="text-[10px] text-textMuted font-medium">
                       Last Updated: {new Date(c.updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </span>

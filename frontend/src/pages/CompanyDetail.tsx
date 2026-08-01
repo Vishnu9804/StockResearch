@@ -68,6 +68,9 @@ const AuditorNotes = React.lazy(() =>
 const ShareholdingSubsections = React.lazy(() =>
   import('@/components/company/ShareholdingSubsections').then((m) => ({ default: m.ShareholdingSubsections }))
 )
+const ShareholderBaseStats = React.lazy(() =>
+  import('@/components/company/ShareholderBaseStats').then((m) => ({ default: m.ShareholderBaseStats }))
+)
 const CompanyIdentityHistory = React.lazy(() =>
   import('@/components/company/CompanyIdentityHistory').then((m) => ({ default: m.CompanyIdentityHistory }))
 )
@@ -555,7 +558,14 @@ export function CompanyDetail() {
 
         {/* SECTION: Shareholding Pattern */}
         <section id="shareholding" className="scroll-mt-16">
-          <ScrollReveal className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <ScrollReveal>
+            <ErrorBoundary fallbackType="section" title="Shareholder base data unavailable">
+              <Suspense fallback={<SectionSkeleton />}>
+                <ShareholderBaseStats symbol={company.symbol} />
+              </Suspense>
+            </ErrorBoundary>
+          </ScrollReveal>
+          <ScrollReveal className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
             <Suspense fallback={<SectionSkeleton />}>
               <ShareholdingChart symbol={company.symbol} />
             </Suspense>

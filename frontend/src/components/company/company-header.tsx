@@ -123,7 +123,13 @@ export function CompanyHeader({ company }: { company: Company }) {
                 )}
               </div>
               <p className="mt-1 text-body text-textSecondary flex flex-wrap items-center gap-1 font-normal">
-                <span>Equity tracking {company.sector} · </span>
+                <span>
+                  Equity tracking{' '}
+                  <Link to="/market-pulse/industries" className="text-accent hover:underline">
+                    {company.sector}
+                  </Link>
+                  {' '}·{' '}
+                </span>
                 <span className="font-medium text-accent">
                   Market Cap ₹{(company.marketCap / 100000).toFixed(1)}L Cr
                 </span>

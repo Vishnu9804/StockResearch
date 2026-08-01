@@ -6,10 +6,8 @@ every agent in every workflow moves at once.
 
 Model ids are read from core/config.py (GEMINI_MODEL_CHEAP/SMART) rather than
 hardcoded here, so changing model generation is a config change, not a code
-change. Verified live — not on Google's announced deprecation schedule — as
-of July 2026:
-  gemini-3.5-flash-lite   $0.30 / $2.50 per 1M tokens   extraction, yes/no gates
-  gemini-3.6-flash        $1.50 / $7.50 per 1M tokens    reasoning, skepticism, search
+change. See core/config.py for why these are currently the Gemini 3.5/3.6
+Flash family and for the thinking-level tradeoffs below.
 
 The API key is wired in per-model via `client_kwargs` (passed straight through
 to google.genai.Client) rather than exported into the process environment —
@@ -19,6 +17,7 @@ other secret, instead of a second, implicit source of truth.
 from typing import Any
 
 from google.adk.models import Gemini
+from google.genai import types
 
 from core.config import settings
 
@@ -35,3 +34,26 @@ def cheap_model() -> Gemini:
 def smart_model() -> Gemini:
     """Cheapest strong-reasoning tier — reserved for steps that must weigh evidence."""
     return Gemini(model=settings.GEMINI_MODEL_SMART, client_kwargs=_client_kwargs())
+
+
+# ── Thinking config ──────────────────────────────────────────────────────────
+# Every LlmAgent in every workflow passes one of these as its
+# `generate_content_config` (see agents/butterfly/agents.py and agents/
+# company_profiler/agents.py) instead of leaving thinking on its unbounded
+# default — see core/config.py's THINKING_LEVEL_CHEAP/SMART comment for the
+# full reasoning (cost predictability + avoiding the empty-response failure
+# mode when an unbounded thinking pass eats the whole output-token budget).
+#
+# Built fresh per call, same reasoning as cheap_model()/smart_model() above —
+# a shared mutable config object reused across agent instances is exactly the
+# kind of hidden cross-run state this codebase avoids on principle.
+def cheap_generation_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level=settings.THINKING_LEVEL_CHEAP)
+    )
+
+
+def smart_generation_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level=settings.THINKING_LEVEL_SMART)
+    )

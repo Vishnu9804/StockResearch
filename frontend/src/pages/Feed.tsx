@@ -4,9 +4,9 @@ import { useDispatch, useSelector } from 'react-redux'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
-import finscreenApi from '@/services/finscreenApi'
+import finscreenApi, { butterflyApi, type ButterflyAlertDto } from '@/services/finscreenApi'
 import { AppFooter } from '@/components/shared/AppFooter'
-import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox } from 'lucide-react'
+import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox, BellRing, X, LogIn } from 'lucide-react'
 import { FeedCardSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
@@ -26,6 +26,19 @@ const CATEGORIES = ['All', 'Board Meeting', 'Concall', 'Annual Report', 'Dividen
 // kept in sync with that module so a chip here can never silently stop matching
 // real data.
 const NEWS_CATEGORIES = ['All', 'MACRO', 'MARKETS', 'COMMODITY', 'POLICY', 'GLOBAL', 'SECTOR', 'CORPORATE']
+
+const ALERT_SEVERITIES = ['All', 'RED', 'ORANGE', 'YELLOW'] as const
+
+// The ONLY place a news item gets a RED/ORANGE/YELLOW danger color in this
+// app — it comes from a real, scored user_news_alerts row written by the
+// Butterfly Effect workflow (backend/agents/butterfly/, services/
+// butterfly_scorer.py), never a UI heuristic. Keep in sync with the palette
+// implied by backend/services/butterfly_scorer.py's three severities.
+const SEVERITY_STYLES: Record<string, { text: string; bg: string; border: string; dot: string }> = {
+  RED:    { text: 'text-red-700 dark:text-red-400',    bg: 'bg-red-50 dark:bg-red-950/30',    border: 'border-red-500/40',    dot: 'bg-red-600' },
+  ORANGE: { text: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-500/40', dot: 'bg-orange-500' },
+  YELLOW: { text: 'text-amber-700 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-950/30',  border: 'border-amber-500/40',  dot: 'bg-amber-500' },
+}
 
 const UPCOMING_RESULTS = [
   { day: "MON", date: "Oct 14", items: [] },
@@ -79,8 +92,13 @@ export function Feed() {
   // first. 'announcements' keeps the pre-existing FinEdge corp-announcements
   // list — a real but distinct data type (regulatory filings, not news
   // articles) that must never be blended into the same list as news.
-  const activeTab         = searchParams.get('tab') === 'announcements' ? 'announcements' : 'news'
+  // 'alerts' is the user's own RED/ORANGE/YELLOW butterfly alerts — portfolio-
+  // scoped, requires auth, never mixed into the public news/announcements lists.
+  const tabParam = searchParams.get('tab')
+  const activeTab: 'news' | 'announcements' | 'alerts' =
+    tabParam === 'announcements' ? 'announcements' : tabParam === 'alerts' ? 'alerts' : 'news'
   const activeNewsCategory = searchParams.get('ncat') ?? 'All'
+  const activeSeverity = (searchParams.get('sev') ?? 'All') as typeof ALERT_SEVERITIES[number]
 
   // ── News tab state (backend/routers/news.py — real ingested articles) ────
   const [newsItems, setNewsItems]     = useState<any[]>([])
@@ -89,6 +107,11 @@ export function Feed() {
   const [newsLimit, setNewsLimit]     = useState(25)
   const [newsLoading, setNewsLoading] = useState(true)
   const [newsError, setNewsError]     = useState<string | null>(null)
+  // Set when the backend had nothing inside its freshness window and fell
+  // back to the newest available stories regardless of age (routers/news.py)
+  // — surfaced so "no recent news" and "no news at all" are never conflated.
+  const [newsStale, setNewsStale]         = useState(false)
+  const [newsNewestAt, setNewsNewestAt]   = useState<string | null>(null)
 
   // Sidebar state (still fetched locally — not paginated)
   const [resultsCalendar, setResultsCalendar] = useState<any[]>([])
@@ -97,6 +120,17 @@ export function Feed() {
 
   // Density preference
   const [density, setDensity] = useLocalStorage<'comfortable' | 'compact'>('announcements_density', 'comfortable')
+
+  // ── Alerts tab state (backend/routers/butterfly.py — real, scored,
+  // portfolio-aware RED/ORANGE/YELLOW alerts; the ONLY source of that
+  // severity coloring anywhere in the app) ─────────────────────────────────
+  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated)
+  const [alertItems, setAlertItems]     = useState<ButterflyAlertDto[]>([])
+  const [alertTotal, setAlertTotal]     = useState(0)
+  const [alertPage, setAlertPage]       = useState(1)
+  const [alertLimit] = useState(25)
+  const [alertLoading, setAlertLoading] = useState(true)
+  const [alertError, setAlertError]     = useState<string | null>(null)
 
   // ── Redux state ────────────────────────────────────────────────────────────
   const { items: rawItems, total, page, limit, status, error } =
@@ -132,6 +166,8 @@ export function Feed() {
         if (cancelled) return
         setNewsItems(Array.isArray(res?.data) ? res.data : [])
         setNewsTotal(typeof res?.total === 'number' ? res.total : 0)
+        setNewsStale(Boolean(res?.stale))
+        setNewsNewestAt(res?.newestPublishedAt ?? null)
       })
       .catch((err: any) => {
         if (cancelled) return
@@ -151,6 +187,38 @@ export function Feed() {
     if (activeTab === 'news') setNewsPage(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, activeTab])
+
+  // ── Alerts tab fetch — GET /api/butterfly/alerts, requires auth since it's
+  // scored against the signed-in user's own portfolio. Dismissed alerts are
+  // excluded server-side by default (includeDismissed defaults to false).
+  useEffect(() => {
+    if (activeTab !== 'alerts' || !isAuthenticated) {
+      setAlertLoading(false)
+      return
+    }
+    let cancelled = false
+    setAlertLoading(true)
+    setAlertError(null)
+    butterflyApi
+      .listAlerts({
+        page: alertPage,
+        limit: alertLimit,
+        ...(activeSeverity !== 'All' ? { severity: activeSeverity } : {}),
+      })
+      .then((res) => {
+        if (cancelled) return
+        setAlertItems(Array.isArray(res?.data) ? res.data : [])
+        setAlertTotal(typeof res?.total === 'number' ? res.total : 0)
+      })
+      .catch((err: any) => {
+        if (cancelled) return
+        setAlertError(err?.response?.data?.detail || err?.message || 'Failed to load alerts')
+      })
+      .finally(() => {
+        if (!cancelled) setAlertLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [activeTab, activeSeverity, alertPage, alertLimit, isAuthenticated])
 
   // ── Sidebar data (results calendar + news) ────────────────────────────────
   useEffect(() => {
@@ -241,10 +309,29 @@ export function Feed() {
   const displayResults = upcomingResultsList.some(d => d.items.length > 0) ? upcomingResultsList : UPCOMING_RESULTS
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleTabChange = (tab: 'news' | 'announcements') => {
+  const handleTabChange = (tab: 'news' | 'announcements' | 'alerts') => {
     const p = new URLSearchParams(searchParams)
     tab === 'news' ? p.delete('tab') : p.set('tab', tab)
     setSearchParams(p)
+  }
+
+  const handleSeverityChange = (sev: string) => {
+    const p = new URLSearchParams(searchParams)
+    sev === 'All' ? p.delete('sev') : p.set('sev', sev)
+    setSearchParams(p)
+    setAlertPage(1)
+  }
+
+  const handleDismissAlert = (alertId: string) => {
+    // Optimistic — this list only ever shows non-dismissed alerts (the
+    // default includeDismissed=false), so dismissing removes it from view
+    // immediately rather than waiting on a refetch.
+    setAlertItems(items => items.filter(a => a.id !== alertId))
+    setAlertTotal(t => Math.max(0, t - 1))
+    butterflyApi.dismiss(alertId).catch(() => {
+      // Best-effort — a failed dismiss just means it reappears on next load,
+      // which is a safe failure mode (nothing destructive was assumed).
+    })
   }
 
   const handleCategoryChange = (cat: string) => {
@@ -280,6 +367,8 @@ export function Feed() {
       .then((res: any) => {
         setNewsItems(Array.isArray(res?.data) ? res.data : [])
         setNewsTotal(typeof res?.total === 'number' ? res.total : 0)
+        setNewsStale(Boolean(res?.stale))
+        setNewsNewestAt(res?.newestPublishedAt ?? null)
       })
       .catch((err: any) => setNewsError(err?.message || 'Failed to load news'))
       .finally(() => setNewsLoading(false))
@@ -330,9 +419,40 @@ export function Feed() {
               >
                 Announcements
               </button>
+              <button
+                onClick={() => handleTabChange('alerts')}
+                className={`px-3.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'alerts' ? 'bg-surface text-accent shadow-xs' : 'hover:text-textPrimary'}`}
+              >
+                <BellRing className="size-3.5" />
+                Alerts
+              </button>
             </div>
 
+            {/* Severity filter — Alerts tab only, keyed to the same
+                RED/ORANGE/YELLOW severities butterfly_scorer.py assigns. */}
+            {activeTab === 'alerts' && isAuthenticated && (
+              <div className="flex items-center gap-1.5 bg-surface border border-border/40 p-4 rounded-xl shadow-xs">
+                {ALERT_SEVERITIES.map(sev => (
+                  <button
+                    key={sev}
+                    onClick={() => handleSeverityChange(sev)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                      activeSeverity === sev
+                        ? sev === 'All'
+                          ? 'bg-accent border-accent text-white shadow-sm'
+                          : `${SEVERITY_STYLES[sev].bg} ${SEVERITY_STYLES[sev].border} ${SEVERITY_STYLES[sev].text} shadow-sm`
+                        : 'bg-background border-border/60 hover:bg-surfaceMuted/65 text-textSecondary'
+                    }`}
+                  >
+                    {sev !== 'All' && <span className={`size-1.5 rounded-full ${SEVERITY_STYLES[sev].dot}`} />}
+                    {sev === 'All' ? 'All' : sev.charAt(0) + sev.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Filter controls */}
+            {activeTab !== 'alerts' && (
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-surface border border-border/40 p-4 rounded-xl shadow-xs">
               <div className="flex overflow-x-auto scrollbar-hide gap-1.5 w-full sm:w-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
                 {(activeTab === 'news' ? NEWS_CATEGORIES : CATEGORIES).map(cat => (
@@ -379,9 +499,10 @@ export function Feed() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Active search banner */}
-            {(searchQuery || activeCategory !== 'All') && (
+            {activeTab !== 'alerts' && (searchQuery || activeCategory !== 'All') && (
               <div className="bg-surface border border-border/40 px-5 py-3 rounded-xl flex items-center justify-between text-xs text-textSecondary shadow-xs animate-[fadeIn_0.15s_ease-out]">
                 <span>Active filter: <span className="font-semibold text-textPrimary">"{searchQuery || activeCategory}"</span></span>
                 <Link
@@ -399,6 +520,13 @@ export function Feed() {
                   source article so the primary source is always one click
                   away. ──────────────────────────────────────────────────── */
               <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
+
+                {!newsLoading && !newsError && newsStale && newsItems.length > 0 && (
+                  <div className="px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-[12px] text-amber-700 dark:text-amber-400 font-medium">
+                    Nothing published in the last few days — showing the most recent stories available
+                    {newsNewestAt ? ` (newest: ${new Date(newsNewestAt).toLocaleString()})` : ''}.
+                  </div>
+                )}
 
                 {newsError ? (
                   <div className="p-6">
@@ -480,7 +608,7 @@ export function Feed() {
                   />
                 )}
               </div>
-            ) : (
+            ) : activeTab === 'announcements' ? (
               /* ── Announcements card — unchanged: FinEdge corp-announcements,
                   real regulatory filings, kept on their own tab. ──────────── */
               <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
@@ -560,6 +688,103 @@ export function Feed() {
                     onPageChange={(p) => dispatch(fetchAnnouncementsStart({ page: p, limit }))}
                     onLimitChange={(l) => dispatch(fetchAnnouncementsStart({ page: 1, limit: l }))}
                     limitOptions={[25, 50, 100]}
+                  />
+                )}
+              </div>
+            ) : (
+              /* ── Alerts card — backend/routers/butterfly.py's /api/butterfly/alerts.
+                  The only place in this app a news item is colored RED/ORANGE/YELLOW:
+                  every row here is a real, scored user_news_alerts write from the
+                  Butterfly Effect workflow — never a UI heuristic. ───────────────── */
+              <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
+                {!isAuthenticated ? (
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon"><LogIn className="size-6 text-textMuted" /></EmptyMedia>
+                      <EmptyTitle className="text-textPrimary font-semibold">Log in to see your alerts</EmptyTitle>
+                      <EmptyDescription className="text-textSecondary">
+                        Alerts are scored against your own portfolio, so they're only available signed in.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : alertError ? (
+                  <div className="p-6">
+                    <InlineError message={alertError} onRetry={() => setAlertPage(p => p)} />
+                  </div>
+                ) : alertLoading ? (
+                  <div className="p-4">
+                    <FeedCardSkeleton count={3} />
+                  </div>
+                ) : alertItems.length === 0 ? (
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon"><BellRing className="size-6 text-textMuted" /></EmptyMedia>
+                      <EmptyTitle className="text-textPrimary font-semibold">No alerts for this selection</EmptyTitle>
+                      <EmptyDescription className="text-textSecondary">
+                        Nothing in your portfolio has scored high enough for an alert yet — or try a different severity filter.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <div className="divide-y divide-border/40 p-1">
+                    {alertItems.map((alert) => {
+                      const sv = SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.YELLOW
+                      return (
+                        <div
+                          key={alert.id}
+                          className={`m-2 p-4 rounded-xl border ${sv.border} ${sv.bg} flex flex-col gap-1.5`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${sv.text} ${sv.bg} border ${sv.border}`}>
+                                {alert.severity}
+                              </span>
+                              <span className="text-body font-semibold text-textPrimary">{alert.symbol}</span>
+                              {alert.companyName && (
+                                <span className="text-sm text-textSecondary">{alert.companyName}</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleDismissAlert(alert.id)}
+                              className="text-textMuted hover:text-textPrimary transition-colors cursor-pointer p-1 -m-1 rounded"
+                              title="Dismiss"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-textPrimary leading-snug">{alert.explanation}</p>
+                          {alert.news && (
+                            <a
+                              href={alert.news.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-accent hover:underline leading-snug flex items-center gap-1 w-fit"
+                            >
+                              {alert.news.title}
+                              <ExternalLink className="size-3 opacity-60" />
+                            </a>
+                          )}
+                          <span className="text-[12px] text-textMuted font-medium">
+                            {alert.news?.sourceName ?? 'Unknown source'} · score {alert.score?.toFixed(2) ?? '—'}
+                            {typeof alert.exposurePct === 'number' && alert.exposurePct > 0
+                              ? ` · ${(alert.exposurePct * 100).toFixed(1)}% of portfolio`
+                              : ''}
+                            {' · '}{new Date(alert.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {isAuthenticated && !alertLoading && !alertError && alertTotal > 0 && (
+                  <PaginationBar
+                    total={alertTotal}
+                    page={alertPage}
+                    limit={alertLimit}
+                    onPageChange={(p) => setAlertPage(p)}
+                    onLimitChange={() => {}}
+                    limitOptions={[alertLimit]}
                   />
                 )}
               </div>
