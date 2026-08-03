@@ -36,6 +36,16 @@ def smart_model() -> Gemini:
     return Gemini(model=settings.GEMINI_MODEL_SMART, client_kwargs=_client_kwargs())
 
 
+def chat_model() -> Gemini:
+    """The Research Chat answering tier (agents/research_chat/).
+
+    Its own setting rather than cheap_model()/smart_model() because it is the
+    only one of the three whose cost is driven by USER volume rather than by
+    news volume — see core/config.py:GEMINI_MODEL_CHAT for the tradeoff.
+    """
+    return Gemini(model=settings.GEMINI_MODEL_CHAT, client_kwargs=_client_kwargs())
+
+
 # ── Thinking config ──────────────────────────────────────────────────────────
 # Every LlmAgent in every workflow passes one of these as its
 # `generate_content_config` (see agents/butterfly/agents.py and agents/
@@ -56,4 +66,10 @@ def cheap_generation_config() -> types.GenerateContentConfig:
 def smart_generation_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         thinking_config=types.ThinkingConfig(thinking_level=settings.THINKING_LEVEL_SMART)
+    )
+
+
+def chat_generation_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level=settings.THINKING_LEVEL_CHAT)
     )

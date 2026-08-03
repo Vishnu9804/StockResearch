@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     ForeignKey, Text, Numeric, Boolean, Date, DateTime, Index, Integer,
     SmallInteger, UniqueConstraint, func,
@@ -8,6 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.config import settings
 from core.database import Base
 
 
@@ -397,6 +399,145 @@ class NewsThematicResearch(Base):
     status: Mapped[str] = mapped_column(Text, server_default="OK")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RagDocument(Base):
+    """One indexed SOURCE object for the Research Chat retrieval corpus — a
+    company's exposure profile, a fundamentals fact sheet, one concall
+    transcript PDF, one news article, or one platform help topic.
+
+    ``content_hash`` is the whole point of this table existing separately from
+    RagChunk: embedding costs quota, so an unchanged source must not be
+    re-embedded just because the indexer woke up. The indexer hashes the
+    normalised source text, compares, and does nothing when it matches — which
+    is why a company profile that changes once a quarter is embedded once a
+    quarter and not once every 15 minutes."""
+
+    __tablename__ = "rag_documents"
+    __table_args__ = (
+        UniqueConstraint("source_type", "source_key", name="rag_documents_source_unique"),
+        Index("ix_rag_documents_symbol", "symbol"),
+        Index("ix_rag_documents_source_type", "source_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_key: Mapped[str] = mapped_column(Text, nullable=False)
+
+    symbol: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(Text)
+    url: Mapped[str | None] = mapped_column(Text)
+    doc_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}")
+
+    chunk_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    embedding_model: Mapped[str | None] = mapped_column(Text)
+
+    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    chunks: Mapped[list["RagChunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", order_by="RagChunk.chunk_index"
+    )
+
+
+class RagChunk(Base):
+    """The retrievable unit: a passage, its embedding, and a generated
+    tsvector for the keyword half of hybrid retrieval.
+
+    symbol/source_type/doc_date are denormalised copies of the parent
+    document's — every retrieval filters or re-weights on those three, and the
+    ANN probe should not pay for a join to read them."""
+
+    __tablename__ = "rag_chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="rag_chunks_unique"),
+        Index("ix_rag_chunks_symbol", "symbol"),
+        Index("ix_rag_chunks_source_type", "source_type"),
+        Index("ix_rag_chunks_document", "document_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rag_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    token_estimate: Mapped[int | None] = mapped_column(Integer)
+
+    symbol: Mapped[str | None] = mapped_column(Text)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    doc_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Dimension comes from config so the two can never silently disagree —
+    # see core/config.py:RAG_EMBEDDING_DIM for the migration coupling.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.RAG_EMBEDDING_DIM))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped["RagDocument"] = relationship(back_populates="chunks")
+
+
+class ChatConversation(Base):
+    """One Research Chat thread. Survives closing the page, navigating away and
+    reloading — only an explicit "New chat" starts another one, which is why
+    this is a table and not client state."""
+
+    __tablename__ = "chat_conversations"
+    __table_args__ = (Index("ix_chat_conversations_user", "user_id", "last_message_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    title: Mapped[str] = mapped_column(Text, server_default="New research chat")
+    # BEGINNER | INTERMEDIATE | ADVANCED — LANGUAGE level only. It changes the
+    # vocabulary an answer is written in, never how deeply it was researched.
+    language_level: Mapped[str] = mapped_column(Text, server_default="INTERMEDIATE")
+
+    message_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", order_by="ChatMessage.created_at"
+    )
+
+
+class ChatMessage(Base):
+    """One turn. ``retrieval_debug`` is kept on assistant turns so a bad answer
+    can be diagnosed as "retrieval never found the passage" versus "the model
+    was given the passage and ignored it" — those two failures need opposite
+    fixes, and without this record they look identical from the outside."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (Index("ix_chat_messages_conversation", "conversation_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    language_level: Mapped[str | None] = mapped_column(Text)
+    citations: Mapped[list] = mapped_column(JSONB, server_default="[]")
+    retrieval_debug: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    token_usage: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    conversation: Mapped["ChatConversation"] = relationship(back_populates="messages")
 
 
 class SavedQuery(Base):

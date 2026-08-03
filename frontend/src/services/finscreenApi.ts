@@ -70,7 +70,12 @@ export const finscreenApi = {
   fetchHolidays: () => finscreenClient.get('/market/holidays').then(r => r.data),
   fetchIpoCalendar: () => finscreenClient.get('/market/ipo').then(r => r.data),
   fetchResultsCalendar: () => finscreenClient.get('/market/results-calendar').then(r => r.data),
-  fetchMarketAnnouncements: () => finscreenClient.get('/market/announcements').then(r => r.data),
+  // The backend defaults to yesterday..today and merges any query params it is
+  // given (routers/finedge.py::get_announcements), so `params` is how a caller
+  // widens the window — QueryResults asks for the last 30 days. Optional
+  // because most callers want the default.
+  fetchMarketAnnouncements: (params?: { from_date?: string; to_date?: string; symbol?: string }) =>
+    finscreenClient.get('/market/announcements', params ? { params } : undefined).then(r => r.data),
   fetchRefreshedStocks: () => finscreenClient.get('/refreshed-stocks').then(r => r.data),
   fetchStockSymbols: () => finscreenClient.get('/stock-symbols').then(r => r.data),
 

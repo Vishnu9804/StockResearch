@@ -4,6 +4,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import {
   TrendingUp, Search, BookOpen, FolderHeart, Sliders,
   Filter, User, ChevronLeft, ChevronRight, Zap, CreditCard, Activity, Newspaper,
+  MessageSquareText, CornerLeftUp,
 } from 'lucide-react'
 import { toggleSidebar, setSidebarCollapsed } from '@/store/slices/uiSlice'
 import { Button } from '@/components/ui/button'
@@ -18,9 +19,14 @@ interface SidebarItem {
   authOnly?: boolean
 }
 
+// The one item that also carries a hint under it. Kept as a constant so the
+// hint and the item can never drift apart if the menu is reordered.
+const RESEARCH_CHAT_HREF = '/chat'
+
 const MENU_ITEMS: SidebarItem[] = [
   { label: 'Markets Today', href: '/',             icon: TrendingUp },
   { label: 'Feed',           href: '/feed',        icon: Newspaper },
+  { label: 'Research Chat',  href: RESEARCH_CHAT_HREF, icon: MessageSquareText },
   { label: 'Stock Screener', href: '/screener',    icon: Search },
   { label: 'Screen Gallery', href: '/screens',     icon: Filter },
   { label: 'Market Pulse',   href: '/market-pulse', icon: Activity },
@@ -174,6 +180,27 @@ export function Sidebar() {
                   >
                     {linkContent}
                   </Link>
+                )}
+
+                {/* Ctrl+click hint — Research Chat only.
+                    Permanent by design: there is no dismiss button, because a
+                    "got it" here would make it a second thing to interact with
+                    in a nav rail. It is a caption, not a prompt. Only rendered
+                    while the sidebar is expanded (there is no room to say it
+                    legibly at 60px) and it sits INSIDE the nav flow rather
+                    than floating, so it can never overlap the item below it. */}
+                {item.href === RESEARCH_CHAT_HREF && !sidebarCollapsed && (
+                  <motion.div
+                    className="mb-0.5 ml-2.5 flex items-start gap-1 pr-1"
+                    initial={prefersReduced ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.45 }}
+                  >
+                    <CornerLeftUp className="mt-px size-3 shrink-0 text-accent/45" />
+                    <span className="text-[9.5px] leading-[1.35] text-textMuted">
+                      Ctrl+click to open in a new tab
+                    </span>
+                  </motion.div>
                 )}
 
                 {/* Tooltip (collapsed) */}

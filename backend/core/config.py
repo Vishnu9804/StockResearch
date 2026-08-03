@@ -211,6 +211,181 @@ class Settings(BaseSettings):
     # company_profiler/worker.py.
     COMPANY_PROFILER_STARTUP_STAGGER_SECONDS: int = 20
 
+    # ── Research Chat: RAG index ──────────────────────────────────────────────
+    # The retrieval corpus behind agents/research_chat/. Built by
+    # services/rag/indexer.py into rag_documents + rag_chunks (migration
+    # 003_rag_and_research_chat.sql), and READ on every chat question.
+    #
+    # Embedding model: gemini-embedding-001. Verified live against this
+    # project's own key (Aug 2026) rather than taken from docs — the newer
+    # `gemini-embedding-2` is listed as available but silently collapses a
+    # BATCH of N texts into ONE vector, which would corrupt the index without
+    # raising anything. gemini-embedding-001 batches correctly (hard API cap:
+    # 100 texts per request, also verified) and is the only embedding model
+    # here that can be trusted with bulk indexing.
+    GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+
+    # 768 via Matryoshka truncation of the model's native 3072, re-normalised
+    # to unit length afterwards (see services/rag/embeddings.py). 768 keeps the
+    # HNSW index ~4x smaller and ~4x faster to probe for a retrieval-quality
+    # difference that is negligible at this corpus size.
+    #
+    # HARD COUPLING: rag_chunks.embedding is declared vector(768) in migration
+    # 003. Changing this number without a matching migration fails loudly at
+    # insert time — deliberately, since a silently mixed-dimension index would
+    # return quietly wrong neighbours instead of an error.
+    RAG_EMBEDDING_DIM: int = 768
+    # Well under the API's hard 100-contents-per-request cap on purpose. The
+    # quota below is a SLIDING per-minute window, and spending it in two
+    # near-maximal gulps sits exactly on the window edge — verified live: 90 +
+    # 90 sixty seconds apart still 429s, because the first 90 have not all
+    # aged out at the instant the second batch fires. Smaller batches let the
+    # token bucket spread the same throughput smoothly instead of in spikes
+    # that collide with the window boundary.
+    RAG_EMBEDDING_BATCH_SIZE: int = 50
+
+    # ── The two embedding quotas, both verified live from the 429 bodies
+    # against this project's own key (Aug 2026). Neither matches what a
+    # generic docs table would tell you, and BOTH count every TEXT in a batch
+    # rather than every HTTP call — so batching helps latency and HTTP
+    # overhead but buys nothing at all against either limit.
+    #
+    #   PER MINUTE   quotaId EmbedContentRequestsPerMinutePerUser...
+    #                limit 100. This is what the pacing below defends.
+    #
+    #   PER DAY      quotaId EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier
+    #                limit 1000. THIS is the one that actually constrains a
+    #                free-tier build-out, and it is easy to miss because it
+    #                surfaces as the same 429 with the same shape.
+    #
+    # What 1000/day means in practice, and it is worth internalising before
+    # tuning anything here:
+    #   - help topics + exposure profiles + fundamentals  ~25 embeddings. Free.
+    #   - one company's last two concall transcripts      ~130 embeddings.
+    #   - the whole 21-day news window (~2900 articles)   ~2900 — three days.
+    #   - one user question                               1.
+    # So on a free key the news corpus is a multi-day backfill, which is
+    # exactly why services/rag/index_worker.py indexes it LAST and why
+    # RAG_MAX_CHUNKS_PER_CYCLE exists. A billed key removes the ceiling.
+    #
+    # SAFETY is far below the 0.9 used for FinEdge, for a reason specific to
+    # this endpoint: a REJECTED embedding request is still metered (verified —
+    # five throttled calls 45s apart produced monotonically INCREASING
+    # retry-after hints, 16s/30s/45s/59s). Overshooting doesn't cost one
+    # wasted call, it compounds, and no retry strategy digs out of it — only
+    # waiting does. Note this is only the STARTING rate: services/rag/
+    # embeddings.py tunes itself down from here whenever the key can't sustain
+    # it, and back up when it can.
+    RAG_EMBEDDING_TEXTS_PER_MINUTE: int = 100
+    RAG_EMBEDDING_RATE_SAFETY: float = 0.6
+
+    # How long to stand down when the DAILY quota (not the per-minute one) is
+    # the wall that was hit. The provider's suggested retry delay is useless
+    # in that case — it reports the trickle-refill interval, tens of seconds,
+    # which would have a worker retry hundreds of times against a budget that
+    # does not meaningfully return until the daily reset.
+    RAG_EMBEDDING_DAILY_QUOTA_COOLDOWN_SECONDS: int = 3600
+
+    # Ceiling on how many chunks ONE index cycle may embed. At ~60 texts per
+    # minute (above), 300 chunks is roughly a five-minute cycle — bounded
+    # enough that POST /api/chat/index/run returns in a sensible time and a
+    # first run on a large backlog makes visible progress instead of appearing
+    # to hang. Whatever is left over is picked up by the next cycle, because
+    # an un-indexed document's hash simply hasn't moved yet.
+    RAG_MAX_CHUNKS_PER_CYCLE: int = 300
+
+    # Chunking. Concall transcripts are the only genuinely long source (20-40
+    # page PDFs); everything else is already a short, self-contained record.
+    # ~1400 chars ≈ 350 tokens — small enough that a retrieved chunk is mostly
+    # signal, large enough to keep a full question-and-answer exchange from an
+    # earnings call together. The overlap is what stops an answer that
+    # straddles a boundary from being cut in half.
+    RAG_CHUNK_CHARS: int = 1400
+    RAG_CHUNK_OVERLAP_CHARS: int = 220
+
+    # ── Research Chat: what gets indexed, and how much per cycle ─────────────
+    # News is capped by AGE, not count, for the same reason NEWS_RETENTION_DAYS
+    # is: a count cap lets one busy news day evict the previous week entirely.
+    RAG_NEWS_MAX_AGE_DAYS: int = 21
+    # Per-cycle ceiling so the very first run on a table that already holds
+    # thousands of articles spreads its embedding calls over several cycles
+    # instead of firing them all at once.
+    RAG_NEWS_BATCH_SIZE: int = 600
+    # How many concall transcript PDFs to pull per company. Transcripts are by
+    # far the heaviest corpus — a single 40-page call is ~70 chunks, so 2 per
+    # company is already ~140 chunks each against the 100-texts-per-minute
+    # ceiling above. Two covers "the last call" and "the one before", which is
+    # what almost every management-commentary question is actually about.
+    # Raise it once the key is billed and minutes stop being the constraint.
+    RAG_TRANSCRIPTS_PER_SYMBOL: int = 2
+    # Hard ceiling on transcript PDF size — a 40-page concall is ~1-2 MB;
+    # anything far past that is a scanned annual report misfiled as a
+    # transcript and would cost tokens for no retrievable text.
+    RAG_TRANSCRIPT_MAX_BYTES: int = 12 * 1024 * 1024
+
+    # When a question names a company that has nothing indexed yet, index it
+    # right then (fundamentals + its recent transcripts) before answering,
+    # instead of replying "I don't have data on that". This is what lets the
+    # chat cover all ~6700 symbols in company_metrics without pre-indexing all
+    # of them — the corpus grows to fit what users actually ask about.
+    # ON_DEMAND_* bound the extra latency that first question pays.
+    RAG_ON_DEMAND_ENABLED: bool = True
+    RAG_ON_DEMAND_TRANSCRIPTS: int = 2
+    RAG_ON_DEMAND_TIMEOUT_SECONDS: int = 45
+
+    # Background index worker — same single-owner rule as every other worker in
+    # this codebase (see ENABLE_BACKGROUND_SYNC). Run inline in single-process
+    # dev, or as the dedicated `python rag_index_worker.py` process in prod.
+    # Off by default so a fresh checkout never spends embedding quota it wasn't
+    # asked to; POST /api/chat/index/run does one cycle on demand instead.
+    ENABLE_RAG_INDEX_WORKER: bool = False
+    RAG_INDEX_INTERVAL_SECONDS: int = 900
+    RAG_INDEX_STARTUP_STAGGER_SECONDS: int = 40
+
+    # ── Research Chat: retrieval + answering ─────────────────────────────────
+    # Hybrid retrieval: an ANN pass and a Postgres full-text pass, fused with
+    # Reciprocal Rank Fusion. Both halves matter — vector search alone misses
+    # exact identifiers (a symbol, "PAT", "Q3FY26"), keyword search alone
+    # misses paraphrase ("is the company burning cash?" vs "negative operating
+    # cash flow"). CANDIDATES is how deep each half looks BEFORE fusion.
+    RAG_VECTOR_CANDIDATES: int = 40
+    RAG_KEYWORD_CANDIDATES: int = 40
+    RAG_RRF_K: int = 60
+    # How many chunks survive re-ranking and actually reach the model.
+    RAG_CONTEXT_CHUNKS: int = 12
+    # ...bounded again by raw size, because chunk count alone doesn't bound
+    # cost — this is the real spend ceiling per question.
+    RAG_CONTEXT_MAX_CHARS: int = 22000
+    # Max chunks any ONE document may contribute, so a single 40-page
+    # transcript can't crowd out every other source for a broad question.
+    RAG_MAX_CHUNKS_PER_DOC: int = 4
+
+    # Answering model. Deliberately its own setting rather than reusing
+    # GEMINI_MODEL_CHEAP/SMART: this is the only user-facing, unmetered,
+    # per-question call in the product (every other Gemini call in this
+    # codebase is offline batch work), so its cost/quality tradeoff is a
+    # different decision from the workflows' and must be tunable on its own.
+    #
+    # flash-lite is the right tier for a RAG chat specifically: retrieval has
+    # already done the hard part (finding the right facts), leaving the model
+    # a grounded summarisation job rather than an open-ended reasoning one.
+    # Accuracy here is bought with retrieval quality and citations, not with a
+    # bigger model.
+    GEMINI_MODEL_CHAT: str = "gemini-3.5-flash-lite"
+    # LOW, not MINIMAL: the model still has to weigh several retrieved sources
+    # against each other and notice when they disagree. Not MEDIUM/HIGH —
+    # thinking tokens bill as output and this call runs on every message.
+    THINKING_LEVEL_CHAT: str = "LOW"
+
+    # How many previous turns are replayed to the model. The full thread stays
+    # in the database and on screen; only this many are sent, so a long
+    # conversation's cost stays flat instead of growing every turn.
+    CHAT_HISTORY_TURNS: int = 6
+    # Newest N threads kept per user; older ones are deleted when a new thread
+    # is created (routers/chat.py). Matches the "stack of last 10" the UI shows.
+    CHAT_MAX_CONVERSATIONS_PER_USER: int = 10
+    CHAT_MAX_QUESTION_CHARS: int = 2000
+
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:
         return [self.FINEDGE_API_KEY_1, self.FINEDGE_API_KEY_2, self.FINEDGE_API_KEY_3]

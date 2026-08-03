@@ -7,11 +7,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from core.config import settings
 from core.cache import init_cache, close_cache
-from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison, news, butterfly
+from routers import finedge, screener, portfolio, watchlist, ratio_preferences, custom_ratios, peer_comparison, news, butterfly, chat
 from middleware.auth import get_current_user, AuthenticatedUser
 from services.sync_service import run_background_sync
 from agents.butterfly.worker import run_butterfly_worker
 from agents.company_profiler.worker import run_company_profiler_worker
+from services.rag.index_worker import run_rag_index_worker
 
 # Quiet by default, agent logs opted IN explicitly — the opposite of trying to
 # name every noisy source one by one (FinEdge sync, news ingestion, uvicorn,
@@ -35,6 +36,15 @@ _AGENT_LOGGERS = (
     "agents.company_profiler.pipeline",    # per-symbol workflow progress
     "agents.company_profiler.worker",      # batch claiming, idle, quota cooldown
     "services.butterfly_scorer",           # candidate matching + alert-write results
+    "agents.research_chat.pipeline",       # per-question retrieve/answer summary
+    "agents.research_chat.guardrails",     # off-topic rejections, stripped advice
+    "services.rag.embeddings",             # live embedding-request counter
+    "services.rag.indexer",                # what each index cycle changed
+    "services.rag.index_worker",           # cycle start/idle/cooldown
+    "services.rag.retriever",              # per-question retrieval counts
+    "services.rag.company_resolver",       # which company a question resolved to
+    "services.rag.sources.transcript",     # transcript PDF fetch/extract results
+    "services.rag.sources.news",           # how many articles a cycle picked up
 )
 for _name in _AGENT_LOGGERS:
     logging.getLogger(_name).setLevel(_AGENT_LOG_LEVEL)
@@ -103,10 +113,25 @@ async def lifespan(app: FastAPI):
             "(expecting a dedicated company_profiler_worker process, or not running yet)"
         )
 
+    # Research Chat's retrieval corpus (rag_documents/rag_chunks). Same
+    # single-owner rule again. Off by default even in dev — POST
+    # /api/chat/index/run builds the index on demand, which is the right
+    # default for a machine that isn't meant to be spending embedding quota in
+    # the background. See services/rag/index_worker.py + rag_index_worker.py.
+    rag_index_task = None
+    if settings.ENABLE_RAG_INDEX_WORKER:
+        rag_index_task = asyncio.create_task(run_rag_index_worker())
+        logger.info("  [FinScreen FastAPI] Inline RAG index worker ENABLED")
+    else:
+        logger.info(
+            "  [FinScreen FastAPI] Inline RAG index worker DISABLED "
+            "(use POST /api/chat/index/run, or a dedicated rag_index_worker process)"
+        )
+
     logger.info(f"  [FinScreen FastAPI] Server ready on port {settings.PORT} [{settings.ENVIRONMENT}]")
     yield
 
-    for task in (sync_task, butterfly_task, company_profiler_task):
+    for task in (sync_task, butterfly_task, company_profiler_task, rag_index_task):
         if task is not None:
             task.cancel()
             try:
@@ -196,6 +221,7 @@ app.include_router(custom_ratios.router)
 app.include_router(peer_comparison.router)
 app.include_router(news.router)
 app.include_router(butterfly.router)
+app.include_router(chat.router)
 
 if __name__ == "__main__":
     import uvicorn

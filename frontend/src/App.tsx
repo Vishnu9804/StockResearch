@@ -19,6 +19,7 @@ import Watchlists from './pages/Watchlists'
 import Portfolio from './pages/Portfolio'
 import CustomRatios from './pages/CustomRatios'
 import Feed from './pages/Feed'
+import ResearchChat from './pages/ResearchChat'
 import PaymentResult from './pages/PaymentResult'
 
 // Market Pulse Pages[cite: 2]
@@ -36,6 +37,8 @@ import { Concalls, UpcomingConcalls } from './pages/market-pulse/Concalls'
 import Results from './pages/market-pulse/Results'
 import { Holidays } from './pages/market-pulse/Holidays'
 import { Commodities } from './pages/market-pulse/Commodities'
+import QueryBuilder from './pages/market-pulse/QueryBuilder'
+import QueryResults from './pages/market-pulse/QueryResults'
 
 export function App() {
   return (
@@ -61,6 +64,7 @@ export function App() {
           <Route path="/index/:symbol" element={<IndexDetail />} />
           <Route path="/screens" element={<ScreenGallery />} />
           <Route path="/feed" element={<Feed />} />
+          <Route path="/chat" element={<ResearchChat />} />
           <Route path="/account" element={<Account />} />
           <Route path="/watchlists" element={<Watchlists />} />
           <Route path="/portfolio" element={<Portfolio />} />
@@ -82,6 +86,15 @@ export function App() {
           <Route path="/market-pulse/results" element={<Results />} />
           <Route path="/market-pulse/holidays" element={<Holidays />} />
           <Route path="/market-pulse/commodities" element={<Commodities />} />
+          {/* The announcement query builder. Both pages already existed and
+              already navigate to each other by these exact paths, but neither
+              was ever routed — so following the link fell through to the
+              catch-all and bounced the user home. Routed here because
+              Research Chat's help corpus tells users this page exists (see
+              backend/services/rag/sources/platform_source.py), and advice
+              that leads to a redirect is worse than no advice. */}
+          <Route path="/market-pulse/queries/new" element={<QueryBuilder />} />
+          <Route path="/market-pulse/queries/results" element={<QueryResults />} />
         </Route>
 
         {/* Fallback redirect to home */}

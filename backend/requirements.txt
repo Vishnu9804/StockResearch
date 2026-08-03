@@ -39,3 +39,13 @@ websockets==15.0.1
 # will likely require bumping those four again in lockstep.
 google-adk==2.5.0
 google-genai==2.14.0
+
+# ── Research Chat / RAG (services/rag/, agents/research_chat/) ─────────────
+# pgvector: the SQLAlchemy column type for rag_chunks.embedding. The Postgres
+# extension itself is enabled by migrations/003_rag_and_research_chat.sql —
+# this package is only the Python-side type, and both must be present.
+pgvector==0.4.1
+# pypdf: earnings-call transcripts arrive from FinEdge as a link to a PDF on
+# the exchange archive, never as text. See services/rag/sources/
+# transcript_source.py.
+pypdf==6.1.1
