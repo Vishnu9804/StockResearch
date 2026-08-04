@@ -6,12 +6,6 @@ import {
   fetchAnnouncementsStart,
   fetchAnnouncementsSuccess,
   fetchAnnouncementsFailure,
-  fetchBulkDealsStart,
-  fetchBulkDealsSuccess,
-  fetchBulkDealsFailure,
-  fetchBlockDealsStart,
-  fetchBlockDealsSuccess,
-  fetchBlockDealsFailure,
   fetchSastTradesStart,
   fetchSastTradesSuccess,
   fetchSastTradesFailure,
@@ -83,8 +77,6 @@ function makeWorker(
 }
 
 const fetchAnnouncementsWorker = makeWorker('/market/announcements', fetchAnnouncementsSuccess, fetchAnnouncementsFailure, 'announcements')
-const fetchBulkDealsWorker = makeWorker('/market/bulk-deals', fetchBulkDealsSuccess, fetchBulkDealsFailure, 'bulkDeals')
-const fetchBlockDealsWorker = makeWorker('/market/block-deals', fetchBlockDealsSuccess, fetchBlockDealsFailure, 'blockDeals')
 const fetchSastTradesWorker = makeWorker('/market/sast-trades', fetchSastTradesSuccess, fetchSastTradesFailure, 'sastTrades')
 const fetchInsiderTradesWorker = makeWorker('/market/insider-trades', fetchInsiderTradesSuccess, fetchInsiderTradesFailure, 'insiderTrades')
 const fetchDividendsWorker = makeWorker('/market/dividends', fetchDividendsSuccess, fetchDividendsFailure, 'dividends')
@@ -94,8 +86,6 @@ const fetchAnnualReportsWorker = makeWorker('/market/annual-reports', fetchAnnua
 export function* marketPulseSaga(): Generator<any, void, any> {
   yield all([
     takeLatest(fetchAnnouncementsStart.type, fetchAnnouncementsWorker),
-    takeLatest(fetchBulkDealsStart.type, fetchBulkDealsWorker),
-    takeLatest(fetchBlockDealsStart.type, fetchBlockDealsWorker),
     takeLatest(fetchSastTradesStart.type, fetchSastTradesWorker),
     takeLatest(fetchInsiderTradesStart.type, fetchInsiderTradesWorker),
     takeLatest(fetchDividendsStart.type, fetchDividendsWorker),

@@ -23,7 +23,7 @@ export function Holidays() {
     setLoading(true)
     setError(null)
     try {
-      const data = await finscreenApi.fetchMarketHolidays()
+      const data = await finscreenApi.fetchHolidays()
       setHolidays(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error(err)

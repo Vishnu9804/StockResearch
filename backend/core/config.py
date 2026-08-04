@@ -333,6 +333,39 @@ class Settings(BaseSettings):
     RAG_ON_DEMAND_TRANSCRIPTS: int = 2
     RAG_ON_DEMAND_TIMEOUT_SECONDS: int = 45
 
+    # ── Company document index (services/document_sync.py) ───────────────────
+    # Populates company_documents — "what PDFs does FinEdge have for this
+    # company" — for EVERY listed company, not just held/watched ones. This is
+    # what GET /company/{symbol}/documents serves from (the company page's
+    # Documents tab) and what services/rag/sources/transcript_source.py checks
+    # BEFORE ever calling FinEdge live, so the first chat question about a new
+    # company skips a whole discovery round trip.
+    #
+    # Cadence reasoning: real filings appear on the order of MONTHS — Indian
+    # listcos file quarterly results/concalls roughly 4x/year (within ~45 days
+    # of quarter end, per SEBI LODR) and one annual report a year. A full
+    # sweep of the ~6700-symbol universe at BATCH_SIZE every
+    # INTERVAL_OPEN/CLOSED_SECONDS completes well within a single day even at
+    # the slower, market-hours rate — comfortably faster than filings actually
+    # change, so this never needs to "guess" a company's exact result date
+    # (which slips and varies) the way a hardcoded earnings-season scheduler
+    # would. It just needs to be faster than "once a quarter," which a daily
+    # sweep is by a wide margin.
+    #
+    # Same market-hours courtesy as FUNDAMENTALS_SYNC_INTERVAL_* in
+    # services/sync_service.py: back off while the market is open so live user
+    # requests get priority on the shared 300/min FinEdge budget, and work
+    # through the universe faster once it's closed.
+    ENABLE_DOCUMENT_SYNC: bool = True
+    DOCUMENT_SYNC_BATCH_SIZE: int = 25
+    DOCUMENT_SYNC_INTERVAL_OPEN_SECONDS: int = 180
+    DOCUMENT_SYNC_INTERVAL_CLOSED_SECONDS: int = 30
+    # A document set older than this is treated as stale and re-swept, even if
+    # nothing else prompted it — the floor under the "once a quarter" filing
+    # cadence above, generous enough that it never re-fetches a company that
+    # was just synced minutes ago by the rolling batch.
+    DOCUMENT_REFRESH_DAYS: int = 3
+
     # Background index worker — same single-owner rule as every other worker in
     # this codebase (see ENABLE_BACKGROUND_SYNC). Run inline in single-process
     # dev, or as the dedicated `python rag_index_worker.py` process in prod.

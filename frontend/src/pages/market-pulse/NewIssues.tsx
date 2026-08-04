@@ -41,11 +41,6 @@ const TAB_DESCRIPTIONS: Record<Tab, string> = {
   'Upcoming Rights': 'Companies with upcoming rights issues; consider buying before ex‑date if participating.',
 }
 
-const RIGHTS_DATA = [
-  { company: 'Reliance Industries', symbol: 'RELIANCE', exDate: '2026-07-20', ratio: '1:15', price: 1257, currentPrice: 2934.7, diffPct: 133.5 },
-  { company: 'ONGC Ltd', symbol: 'ONGC', exDate: '2026-08-05', ratio: '3:10', price: 180, currentPrice: 286.4, diffPct: 59.1 },
-  { company: 'Vodafone Idea', symbol: 'IDEA', exDate: '2026-07-12', ratio: '1:3', price: 10, currentPrice: 11.8, diffPct: 18.0 },
-]
 
 function SortableHeader({
   label,
@@ -102,6 +97,7 @@ export function NewIssues() {
   const sortOrder = (searchParams.get('sortOrder') ?? 'asc') as 'asc' | 'desc'
 
   const [ipoList, setIpoList] = useState<any[]>([])
+  const [rightsList, setRightsList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -109,7 +105,7 @@ export function NewIssues() {
     try {
       setLoading(true)
       setError(null)
-      
+
       const today = new Date()
       const ninetyDaysAgo = new Date()
       ninetyDaysAgo.setDate(today.getDate() - 90)
@@ -119,13 +115,16 @@ export function NewIssues() {
       ninetyDaysLater.setDate(today.getDate() + 90)
       const toDate = ninetyDaysLater.toISOString().split('T')[0]
 
-      const res = await finscreenClient.get('/market/ipo', {
-        params: {
-          from_date: fromDate,
-          to_date: toDate,
-        }
-      })
-      setIpoList(res.data?.data || [])
+      const [ipoRes, rightsRes] = await Promise.all([
+        finscreenClient.get('/market/ipo', {
+          params: { from_date: fromDate, to_date: toDate }
+        }),
+        finscreenClient.get('/market/rights-issues', {
+          params: { page: 1, limit: 100 }
+        }),
+      ])
+      setIpoList(ipoRes.data?.data || [])
+      setRightsList(rightsRes.data?.items || [])
     } catch (err: any) {
       console.error('Failed to fetch IPO calendar:', err)
       setError('Failed to fetch new issues data. Please retry.')
@@ -192,6 +191,16 @@ export function NewIssues() {
     return rawRecent.filter(r => r.changePercent < 0)
   }, [rawRecent])
 
+  const rawRights = useMemo(() => {
+    return rightsList.map(r => ({
+      company: r.company,
+      symbol: r.symbol,
+      exDate: r.date,
+      ratio: (r.subject || '').replace(/rights issue/i, '').trim() || '—',
+      subject: r.subject || '',
+    }))
+  }, [rightsList])
+
   // Filter raw data
   const rawData = useMemo(() => {
     if (activeTab === 'Upcoming IPOs') {
@@ -203,8 +212,8 @@ export function NewIssues() {
     if (activeTab === 'Below IPO Price') {
       return rawBelow
     }
-    return RIGHTS_DATA
-  }, [activeTab, rawUpcoming, rawRecent, rawBelow])
+    return rawRights
+  }, [activeTab, rawUpcoming, rawRecent, rawBelow, rawRights])
 
   // Apply bucket filters client-side
   const filteredData = useMemo(() => {
@@ -483,9 +492,7 @@ export function NewIssues() {
                             <SortableHeader label="Company" field="company" activeField={sortBy} activeOrder={sortOrder} onSort={handleSort} align="left" />
                             <SortableHeader label="Ex Date" field="exDate" activeField={sortBy} activeOrder={sortOrder} onSort={handleSort} align="center" />
                             <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-2.5 text-center">Ratio</TableHead>
-                            <SortableHeader label="Rights Price (₹)" field="price" activeField={sortBy} activeOrder={sortOrder} onSort={handleSort} align="right" />
-                            <SortableHeader label="Current Price (₹)" field="currentPrice" activeField={sortBy} activeOrder={sortOrder} onSort={handleSort} align="right" />
-                            <SortableHeader label="% Diff" field="diffPct" activeField={sortBy} activeOrder={sortOrder} onSort={handleSort} align="right" />
+                            <TableHead className="text-xs font-semibold text-textSecondary uppercase tracking-wider px-4 py-2.5 text-left">Details</TableHead>
                           </>
                         )}
                       </TableRow>
@@ -546,8 +553,6 @@ export function NewIssues() {
 
                         // Upcoming Rights
                         const right = item
-                        const isPositive = right.diffPct > 0
-                        const isNegative = right.diffPct < 0
                         return (
                           <TableRow key={i} className="hover:bg-surfaceMuted/30 transition-colors border-b border-border/30">
                             <TableCell className="text-sm text-textMuted px-4 py-2.5 text-left">{globalIdx}</TableCell>
@@ -563,13 +568,7 @@ export function NewIssues() {
                             </TableCell>
                             <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-center">{right.exDate}</TableCell>
                             <TableCell className="text-sm text-textPrimary px-4 py-2.5 font-medium text-center">{right.ratio}</TableCell>
-                            <TableCell className="text-right text-sm text-textPrimary px-4 py-2.5 tabular">₹{right.price.toLocaleString('en-IN')}</TableCell>
-                            <TableCell className="text-right text-sm text-textPrimary px-4 py-2.5 tabular font-semibold">₹{right.currentPrice.toLocaleString('en-IN')}</TableCell>
-                            <TableCell className={`text-right text-sm font-semibold px-4 py-2.5 tabular ${
-                              isPositive ? 'text-positive' : isNegative ? 'text-negative' : 'text-textPrimary'
-                            }`}>
-                              {isPositive ? '+' : ''}{right.diffPct.toFixed(1)}%
-                            </TableCell>
+                            <TableCell className="text-sm text-textSecondary px-4 py-2.5 text-left">{right.subject || '—'}</TableCell>
                           </TableRow>
                         )
                       })}
@@ -645,8 +644,6 @@ export function NewIssues() {
 
                     // Upcoming Rights
                     const right = item
-                    const isPositive = right.diffPct > 0
-                    const isNegative = right.diffPct < 0
                     return (
                       <div key={i} className="p-4 space-y-2.5 min-h-[44px]">
                         <div className="flex justify-between items-start">
@@ -663,17 +660,8 @@ export function NewIssues() {
                         <div className="text-xs text-textSecondary">
                           Ratio: <span className="font-semibold text-textPrimary">{right.ratio}</span>
                         </div>
-                        <div className="text-xs flex justify-between items-center pt-1.5 border-t border-border/10">
-                          <div className="text-textSecondary">
-                            Rights Price: <span className="font-medium text-textPrimary">₹{right.price}</span>
-                            <span className="mx-1.5 text-textMuted">→</span>
-                            Current: <span className="font-semibold text-textPrimary">₹{right.currentPrice}</span>
-                          </div>
-                          <span className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${
-                            isPositive ? 'bg-positive-soft text-positive' : isNegative ? 'bg-negative-soft text-negative' : 'bg-surfaceMuted text-textPrimary'
-                          }`}>
-                            Diff: {isPositive ? '+' : ''}{right.diffPct.toFixed(1)}%
-                          </span>
+                        <div className="text-xs text-textSecondary pt-1.5 border-t border-border/10">
+                          {right.subject || '—'}
                         </div>
                       </div>
                     )

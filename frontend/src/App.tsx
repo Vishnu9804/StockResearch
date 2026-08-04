@@ -29,8 +29,6 @@ import Announcements from './pages/market-pulse/Announcements'
 import Industries from './pages/market-pulse/Industries'
 import AnnualReports from './pages/market-pulse/AnnualReports'
 import Dividends from './pages/market-pulse/Dividends'
-import BulkDeals from './pages/market-pulse/BulkDeals'
-import BlockDeals from './pages/market-pulse/BlockDeals'
 import SASTTrades from './pages/market-pulse/SASTTrades'
 import InsiderTrades from './pages/market-pulse/InsiderTrades'
 import { Concalls, UpcomingConcalls } from './pages/market-pulse/Concalls'
@@ -77,8 +75,6 @@ export function App() {
           <Route path="/market-pulse/industries" element={<Industries />} />
           <Route path="/market-pulse/annual-reports" element={<AnnualReports />} />
           <Route path="/market-pulse/dividends" element={<Dividends />} />
-          <Route path="/market-pulse/bulk-deals" element={<BulkDeals />} />
-          <Route path="/market-pulse/block-deals" element={<BlockDeals />} />
           <Route path="/market-pulse/sast-trades" element={<SASTTrades />} />
           <Route path="/market-pulse/insider-trades" element={<InsiderTrades />} />
           <Route path="/market-pulse/concalls" element={<Concalls />} />

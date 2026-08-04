@@ -4,12 +4,17 @@ Mirrors ALL Express finedge routes + controller logic exactly.
 Includes the data transformation (mapFinancials, mergeRatios, etc.)
 """
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from typing import Any, Dict, Optional
 import logging
 import time
 
+from sqlalchemy import select, func as sa_func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.database import get_db
+from models.models import CompanyMetric
 from services.finedge_service import execute_proxy_request
 
 router = APIRouter(prefix="/api/finscreen", tags=["finedge"])
@@ -1371,82 +1376,67 @@ async def get_corporate_actions(symbol: str, request: Request):
 
 @router.get("/company/{symbol}/documents")
 async def get_documents(symbol: str, request: Request):
-    import asyncio
-    from datetime import datetime, timedelta
+    """Served from the persisted `company_documents` table whenever the
+    background sync (services/document_sync.py) has already reached this
+    symbol — which, for the ~6700-symbol universe, is most of the time within
+    a day of the service starting. That makes this endpoint a single indexed
+    SELECT instead of two live FinEdge calls on every page view.
+
+    A symbol the sync hasn't reached yet (a brand-new listing, or simply not
+    its turn in the rolling batch) falls back to fetching live, through the
+    exact same classification function the background sync uses — and that
+    live result is written into the table before returning, so the SAME
+    symbol's second page view is already instant. This is the identical
+    graceful-cold-start pattern services/rag/index_worker.py uses for chat
+    questions about an unindexed company: pay the live cost once, never again.
+    """
+    from sqlalchemy import select as sa_select
+
+    from core.database import async_session_maker
+    from models.models import CompanyDocument
+    from services.document_sync import sync_one_symbol
+
+    symbol_upper = symbol.upper()
     rid = _req_id(request)
-    today = datetime.now().strftime("%Y-%m-%d")
-    two_years_ago = (datetime.now() - timedelta(days=2*365)).strftime("%Y-%m-%d")
-    q = {"from_date": two_years_ago, "to_date": today, **dict(request.query_params), "symbol": symbol.upper()}
 
-    async def safe(coro):
-        try:
-            return await coro
-        except Exception:
-            return None
+    async with async_session_maker() as db:
+        rows = (
+            await db.execute(
+                sa_select(CompanyDocument)
+                .where(CompanyDocument.symbol == symbol_upper)
+                .order_by(CompanyDocument.filed_date.desc().nulls_last())
+            )
+        ).scalars().all()
 
-    data, presentations = await asyncio.gather(
-        safe(execute_proxy_request("GET", "corp-announcements", q, None, rid)),
-        safe(execute_proxy_request("GET", "investor-presentations", q, None, rid)),
-    )
-    if not isinstance(data, list):
-        return {"documents": []}
+        if not rows:
+            # Cold path: nothing synced yet for this symbol. Fetch live and
+            # persist it right now so this is the only request that pays for it.
+            try:
+                await sync_one_symbol(db, symbol_upper)
+            except Exception as e:
+                _api_error(e, "corp-announcements", rid)
 
-    documents = []
-    seen_urls = set()
-    for i, item in enumerate(data):
-        title = (item.get("description") or item.get("category") or "Regulatory Filing")[:120]
-        date = (item.get("announcement_date") or "").split(" ")[0]
-        text = f"{item.get('category','')} {item.get('description','')}".lower()
+            rows = (
+                await db.execute(
+                    sa_select(CompanyDocument)
+                    .where(CompanyDocument.symbol == symbol_upper)
+                    .order_by(CompanyDocument.filed_date.desc().nulls_last())
+                )
+            ).scalars().all()
 
-        if "annual report" in text:
-            cat = "annual-report"
-        elif any(x in text for x in [
-            "concall", "con. call", "conference call", "earnings call",
-            "institutional investor meet", "analyst meet", "investor meet",
-            "earnings press conference", "audio and video recording",
-            "transcript of the analyst",
-        ]):
-            cat = "concall"
-        elif any(x in text for x in [
-            "credit rating", "crisil", "icra", "care ratings", "care edge",
-            "india ratings", "ind-ra", "rating agency", "rating action",
-        ]):
-            cat = "credit-rating"
-        else:
-            cat = "announcement"
-
-        # No real audio/duration or file-size data exists in this feed —
-        # FinEdge/NSE only ever provide a PDF (transcript, filing, rating
-        # notice), never a playable recording. Don't fabricate one.
-        file_url = item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
-        if file_url:
-            seen_urls.add(file_url)
-        doc = {
-            "id": f"doc-{item.get('timestamp_unix', i)}",
-            "title": title,
-            "date": date,
-            "category": cat,
-            "fileUrl": file_url,
+    documents = [
+        {
+            "id": f"doc-{row.id}",
+            "title": row.title,
+            "date": row.filed_date.isoformat() if row.filed_date else "",
+            "category": row.category,
+            # No real audio/duration or file-size data exists in this feed —
+            # FinEdge/NSE only ever provide a PDF (transcript, filing, rating
+            # notice), never a playable recording. Don't fabricate one.
+            "fileUrl": row.pdf_url,
         }
-        documents.append(doc)
-
-    # Investor presentations come from their own dedicated FinEdge endpoint
-    # (richer/more reliable than keyword-matching corp-announcements text) and
-    # get their own tab — skip any already pulled in above via fileUrl so the
-    # same filing never shows twice across tabs.
-    if isinstance(presentations, list):
-        for i, item in enumerate(presentations):
-            file_url = item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
-            if file_url and file_url in seen_urls:
-                continue
-            documents.append({
-                "id": f"pres-{item.get('timestamp_unix', i)}",
-                "title": (item.get("description") or item.get("category") or "Investor Presentation")[:120],
-                "date": (item.get("announcement_date") or "").split(" ")[0],
-                "category": "presentation",
-                "fileUrl": file_url,
-            })
-
+        for row in rows
+    ]
     return {"documents": documents}
 
 @router.get("/company/{symbol}/credit-ratings")
@@ -1567,16 +1557,77 @@ async def get_ipo_calendar(request: Request):
 
 @router.get("/market/results-calendar")
 async def get_results_calendar(request: Request):
+    """Upcoming quarterly-results dates, paginated, each row enriched with
+    the company's most recently ACTUALLY reported quarter (Revenue/PAT/EBITDA
+    margin) as context. The upcoming quarter's own numbers don't exist yet —
+    this used to synthesize them from unrelated static company metadata
+    (marketCap/100 etc). Enrichment is per-symbol and real, so it only runs
+    for the page being returned."""
+    import asyncio
     from datetime import datetime, timedelta
     rid = _req_id(request)
     now = datetime.now()
     q = {
         "from_date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
         "to_date": (now + timedelta(days=30)).strftime("%Y-%m-%d"),
-        **dict(request.query_params)
+        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
-        return await execute_proxy_request("GET", "results-calendar", q, None, rid)
+        data = await execute_proxy_request("GET", "results-calendar", q, None, rid)
+        if not isinstance(data, list):
+            return {"items": [], "total": 0, "page": 1, "limit": 15}
+
+        params = dict(request.query_params)
+        page = max(1, int(params.get("page", 1)))
+        limit = max(1, min(50, int(params.get("limit", 15))))
+        start = (page - 1) * limit
+        page_slice = data[start:start + limit]
+
+        async def enrich(item: dict) -> dict:
+            symbol = str(item.get("symbol") or "").strip()
+            base = {
+                "symbol": symbol,
+                "company": item.get("company_name") or symbol,
+                "expectedResultDate": item.get("expected_result_date") or "",
+                "lastQuarter": None,
+                "lastQuarterRevenue": None,
+                "lastQuarterPat": None,
+                "lastQuarterEbitdaMargin": None,
+            }
+            # Numeric-only symbols are raw BSE codes that don't reliably
+            # resolve to a FinEdge financials symbol — skip enrichment.
+            if not symbol or symbol.isdigit():
+                return base
+            try:
+                fin = await execute_proxy_request(
+                    "GET", f"financials/{symbol}",
+                    {"statement_type": "s", "period": "quarterly", "statement_code": "pl"}, None, rid)
+                rows = fin.get("financials") if isinstance(fin, dict) else None
+                if rows:
+                    mapped = _map_financials(rows, PL_MAP, "quarterly")
+                    cols = mapped.get("columns") or []
+                    by_label = {r["label"]: r.get("values") or [] for r in mapped.get("rows", [])}
+
+                    def last_val(label):
+                        for v in reversed(by_label.get(label, [])):
+                            if v is not None:
+                                return v
+                        return None
+
+                    if cols:
+                        base["lastQuarter"] = cols[-1]
+                    rev = last_val("Revenue from Operations")
+                    pat = last_val("Net Profit")
+                    margin = last_val("EBITDA Margin %")
+                    base["lastQuarterRevenue"] = round(rev, 1) if rev is not None else None
+                    base["lastQuarterPat"] = round(pat, 1) if pat is not None else None
+                    base["lastQuarterEbitdaMargin"] = round(margin, 1) if margin is not None else None
+            except Exception as ex:
+                logger.warning(f"[results-calendar] enrich failed for {symbol}: {ex}")
+            return base
+
+        items = await asyncio.gather(*(enrich(item) for item in page_slice))
+        return {"items": list(items), "total": len(data), "page": page, "limit": limit}
     except Exception as e:
         _api_error(e, "results-calendar", rid)
 
@@ -1584,7 +1635,14 @@ async def get_results_calendar(request: Request):
 async def get_holidays(request: Request):
     rid = _req_id(request)
     try:
-        return await execute_proxy_request("GET", "holidays-calendar", {}, None, rid)
+        data = await execute_proxy_request("GET", "holidays-calendar", {}, None, rid)
+        # FinEdge's field is week_day; the frontend table reads `day` — alias
+        # it here so the Day column isn't silently blank.
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "day" not in item:
+                    item["day"] = item.get("week_day")
+        return data
     except Exception as e:
         _api_error(e, "holidays-calendar", rid)
 
@@ -1917,11 +1975,16 @@ def _map_insider(item: dict) -> dict:
     pdf_link = item.get("pdf_file_link") or ""
     bse_code = item.get("bse_code") or ""
 
-    # Derive trade type from description keywords
-    trade_type = "Buy"
+    # Derive trade type from description keywords — most PIT trading-plan
+    # disclosures don't actually state direction, so default to "N/A" rather
+    # than asserting a buy that isn't in the text.
     desc_lower = desc.lower()
     if any(kw in desc_lower for kw in ["sell", "disposal", "sold", "dispose"]):
         trade_type = "Sell"
+    elif any(kw in desc_lower for kw in ["buy", "purchase", "acquisition of shares", "bought"]):
+        trade_type = "Buy"
+    else:
+        trade_type = "N/A"
 
     # Try to extract insider name from description
     insider = "N/A"
@@ -1943,14 +2006,18 @@ def _map_insider(item: dict) -> dict:
         "pdfLink": pdf_link,
     }
 
-@router.get("/market/bulk-deals")
-async def get_bulk_deals(request: Request):
+@router.get("/market/rights-issues")
+async def get_rights_issues(request: Request):
+    """Rights issues — corporate-actions/all?action=rights is a real,
+    documented FinEdge filter (unlike bulk/block deal data, which FinEdge's
+    API has no endpoint for at all — those two views were removed)."""
     from datetime import datetime, timedelta
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
-        "to_date": now.strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=3)).strftime("%Y-%m-%d"),
+        "to_date": (now + timedelta(days=27)).strftime("%Y-%m-%d"),
+        "action": "rights",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
@@ -1959,61 +2026,59 @@ async def get_bulk_deals(request: Request):
         items = [_map_corporate_action(item, bse_map) for item in data] if isinstance(data, list) else []
         return _paginate(items, request)
     except Exception as e:
-        _api_error(e, "corporate-actions/all (bulk)", rid)
-
-@router.get("/market/block-deals")
-async def get_block_deals(request: Request):
-    from datetime import datetime, timedelta
-    rid = _req_id(request)
-    now = datetime.now()
-    q = {
-        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
-        "to_date": now.strftime("%Y-%m-%d"),
-        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
-    }
-    try:
-        data = await execute_proxy_request("GET", "corporate-actions/all", q, None, rid)
-        bse_map = await _build_bse_map(rid)
-        items = [_map_corporate_action(item, bse_map) for item in data] if isinstance(data, list) else []
-        return _paginate(items, request)
-    except Exception as e:
-        _api_error(e, "corporate-actions/all (block)", rid)
+        _api_error(e, "corporate-actions/all?action=rights", rid)
 
 @router.get("/market/sast-trades")
 async def get_sast_trades(request: Request):
+    """SAST (Substantial Acquisition of Shares & Takeovers) disclosures.
+    FinEdge has no dedicated SAST endpoint or filter param — "regulation" was
+    never a real corp-announcements parameter, so this used to silently
+    return the generic unfiltered feed. The real signal lives in the
+    announcement's own `category` field, filtered client-side after fetch."""
     from datetime import datetime, timedelta
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        "regulation": "sast",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        items = [_map_sast(item) for item in data] if isinstance(data, list) else []
+        filtered = [
+            item for item in data
+            if isinstance(data, list) and "takeover" in (item.get("category") or "").lower()
+        ] if isinstance(data, list) else []
+        items = [_map_sast(item) for item in filtered]
         return _paginate(items, request)
     except Exception as e:
-        _api_error(e, "corp-announcements?regulation=sast", rid)
+        _api_error(e, "corp-announcements (SAST/takeover category)", rid)
 
 @router.get("/market/insider-trades")
 async def get_insider_trades(request: Request):
+    """Insider trading disclosures. Same caveat as SAST above — filtered by
+    the real `category` field (SEBI PIT trading-plan disclosures) rather than
+    a "regulation" query param FinEdge's API doesn't actually support."""
     from datetime import datetime, timedelta
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        "regulation": "pit",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        items = [_map_insider(item) for item in data] if isinstance(data, list) else []
+        # Exact match, not a substring check — "pit" as a substring also
+        # matches unrelated categories like "Increase in Authorised Capital".
+        filtered = [
+            item for item in data
+            if isinstance(data, list) and (item.get("category") or "").strip().lower() == "trading plan under pit"
+        ] if isinstance(data, list) else []
+        items = [_map_insider(item) for item in filtered]
         return _paginate(items, request)
     except Exception as e:
-        _api_error(e, "corp-announcements?regulation=pit", rid)
+        _api_error(e, "corp-announcements (PIT category)", rid)
 
 def _deterministic_val(symbol: str, salt: str, min_val: int, max_val: int) -> float:
     import hashlib
@@ -2084,11 +2149,14 @@ def _map_dividend(item: dict, bse_map: dict = None) -> dict:
     elif "special" in div_type_raw:
         div_type = "Special"
         
+    raw_amount = item.get("amount")
+    if raw_amount is None:
+        raw_amount = item.get("dividendPerShare")
     try:
-        amount = float(item.get("amount") or item.get("dividendPerShare") or 2.0)
-    except Exception:
-        amount = 2.0
-        
+        amount = float(raw_amount) if raw_amount is not None else None
+    except (TypeError, ValueError):
+        amount = None
+
     fy = "FY26"
     if ex_date:
         year_val = ex_date.split("-")[0]
@@ -2162,35 +2230,77 @@ def _map_concall(item: dict) -> dict:
         "pdfLink": pdf_link,
     }
 
-def _map_annual_report(item: dict) -> dict:
-    symbol = item.get("stock_symbol") or item.get("symbol") or "STOCK"
-    company = item.get("company_name") or item.get("company") or symbol
-    
-    desc = item.get("description") or item.get("category") or ""
-    
-    fy = "FY26"
-    for word in desc.split():
-        if "fy" in word.lower():
-            cleaned = "".join(c for c in word if c.isalnum())
-            if len(cleaned) >= 4:
-                fy = cleaned.upper()
-                break
-                
-    revenue = _deterministic_val(symbol, "rev", 10000, 500000)
-    pat = _deterministic_val(symbol, "pat", 1000, 50000)
-    eps = _deterministic_val(symbol, "eps", 10, 200)
-    roe = _deterministic_val(symbol, "roe", 8, 35)
-    div = _deterministic_val(symbol, "div", 2, 80)
-    
+async def _fetch_annual_financial_snapshot(symbol: str, rid: str) -> dict:
+    """Real Revenue/PAT/EPS/ROE/DPS for one company, pulled from FinEdge's
+    actual financials/ratios/dividend endpoints — replaces the previous
+    implementation, which fabricated every one of these numbers by hashing
+    the symbol name (_deterministic_val) and calling it real data."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    fy = None
+    revenue = pat = eps = roe = dps = None
+
+    try:
+        fin = await execute_proxy_request(
+            "GET", f"financials/{symbol}",
+            {"statement_type": "s", "period": "annual", "statement_code": "pl"}, None, rid)
+        rows = fin.get("financials") if isinstance(fin, dict) else None
+        if rows:
+            mapped = _map_financials(rows, PL_MAP, "annual")
+            cols = mapped.get("columns") or []
+            if cols and cols[-1][-2:].isdigit():
+                fy = f"FY{cols[-1][-2:]}"
+            by_label = {r["label"]: r.get("values") or [] for r in mapped.get("rows", [])}
+            for label, target in (("Revenue from Operations", "revenue"), ("Net Profit", "pat"), ("EPS (₹)", "eps")):
+                values = [v for v in by_label.get(label, []) if v is not None]
+                if values:
+                    if target == "revenue":
+                        revenue = values[-1]
+                    elif target == "pat":
+                        pat = values[-1]
+                    else:
+                        eps = values[-1]
+    except Exception as ex:
+        logger.warning(f"[annual-reports] financials fetch failed for {symbol}: {ex}")
+
+    try:
+        r = await execute_proxy_request(
+            "GET", f"ratios/{symbol}", {"statement_type": "s", "ratio_type": "pr"}, None, rid)
+        rows = r.get("ratios") if isinstance(r, dict) else None
+        if rows:
+            row = next((x for x in rows if x.get("header") == "TTM"), rows[-1])
+            roe_val = row.get("returnOnEquity")
+            if roe_val is not None:
+                roe = roe_val * 100
+    except Exception as ex:
+        logger.warning(f"[annual-reports] ratios fetch failed for {symbol}: {ex}")
+
+    try:
+        d = await execute_proxy_request("GET", f"dividend/{symbol}", {}, None, rid)
+        rows = d.get("dividend") if isinstance(d, dict) else None
+        if rows:
+            cutoff = now - timedelta(days=365)
+            total, count = 0.0, 0
+            for div in rows:
+                try:
+                    dt = datetime.strptime(div.get("date", ""), "%d-%b-%Y")
+                except (TypeError, ValueError):
+                    continue
+                if dt >= cutoff:
+                    total += float(div.get("amount") or 0)
+                    count += 1
+            if count:
+                dps = round(total, 2)
+    except Exception as ex:
+        logger.warning(f"[annual-reports] dividend fetch failed for {symbol}: {ex}")
+
     return {
-        "company": company,
-        "symbol": symbol,
-        "fy": fy,
-        "revenue": revenue,
-        "pat": pat,
-        "eps": eps,
-        "roe": roe,
-        "dividendPerShare": div
+        "fy": fy or "FY26",
+        "revenue": round(revenue, 1) if revenue is not None else None,
+        "pat": round(pat, 1) if pat is not None else None,
+        "eps": round(eps, 2) if eps is not None else None,
+        "roe": round(roe, 1) if roe is not None else None,
+        "dividendPerShare": dps,
     }
 
 @router.get("/market/dividends")
@@ -2199,8 +2309,11 @@ async def get_dividends(request: Request):
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
-        "to_date": (now + timedelta(days=30)).strftime("%Y-%m-%d"),
+        # FinEdge caps market-wide corporate-actions/all windows at 30 days
+        # apart (see FinEdgeSwaggerDocs.json) — this used to span 60 (-30/+30)
+        # and hard-failed with a 400 on every request.
+        "from_date": (now - timedelta(days=3)).strftime("%Y-%m-%d"),
+        "to_date": (now + timedelta(days=27)).strftime("%Y-%m-%d"),
         "action": "dividend",
         **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
@@ -2231,21 +2344,58 @@ async def get_concalls(request: Request):
 
 @router.get("/market/annual-reports")
 async def get_annual_reports(request: Request):
+    """Companies with a recent genuine annual-report disclosure (FinEdge has
+    no annual-report-document feed or category of its own — "annual report"
+    shows up as free text inside corp-announcements descriptions, mostly
+    under "Shareholders meeting"/"General Updates"/"Copy of Newspaper
+    Publication"), enriched with each company's real latest Revenue/PAT/
+    EPS/ROE/DPS. Enrichment is per-symbol and costs several live FinEdge
+    calls, so it only runs for the page actually being returned, not the
+    whole candidate list."""
+    import asyncio
     from datetime import datetime, timedelta
     rid = _req_id(request)
     now = datetime.now()
     q = {
-        "from_date": (now - timedelta(days=120)).strftime("%Y-%m-%d"),
+        "from_date": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
-        "category": "annual report",
-        **{k: v for k, v in request.query_params.items() if k not in ("page", "limit")}
     }
     try:
         data = await execute_proxy_request("GET", "corp-announcements", q, None, rid)
-        items = [_map_annual_report(item) for item in data] if isinstance(data, list) else []
-        return _paginate(items, request)
+        if not isinstance(data, list):
+            return {"items": [], "total": 0, "page": 1, "limit": 15}
+
+        seen = set()
+        candidates = []
+        for item in data:
+            desc = item.get("description") or ""
+            if "annual report" not in desc.lower():
+                continue
+            symbol = item.get("stock_symbol") or item.get("nse_code") or item.get("symbol") or ""
+            if not symbol or symbol in seen:
+                continue
+            seen.add(symbol)
+            candidates.append({
+                "symbol": symbol,
+                "company": item.get("company_name") or symbol,
+                "date": (item.get("announcement_date") or "").split(" ")[0],
+            })
+        candidates.sort(key=lambda c: c["date"], reverse=True)
+
+        params = dict(request.query_params)
+        page = max(1, int(params.get("page", 1)))
+        limit = max(1, min(50, int(params.get("limit", 15))))
+        start = (page - 1) * limit
+        page_slice = candidates[start:start + limit]
+
+        async def enrich(c: dict) -> dict:
+            snapshot = await _fetch_annual_financial_snapshot(c["symbol"], rid)
+            return {"company": c["company"], "symbol": c["symbol"], **snapshot}
+
+        items = await asyncio.gather(*(enrich(c) for c in page_slice))
+        return {"items": list(items), "total": len(candidates), "page": page, "limit": limit}
     except Exception as e:
-        _api_error(e, "corp-announcements?category=annual report", rid)
+        _api_error(e, "corp-announcements (annual report)", rid)
 
 @router.get("/index/{symbol}/profile")
 async def get_index_profile(symbol: str, request: Request):
@@ -2416,15 +2566,28 @@ SECTOR_API_MAP = {
 }
 
 @router.get("/market/sectors")
-async def get_market_sectors(request: Request):
-    """Compute live sector metrics from stock lists + quotes."""
+async def get_market_sectors(request: Request, db: AsyncSession = Depends(get_db)):
+    """Sector metrics sourced from the local ``company_metrics`` table rather
+    than a live FinEdge fetch. That table is kept warm by the existing
+    background sync loops (services/sync_service.py — quote data every
+    5-60min, fundamentals on a rolling batch), the same store the screener
+    already filters against, so this is an instant local aggregate instead of
+    ~300 live FinEdge calls (which is what fetching PE/PB/ROE/ROCE for every
+    sector's sample would cost per request, and was previously taking ~40s).
+
+    The sector *membership* (which symbols belong to "Information Technology"
+    etc.) still comes from FinEdge's stock-search — that's the canonical
+    taxonomy the Industries page's drill-down panel also queries against, and
+    it's cached 24h so this costs one cheap cached call per sector, not a
+    live round trip per request.
+    """
     import asyncio
     rid = _req_id(request)
-    results = []
 
     async def fetch_sector(name: str, api_name: str):
+        empty = {"name": name, "stocks": 0, "marketCapCr": 0,
+                  "peRatio": 0, "pbRatio": 0, "roePercent": 0, "rocePct": 0, "changePercent": 0}
         try:
-            # Get sector stock list
             symbols_data = await execute_proxy_request(
                 "GET", "stock-search",
                 {"group": "sector", "value": api_name}, None, rid
@@ -2434,50 +2597,36 @@ async def get_market_sectors(request: Request):
                 symbols = symbols_data.get("symbols", [])
             elif isinstance(symbols_data, list):
                 symbols = symbols_data
-            count = len(symbols)
-            if count == 0:
-                return {"name": name, "stocks": 0, "marketCapCr": 0,
-                        "peRatio": 0, "pbRatio": 0, "roePercent": 0, "rocePct": 0, "changePercent": 0}
+            if not symbols:
+                return empty
 
-            # Fetch quotes for a sample (first 10 to limit API calls)
-            sample = symbols[:10]
-            quote_data = {}
-            try:
-                q = await execute_proxy_request("GET", "market-movers",
-                    {"symbol": ",".join(sample)}, None, rid)
-                if isinstance(q, dict):
-                    quote_data = q
-            except Exception:
-                pass
-
-            pes, pbs, changes, caps = [], [], [], []
-            for sym in sample:
-                q = quote_data.get(sym, {})
-                if not q:
-                    continue
-                pe = float(q.get("pe", 0) or 0)
-                pb = float(q.get("pb", 0) or 0)
-                chg = float(q.get("change", 0) or 0)
-                cap = float(q.get("market_cap", 0) or 0)
-                if pe > 0: pes.append(pe)
-                if pb > 0: pbs.append(pb)
-                changes.append(chg)
-                caps.append(cap)
+            stmt = select(
+                sa_func.sum(CompanyMetric.market_cap).label("cap"),
+                sa_func.avg(CompanyMetric.pe).filter(CompanyMetric.pe > 0).label("pe"),
+                sa_func.avg(CompanyMetric.pb).filter(CompanyMetric.pb > 0).label("pb"),
+                sa_func.avg(CompanyMetric.roe).label("roe"),
+                sa_func.avg(CompanyMetric.roce).label("roce"),
+                # abs() <= 20: NSE/BSE circuit limits keep legitimate single-day
+                # moves in that band; a small number of company_metrics rows
+                # carry corrupted change_pct values (e.g. 23800) from upstream
+                # quote parsing, which would otherwise blow up a sector average.
+                sa_func.avg(CompanyMetric.change_pct).filter(sa_func.abs(CompanyMetric.change_pct) <= 20).label("chg"),
+            ).where(CompanyMetric.symbol.in_(symbols))
+            row = (await db.execute(stmt)).one()
 
             return {
                 "name": name,
-                "stocks": count,
-                "marketCapCr": round(sum(caps)),
-                "peRatio": round(sum(pes) / len(pes), 1) if pes else 0,
-                "pbRatio": round(sum(pbs) / len(pbs), 2) if pbs else 0,
-                "roePercent": 0,
-                "rocePct": 0,
-                "changePercent": round(sum(changes) / len(changes), 2) if changes else 0,
+                "stocks": len(symbols),
+                "marketCapCr": round(float(row.cap)) if row.cap is not None else 0,
+                "peRatio": round(float(row.pe), 1) if row.pe is not None else 0,
+                "pbRatio": round(float(row.pb), 2) if row.pb is not None else 0,
+                "roePercent": round(float(row.roe), 1) if row.roe is not None else 0,
+                "rocePct": round(float(row.roce), 1) if row.roce is not None else 0,
+                "changePercent": round(float(row.chg), 2) if row.chg is not None else 0,
             }
         except Exception as ex:
             logger.warning(f"[sectors] Failed for {name}: {ex}")
-            return {"name": name, "stocks": 0, "marketCapCr": 0,
-                    "peRatio": 0, "pbRatio": 0, "roePercent": 0, "rocePct": 0, "changePercent": 0}
+            return empty
 
     tasks = [fetch_sector(name, api) for name, api in SECTOR_API_MAP.items()]
     results = await asyncio.gather(*tasks)

@@ -124,8 +124,73 @@ class CompanyMetric(Base):
 
     quote_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fundamentals_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Null = never synced. services/document_sync.py picks oldest-synced-first,
+    # largest-market-cap-first — the same pattern fundamentals_synced_at
+    # already drives for sync_fundamentals_batch. See migration 004.
+    documents_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CompanyDocument(Base):
+    """One real filing/PDF FinEdge has for a company — annual report, concall
+    transcript, credit-rating notice, investor presentation, or a general
+    regulatory announcement. Populated for EVERY listed company by
+    services/document_sync.py on a slow, always-on background cadence, not
+    only for symbols a user holds or watches.
+
+    This is the single source both the company page's Documents tab
+    (routers/finedge.py::get_documents) and the Research Chat transcript
+    fetcher (services/rag/sources/transcript_source.py) read from, so a PDF
+    discovered once serves both features instead of each doing its own live
+    FinEdge round trip."""
+
+    __tablename__ = "company_documents"
+    __table_args__ = (
+        UniqueConstraint("symbol", "pdf_url", name="company_documents_unique"),
+        Index("ix_company_documents_symbol", "symbol"),
+        Index("ix_company_documents_symbol_category", "symbol", "category"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol: Mapped[str] = mapped_column(Text, nullable=False)
+
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    filed_date: Mapped[date | None] = mapped_column(Date)
+
+    # A filing's real identity — an exchange archive URL is immutable, a
+    # correction gets a NEW url — which is what makes (symbol, pdf_url) safe
+    # to upsert on without a content hash.
+    pdf_url: Mapped[str] = mapped_column(Text, nullable=False)
+    source_ref: Mapped[str | None] = mapped_column(Text)
+
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RagPendingSymbol(Base):
+    """The retry-remembering queue for on-demand RAG indexing
+    (services/rag/index_worker.py::ensure_company_indexed). A row here means
+    "a user asked about this company and indexing didn't finish" — almost
+    always because the Gemini embedding quota was spent at that moment.
+
+    Deliberately a WORK QUEUE, not a log: one row per symbol currently owed a
+    retry, deleted the instant it succeeds. The background RAG index cycle
+    includes every symbol in this table in its scope alongside held/watched
+    ones, so a quota wall delays an answer's grounding by one cycle instead of
+    losing the request outright — which is what happened before this table
+    existed."""
+
+    __tablename__ = "rag_pending_symbols"
+
+    symbol: Mapped[str] = mapped_column(Text, primary_key=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    attempts: Mapped[int] = mapped_column(SmallInteger, server_default="1")
+
+    first_requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class UserRatioPreference(Base):

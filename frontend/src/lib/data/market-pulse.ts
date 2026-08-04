@@ -130,49 +130,6 @@ export const dividendsAll: DividendRow[] = [
   { company: 'NTPC', symbol: 'NTPC', exDate: getRelativeDateStr(22), recordDate: getRelativeDateStr(21), dividendType: 'Interim', dividendPerShare: 4.0, fy: 'FY27' },
 ]
 
-// ─── Bulk Deals ───────────────────────────────────────────────────────────────
-export interface Deal {
-  date: string
-  company: string
-  symbol: string
-  client: string
-  tradeType: 'Buy' | 'Sell'
-  quantity: number
-  price: number
-  valueCr: number
-}
-
-export const bulkDeals: Deal[] = [
-  { date: getRelativeDateStr(22), company: 'Paytm', symbol: 'PAYTM', client: 'Mirae Asset MF', tradeType: 'Buy', quantity: 8450000, price: 624.5, valueCr: 527.5 },
-  { date: getRelativeDateStr(22), company: 'Adani Green', symbol: 'ADANIGREEN', client: 'FMR LLC (Fidelity)', tradeType: 'Sell', quantity: 5200000, price: 1875.0, valueCr: 975.0 },
-  { date: getRelativeDateStr(23), company: 'Zomato', symbol: 'ZOMATO', client: 'HDFC Mutual Fund', tradeType: 'Buy', quantity: 12400000, price: 218.6, valueCr: 271.1 },
-  { date: getRelativeDateStr(23), company: 'Tata Motors', symbol: 'TATAMOTORS', client: 'Government of Singapore', tradeType: 'Buy', quantity: 6800000, price: 934.2, valueCr: 635.3 },
-  { date: getRelativeDateStr(24), company: 'Yes Bank', symbol: 'YESBANK', client: 'SBI Life Insurance', tradeType: 'Sell', quantity: 45000000, price: 22.4, valueCr: 100.8 },
-  { date: getRelativeDateStr(24), company: 'IndiGo', symbol: 'INDIGO', client: 'Motilal Oswal MF', tradeType: 'Buy', quantity: 980000, price: 3845.0, valueCr: 376.8 },
-  { date: getRelativeDateStr(25), company: 'CAMS', symbol: 'CAMS', client: 'ICICI Prudential MF', tradeType: 'Buy', quantity: 450000, price: 2845.0, valueCr: 128.0 },
-  { date: getRelativeDateStr(25), company: 'Nykaa', symbol: 'FSN', client: 'Steadview Capital', tradeType: 'Sell', quantity: 15600000, price: 178.4, valueCr: 278.3 },
-  { date: getRelativeDateStr(26), company: 'Bajaj Finserv', symbol: 'BAJAJFINSV', client: 'Vanguard Group', tradeType: 'Buy', quantity: 820000, price: 1684.0, valueCr: 138.1 },
-  { date: getRelativeDateStr(26), company: 'Suzlon Energy', symbol: 'SUZLON', client: 'DSP Mutual Fund', tradeType: 'Buy', quantity: 28000000, price: 48.6, valueCr: 136.1 },
-  { date: getRelativeDateStr(27), company: 'Vodafone Idea', symbol: 'IDEA', client: 'Kotak MF', tradeType: 'Sell', quantity: 120000000, price: 11.8, valueCr: 141.6 },
-  { date: getRelativeDateStr(27), company: 'TVS Motor', symbol: 'TVSMOTOR', client: 'Franklin Templeton', tradeType: 'Buy', quantity: 1240000, price: 2145.0, valueCr: 266.0 },
-  { date: getRelativeDateStr(28), company: 'Dixon Technologies', symbol: 'DIXON', client: 'Blackrock Inc', tradeType: 'Buy', quantity: 345000, price: 12450.0, valueCr: 429.5 },
-  { date: getRelativeDateStr(28), company: 'Hindalco', symbol: 'HINDALCO', client: 'Norges Bank', tradeType: 'Buy', quantity: 5600000, price: 634.2, valueCr: 355.2 },
-  { date: getRelativeDateStr(29), company: 'Polycab India', symbol: 'POLYCAB', client: 'SBI Mutual Fund', tradeType: 'Buy', quantity: 680000, price: 5840.0, valueCr: 397.1 },
-]
-
-export const blockDeals: Deal[] = [
-  { date: getRelativeDateStr(22), company: 'Reliance Industries', symbol: 'RELIANCE', client: 'GIC Singapore', tradeType: 'Buy', quantity: 4200000, price: 2934.7, valueCr: 1232.6 },
-  { date: getRelativeDateStr(23), company: 'ICICI Bank', symbol: 'ICICIBANK', client: 'Temasek Holdings', tradeType: 'Buy', quantity: 9400000, price: 1248.6, valueCr: 1173.7 },
-  { date: getRelativeDateStr(24), company: 'Tata Consultancy', symbol: 'TCS', client: 'Capital Group', tradeType: 'Sell', quantity: 2100000, price: 3684.0, valueCr: 773.6 },
-  { date: getRelativeDateStr(25), company: 'Bajaj Finance', symbol: 'BAJFINANCE', client: 'Fidelity Investments', tradeType: 'Buy', quantity: 1840000, price: 6924.0, valueCr: 1274.0 },
-  { date: getRelativeDateStr(26), company: 'HDFC Bank', symbol: 'HDFCBANK', client: 'JP Morgan Chase', tradeType: 'Buy', quantity: 8200000, price: 1684.0, valueCr: 1380.9 },
-  { date: getRelativeDateStr(27), company: 'Infosys', symbol: 'INFY', client: 'Aberdeen Asset Mgmt', tradeType: 'Sell', quantity: 5400000, price: 1584.3, valueCr: 855.5 },
-  { date: getRelativeDateStr(28), company: 'Maruti Suzuki', symbol: 'MARUTI', client: 'Kuwait Investment Auth', tradeType: 'Buy', quantity: 620000, price: 10845.0, valueCr: 672.4 },
-  { date: getRelativeDateStr(29), company: 'Kotak Mahindra Bank', symbol: 'KOTAKBANK', client: 'CalPERS', tradeType: 'Buy', quantity: 3800000, price: 2134.6, valueCr: 811.1 },
-  { date: getRelativeDateStr(30), company: 'L&T', symbol: 'LT', client: 'ADIA (Abu Dhabi)', tradeType: 'Buy', quantity: 1250000, price: 3784.0, valueCr: 473.0 },
-  { date: getRelativeDateStr(30), company: 'Axis Bank', symbol: 'AXISBANK', client: 'Schroders plc', tradeType: 'Sell', quantity: 6800000, price: 1184.0, valueCr: 805.1 },
-]
-
 // ─── SAST Trades ──────────────────────────────────────────────────────────────
 export interface SASTrade {
   date: string

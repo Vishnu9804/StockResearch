@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronRight, FileText, Building, Mic2, CalendarClock, BookOpen,
-  DollarSign, BarChart3, TrendingUp, TrendingDown, RotateCcw,
+  DollarSign, BarChart3, TrendingUp, RotateCcw,
   Scissors, Award, ShoppingCart, Activity
 } from 'lucide-react'
 import { Heading } from '@/components/ui/Heading'
@@ -76,10 +76,8 @@ const MARKET_PULSE_ROWS: HubRow[] = [
 ]
 
 const TRADE_ROWS: HubRow[] = [
-  { label: 'Bulk Deals', badge: '15 new', href: '/market-pulse/bulk-deals', icon: TrendingUp },
-  { label: 'Block Deals', badge: '10 new', href: '/market-pulse/block-deals', icon: TrendingDown },
-  { label: 'SAST Trades', badge: '10 entries', href: '/market-pulse/sast-trades', icon: ShoppingCart },
-  { label: 'Insider Trades', badge: '15 entries', href: '/market-pulse/insider-trades', icon: DollarSign },
+  { label: 'SAST Trades', badge: 'SEBI takeover filings', href: '/market-pulse/sast-trades', icon: ShoppingCart },
+  { label: 'Insider Trades', badge: 'PIT disclosures', href: '/market-pulse/insider-trades', icon: DollarSign },
 ]
 
 const CORP_ACTION_ROWS: HubRow[] = [

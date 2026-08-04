@@ -145,9 +145,8 @@ The sticky sub-navigation at the top of the page jumps you between those section
 - Concalls — recent earnings calls with transcript links (/market-pulse/concalls), and Upcoming Concalls (/market-pulse/upcoming-concalls).
 - Annual Reports (/market-pulse/annual-reports).
 - Dividends (/market-pulse/dividends).
-- New Issues / IPOs (/market-pulse/new-issues).
-- Bulk Deals (/market-pulse/bulk-deals) and Block Deals (/market-pulse/block-deals).
-- Insider Trades (/market-pulse/insider-trades) and SAST Trades (/market-pulse/sast-trades).
+- New Issues / IPOs, including upcoming Rights Issues (/market-pulse/new-issues).
+- Insider Trades (/market-pulse/insider-trades) and SAST Trades (/market-pulse/sast-trades) — SEBI PIT and takeover-regulation disclosures pulled from corporate announcements (our data source has no bulk/block-deal trade feed, so those two views don't exist).
 - Industries (/market-pulse/industries).
 - Commodities (/market-pulse/commodities).
 - Holidays — the exchange holiday calendar (/market-pulse/holidays).""",

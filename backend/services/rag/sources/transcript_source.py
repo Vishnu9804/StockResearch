@@ -8,7 +8,18 @@ the rest of the app never had to — it downloads the PDF and extracts its text 
 because a question like "what did management say about margins last quarter"
 cannot be answered from an announcement headline.
 
-Three things are deliberate here:
+WHERE the list of transcript PDFs comes from is now two-tiered — see
+_fetch_transcript_list: the `company_documents` table (populated for the
+WHOLE listed universe by services/document_sync.py on its own slow schedule)
+is checked first and is the common case, so most calls into this module never
+touch FinEdge's transcript-list endpoint at all. Only a symbol the background
+sync has not reached yet falls through to a live FinEdge call — the same one
+this module always made before company_documents existed. Either way, once the
+list is known, downloading and extracting the actual PDF text happens exactly
+as described below; the two-tier lookup only changes how the PDF URLs
+themselves are discovered.
+
+Four things are deliberate here:
 
   * The download does NOT go through services/finedge_service.py. That module
     is a proxy for the FinEdge JSON API — rate-limited against FinEdge's quota,
@@ -26,11 +37,17 @@ Three things are deliberate here:
     dozens of pages. _looks_like_scanned catches that and skips the document
     rather than indexing whitespace, which would otherwise occupy a chunk slot
     and dilute retrieval for that company forever.
+
+  * An archive URL is a filing's real identity — a correction is published at
+    a NEW url, never edited in place — which is what makes both this module's
+    own dedup (_already_indexed_urls) and company_documents' upsert key safe
+    to build on it.
 """
 import asyncio
 import io
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -39,7 +56,7 @@ from sqlalchemy import select
 
 from core.config import settings
 from core.database import async_session_maker
-from models.models import RagDocument
+from models.models import CompanyDocument, CompanyMetric, RagDocument
 from services.finedge_service import execute_proxy_request
 from services.rag.chunking import normalise_text
 from services.rag.schemas import RagSourceDocument, SourceType
@@ -110,10 +127,77 @@ def _looks_like_scanned(text: str, page_count: int) -> bool:
     return (len(text) / page_count) < 200
 
 
-async def _fetch_transcript_list(symbol: str, limit: int) -> list[dict]:
+@dataclass(slots=True)
+class _TranscriptRef:
+    """One transcript, whichever of the two sources below found it — the rest
+    of this module works against this shape so downstream code never needs to
+    know whether the reference came from the database or a live FinEdge call."""
+    pdf_url: str
+    announced: datetime | None
+    description: str
+
+
+async def _transcripts_from_db(symbol: str, limit: int) -> list[_TranscriptRef] | None:
+    """The fast path: read from company_documents, populated ahead of time by
+    services/document_sync.py for the WHOLE listed universe, not just symbols
+    a user holds.
+
+    Returns None (not an empty list) when this symbol hasn't been through a
+    sync cycle yet — that is the signal to fall back to a live FinEdge call.
+    An empty LIST, by contrast, means the sync already ran and genuinely found
+    no concall filings for this company, which is a real answer and must not
+    trigger a redundant live re-fetch of the identical result.
+
+    category == 'concall' alone is NOT enough — that classification (shared
+    with the company page's Documents tab, where the extra breadth is exactly
+    right) keyword-matches on the whole corp-announcements feed and also
+    catches board-meeting-for-results notices, "schedule of investor meet"
+    intimations, and audio/video recording links, none of which are the
+    transcript itself. Verified live across the synced universe: of 975
+    concall-classified filings, only 137 actually had "transcript" in the
+    title, and that word is a clean, reliable split between "the document with
+    words management said" and "an announcement about that call". Requiring it
+    here is what stops a scheduling notice from occupying one of only
+    RAG_TRANSCRIPTS_PER_SYMBOL precious slots ahead of a real transcript.
+    """
+    async with async_session_maker() as session:
+        synced_at = await session.scalar(
+            select(CompanyMetric.documents_synced_at).where(CompanyMetric.symbol == symbol)
+        )
+        if synced_at is None:
+            return None
+
+        rows = (
+            await session.execute(
+                select(CompanyDocument)
+                .where(
+                    CompanyDocument.symbol == symbol,
+                    CompanyDocument.category == "concall",
+                    CompanyDocument.title.ilike("%transcript%"),
+                )
+                .order_by(CompanyDocument.filed_date.desc().nulls_last())
+                .limit(limit)
+            )
+        ).scalars().all()
+
+    return [
+        _TranscriptRef(
+            pdf_url=row.pdf_url,
+            announced=datetime.combine(row.filed_date, datetime.min.time(), tzinfo=timezone.utc)
+                      if row.filed_date else None,
+            description=row.title,
+        )
+        for row in rows
+    ]
+
+
+async def _transcripts_from_finedge(symbol: str, limit: int) -> list[_TranscriptRef]:
+    """The cold path — used only for a symbol services/document_sync.py
+    hasn't reached yet. Calls FinEdge directly, same as this module always
+    did before company_documents existed."""
     now = datetime.now(timezone.utc)
     query = {
-        "symbol": symbol.upper(),
+        "symbol": symbol,
         "from_date": (now - timedelta(days=_LOOKBACK_DAYS)).strftime("%Y-%m-%d"),
         "to_date": now.strftime("%Y-%m-%d"),
     }
@@ -133,7 +217,25 @@ async def _fetch_transcript_list(symbol: str, limit: int) -> list[dict]:
     # Newest first, so RAG_TRANSCRIPTS_PER_SYMBOL means "the most recent N
     # quarters" rather than an arbitrary N.
     items.sort(key=lambda item: item.get("timestamp_unix") or 0, reverse=True)
-    return items[:limit]
+
+    return [
+        _TranscriptRef(
+            pdf_url=item.get("pdf_file_link") or item.get("pdf_file_link_hist"),
+            announced=_parse_date(item.get("announcement_date")),
+            description=item.get("description") or "",
+        )
+        for item in items[:limit]
+    ]
+
+
+async def _fetch_transcript_list(symbol: str, limit: int) -> list[_TranscriptRef]:
+    """DB first (instant, no FinEdge call at all), live FinEdge only for a
+    symbol the background document sync hasn't reached yet — see
+    _transcripts_from_db for exactly how that distinction is made."""
+    from_db = await _transcripts_from_db(symbol, limit)
+    if from_db is not None:
+        return from_db
+    return await _transcripts_from_finedge(symbol, limit)
 
 
 async def _download_pdf_text(client: httpx.AsyncClient, url: str) -> tuple[str, int] | None:
@@ -191,18 +293,19 @@ async def build_transcript_documents(
     indexed_urls = await _already_indexed_urls()
     documents: list[RagSourceDocument] = []
     async with httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(60.0)) as client:
-        for symbol in symbols:
-            items = await _fetch_transcript_list(symbol, per_symbol)
-            if not items:
-                logger.info("[rag.transcripts] %s — no transcripts available from FinEdge", symbol)
+        for raw_symbol in symbols:
+            symbol = raw_symbol.upper()
+            refs = await _fetch_transcript_list(symbol, per_symbol)
+            if not refs:
+                logger.info("[rag.transcripts] %s — no transcripts available", symbol)
                 continue
 
-            for item in items:
-                url = item.get("pdf_file_link") or item.get("pdf_file_link_hist") or ""
+            for ref in refs:
+                url = ref.pdf_url
                 if not url or url in indexed_urls:
                     continue
-                announced = _parse_date(item.get("announcement_date"))
-                description = item.get("description") or ""
+                announced = ref.announced
+                description = ref.description
                 quarter = _extract_quarter(description, announced)
 
                 try:
@@ -232,14 +335,13 @@ async def build_transcript_documents(
                         source_key=url,
                         title=f"{symbol} — {quarter} earnings call transcript",
                         text=text,
-                        symbol=symbol.upper(),
+                        symbol=symbol,
                         url=url,
                         doc_date=announced,
                         metadata={
                             "quarter": quarter,
                             "pages": page_count,
                             "description": description[:400],
-                            "category": item.get("category"),
                         },
                     )
                 )

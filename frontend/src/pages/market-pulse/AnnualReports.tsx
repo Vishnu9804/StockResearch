@@ -107,9 +107,13 @@ export default function AnnualReports() {
         </div>
 
         {/* H1 */}
-        <Heading level={1} variant="pageTitle" className="text-textPrimary mb-4">
-          Latest Annual Reports
+        <Heading level={1} variant="pageTitle" className="text-textPrimary mb-1">
+          Latest Annual Financials
         </Heading>
+        <p className="text-sm text-textSecondary mb-4">
+          Companies with a recent annual-report filing, with real Revenue/PAT/EPS/ROE/dividend figures
+          pulled from their latest reported financials — not report PDFs (not offered by our market data source).
+        </p>
 
         {/* FY Chips */}
         <div className="flex gap-2 mb-6">

@@ -11,7 +11,7 @@ It must run in exactly one process. Running the web app with multiple workers
 AND inline sync enabled would fan every FinEdge call out N times — in
 production, disable inline sync on the web tier and run one worker instead.
 
-Three independent loops:
+Four independent loops:
   * quote loop        — one cheap bulk /quote call for the whole universe.
                         Cadence adapts to market hours (Phase 4): frequent while
                         the market is open, slow when it's closed.
@@ -20,6 +20,12 @@ Three independent loops:
                         works through the universe largest-company-first. Runs
                         an accelerated warmup first on a cold table (Phase 5).
                         (see services/metrics_sync.py)
+  * document loop     — "what PDFs does FinEdge have for this company",
+                        a slower rolling batch (documents change on the order
+                        of months, not minutes) across the WHOLE universe, not
+                        just held/watched symbols. Feeds both the company
+                        page's Documents tab and Research Chat's transcript
+                        fetch. (see services/document_sync.py)
   * news loop         — publisher RSS + GDELT into the central ``news_items``
                         store, the input to the Butterfly Effect workflow.
                         (see services/news_ingest.py)
@@ -35,9 +41,11 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 
+from core.config import settings
 from core.database import async_session_maker
 from core.market_hours import is_market_open
 from models.models import CompanyMetric
+from services.document_sync import sync_documents_batch
 from services.metrics_sync import sync_fundamentals_batch, sync_quote_data
 from services.news_ingest import cleanup_stale_news, ingest_news
 
@@ -63,6 +71,21 @@ FUNDAMENTALS_SYNC_INTERVAL_CLOSED_SECONDS = 5    # market closed — work throug
 WARMUP_TARGET_ROWS = 200
 WARMUP_BATCHES = 5
 WARMUP_BATCH_SIZE = 100
+
+# ── Document sync cadence ─────────────────────────────────────────────────────
+# Read from core/config.py (DOCUMENT_SYNC_*) rather than duplicated here — see
+# that module for the full reasoning (filings change on the order of months,
+# so even the slower market-open rate finishes a full universe sweep well
+# inside a day).
+
+
+def _document_sync_interval_seconds() -> int:
+    return (
+        settings.DOCUMENT_SYNC_INTERVAL_OPEN_SECONDS
+        if is_market_open()
+        else settings.DOCUMENT_SYNC_INTERVAL_CLOSED_SECONDS
+    )
+
 
 # ── News ingestion cadence ───────────────────────────────────────────────────
 # Publisher RSS feeds refresh on the order of minutes and the ingest is
@@ -158,6 +181,18 @@ async def _fundamentals_sync_loop() -> None:
         await asyncio.sleep(_fundamentals_interval_seconds())
 
 
+async def _document_sync_loop() -> None:
+    while True:
+        try:
+            async with async_session_maker() as db:
+                await sync_documents_batch(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[SyncService] Document sync iteration failed")
+        await asyncio.sleep(_document_sync_interval_seconds())
+
+
 def _news_interval_seconds() -> int:
     return (
         NEWS_SYNC_INTERVAL_OPEN_SECONDS
@@ -205,10 +240,16 @@ async def _news_cleanup_loop() -> None:
 async def run_background_sync() -> None:
     """Run all sync loops until cancelled. This is the single entry point used
     by both the inline app startup and the standalone worker."""
-    logger.info("[SyncService] Background sync starting (quote + fundamentals + news + cleanup loops)")
-    await asyncio.gather(
+    logger.info(
+        "[SyncService] Background sync starting (quote + fundamentals + documents%s + news + cleanup loops)",
+        "" if settings.ENABLE_DOCUMENT_SYNC else " [disabled]",
+    )
+    loops = [
         _quote_sync_loop(),
         _fundamentals_sync_loop(),
         _news_sync_loop(),
         _news_cleanup_loop(),
-    )
+    ]
+    if settings.ENABLE_DOCUMENT_SYNC:
+        loops.append(_document_sync_loop())
+    await asyncio.gather(*loops)

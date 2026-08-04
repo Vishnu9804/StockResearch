@@ -40,8 +40,6 @@ function makeList(limit = 50): PaginatedList {
 
 export interface MarketPulseState {
   announcements: PaginatedList
-  bulkDeals:     PaginatedList
-  blockDeals:    PaginatedList
   sastTrades:    PaginatedList
   insiderTrades: PaginatedList
   dividends:     PaginatedList
@@ -51,8 +49,6 @@ export interface MarketPulseState {
 
 const initialState: MarketPulseState = {
   announcements: makeList(50),
-  bulkDeals:     makeList(15),
-  blockDeals:    makeList(15),
   sastTrades:    makeList(15),
   insiderTrades: makeList(15),
   dividends:     makeList(15),
@@ -96,14 +92,6 @@ const marketPulseSlice = createSlice({
     fetchAnnouncementsStart:   (s, a: PayloadAction<FetchParams>)  => setLoading(s, 'announcements', a),
     fetchAnnouncementsSuccess: (s, a: PayloadAction<PageResult>)   => setSuccess(s, 'announcements', a),
     fetchAnnouncementsFailure: (s, a: PayloadAction<string>)       => setFailure(s, 'announcements', a),
-    // ── Bulk Deals ─────────────────────────────────────────────────────────
-    fetchBulkDealsStart:       (s, a: PayloadAction<FetchParams>)  => setLoading(s, 'bulkDeals', a),
-    fetchBulkDealsSuccess:     (s, a: PayloadAction<PageResult>)   => setSuccess(s, 'bulkDeals', a),
-    fetchBulkDealsFailure:     (s, a: PayloadAction<string>)       => setFailure(s, 'bulkDeals', a),
-    // ── Block Deals ────────────────────────────────────────────────────────
-    fetchBlockDealsStart:      (s, a: PayloadAction<FetchParams>)  => setLoading(s, 'blockDeals', a),
-    fetchBlockDealsSuccess:    (s, a: PayloadAction<PageResult>)   => setSuccess(s, 'blockDeals', a),
-    fetchBlockDealsFailure:    (s, a: PayloadAction<string>)       => setFailure(s, 'blockDeals', a),
     // ── SAST Trades ────────────────────────────────────────────────────────
     fetchSastTradesStart:      (s, a: PayloadAction<FetchParams>)  => setLoading(s, 'sastTrades', a),
     fetchSastTradesSuccess:    (s, a: PayloadAction<PageResult>)   => setSuccess(s, 'sastTrades', a),
@@ -129,8 +117,6 @@ const marketPulseSlice = createSlice({
 
 export const {
   fetchAnnouncementsStart,  fetchAnnouncementsSuccess,  fetchAnnouncementsFailure,
-  fetchBulkDealsStart,      fetchBulkDealsSuccess,      fetchBulkDealsFailure,
-  fetchBlockDealsStart,     fetchBlockDealsSuccess,     fetchBlockDealsFailure,
   fetchSastTradesStart,     fetchSastTradesSuccess,     fetchSastTradesFailure,
   fetchInsiderTradesStart,  fetchInsiderTradesSuccess,  fetchInsiderTradesFailure,
   fetchDividendsStart,      fetchDividendsSuccess,      fetchDividendsFailure,
