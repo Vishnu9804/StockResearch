@@ -47,6 +47,22 @@ class Settings(BaseSettings):
     # dedicated `python sync_worker.py` process exactly once instead.
     ENABLE_BACKGROUND_SYNC: bool = True
 
+    # ── News (marketaux) ──────────────────────────────────────────────────────
+    # Sole news provider (12 Aug 2026 vendor review — marketaux over mediastack
+    # and WorldAPI): mediastack's India "business" coverage turned out to be a
+    # re-serve of the same free Google News RSS this app used to fetch itself,
+    # and WorldAPI bills per-call in crypto (no ordinary subscription exists to
+    # buy). marketaux is purpose-built for market news — every article carries
+    # per-company sentiment, industry and match-confidence, which is what
+    # services/news_ingest.py stores in NewsItem.mentioned_entities.
+    # Empty by default so a fresh checkout never calls a paid API unset.
+    MARKETAUX_API_KEY: str = ""
+    # Articles returned per themed query (services/news_sources/marketaux_client.py).
+    # 50 matches the "Pro 10K" plan (the recommended tier) — raise only after
+    # confirming the purchased plan's per-request article cap, a lower-tier key
+    # (e.g. Free's cap of 3) will get this rejected with a 422.
+    MARKETAUX_ARTICLES_PER_REQUEST: int = 50
+
     # ── News retention ─────────────────────────────────────────────────────────
     # Deliberately a TIME window, never a row-count cap. A count cap (e.g. "keep
     # the newest 5000 rows") would let one unusually high-volume news day evict

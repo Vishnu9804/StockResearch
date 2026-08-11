@@ -1,6 +1,6 @@
 """
 services/news_ingest.py
-Ingestion pipeline: providers -> normalise -> dedupe -> tag -> persist.
+Ingestion pipeline: marketaux -> normalise -> dedupe -> tag -> persist.
 
 Everything here is deterministic Python. No LLM is involved at ingestion time,
 on purpose: the expensive multi-agent analysis runs against a clean, deduped,
@@ -8,15 +8,22 @@ pre-scored queue, so tokens are never spent on a story we already have or on an
 item that was never market-relevant to begin with.
 
 Stages
-  1. collect    fan out to RSS + GDELT concurrently
+  1. collect    fan out marketaux's themed queries concurrently
   2. normalise  clean HTML, clamp lengths, coerce timezone-aware timestamps
   3. dedupe     url_hash (hard) then title_hash (soft, cross-publisher)
   4. tag        match NSE symbols/company names via the company_metrics universe
   5. score      heuristic market_relevance gate for the analysis queue
   6. persist    ON CONFLICT DO NOTHING insert, so re-polling is free
+
+Note on symbol tagging (stage 4): marketaux already returns its own tagged
+entities per article (industry, exchange, a match/sentiment score), stored
+verbatim in NewsItem.mentioned_entities. mentioned_symbols is deliberately
+NOT derived from those — marketaux's entity symbols don't reliably match this
+app's NSE-symbol convention, and this column feeds user-visible RED alerts
+directly, so it keeps using the alias index below, matched only against the
+company_metrics universe this app already trusts.
 """
 
-import asyncio
 import hashlib
 import html
 import logging
@@ -30,7 +37,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from core.config import settings
 from core.database import async_session_maker
 from models.models import CompanyMetric, NewsItem, UserNewsAlert
-from services.news_sources import fetch_all_feeds, fetch_gdelt
+from services.news_sources import fetch_marketaux
 
 logger = logging.getLogger("news.ingest")
 
@@ -151,12 +158,16 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any] | None:
         "language": detected_language,
         "source_name": raw.get("source_name") or "Unknown",
         "source_slug": raw.get("source_slug") or "unknown",
-        "source_type": raw.get("source_type") or "RSS",
+        "source_type": raw.get("source_type") or "MARKETAUX",
         "source_tier": int(raw.get("source_tier") or 3),
         "author": raw.get("author"),
         "published_at": published,
         "category": raw.get("category"),
         "regions": raw.get("regions") or [],
+        # marketaux's own tagged entities (symbol/industry/sentiment/match
+        # score), passed straight through — see the module docstring for why
+        # this is kept separate from mentioned_symbols.
+        "mentioned_entities": raw.get("entities") or [],
         "_butterfly_weight": float(raw.get("butterfly_weight") or 0.5),
     }
 
@@ -357,22 +368,17 @@ def _dedupe_in_batch(items: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
-async def ingest_news(*, include_gdelt: bool = True) -> dict[str, Any]:
+async def ingest_news() -> dict[str, Any]:
     """Run one full ingestion cycle. Returns a summary for logs and /news/health."""
     started = datetime.now(timezone.utc)
 
-    tasks: list[Any] = [fetch_all_feeds()]
-    if include_gdelt:
-        tasks.append(fetch_gdelt())
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    raw: list[dict[str, Any]] = []
-    for result in results:
-        if isinstance(result, Exception):
-            logger.warning("[news.ingest] provider failed — %s", result)
-            continue
-        raw.extend(result)
+    try:
+        raw = await fetch_marketaux()
+    except Exception as exc:
+        # fetch_marketaux already isolates failures per query; this guards
+        # only against something unexpected breaking the whole batch.
+        logger.warning("[news.ingest] marketaux fetch failed — %s", exc)
+        raw = []
 
     cutoff = started - timedelta(days=MAX_AGE_DAYS)
     normalised = []

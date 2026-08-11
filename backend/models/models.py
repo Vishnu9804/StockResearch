@@ -223,9 +223,8 @@ class CustomRatio(Base):
 class NewsItem(Base):
     """Canonical, deduplicated news store — the INPUT to the Butterfly Effect
     workflow. FinEdge has no news product (it serves fundamentals, filings and
-    market data), so these rows come from publisher RSS feeds and GDELT via
-    services/news_ingest.py, plus corporate announcements already proxied from
-    FinEdge.
+    market data), so these rows come from marketaux via services/news_ingest.py,
+    plus corporate announcements already proxied from FinEdge.
 
     ``mentioned_symbols`` holds only the companies an article names outright.
     It is deliberately NOT the alert set — the whole point of the feature is

@@ -1,6 +1,6 @@
 """
 services/news_sources
-Free, keyless news providers for the Butterfly Effect workflow.
+News providers for the Butterfly Effect workflow.
 
 Why not FinEdge: FinEdge is a fundamentals/filings/market-data API (P&L, balance
 sheet, cash flow, quotes, corp-announcements, corporate actions, indices). Its
@@ -13,11 +13,10 @@ is by definition a DIRECT statement about one company, so it can only ever
 produce red alerts. Butterfly chains start from macro, commodity, policy and
 global events that never name the affected company at all.
 
-Providers here are chosen for three properties: no API key, no commercial-use
-paywall, and no per-call quota to babysit.
+marketaux is the sole provider (see marketaux_client.py's module docstring
+for the vendor review it won).
 """
 
-from services.news_sources.gdelt_client import fetch_gdelt
-from services.news_sources.rss_client import RSS_FEEDS, fetch_all_feeds, fetch_feed
+from services.news_sources.marketaux_client import QUERIES, fetch_marketaux, query_health
 
-__all__ = ["RSS_FEEDS", "fetch_feed", "fetch_all_feeds", "fetch_gdelt"]
+__all__ = ["QUERIES", "fetch_marketaux", "query_health"]

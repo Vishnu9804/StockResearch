@@ -26,8 +26,8 @@ Four independent loops:
                         just held/watched symbols. Feeds both the company
                         page's Documents tab and Research Chat's transcript
                         fetch. (see services/document_sync.py)
-  * news loop         — publisher RSS + GDELT into the central ``news_items``
-                        store, the input to the Butterfly Effect workflow.
+  * news loop         — marketaux into the central ``news_items`` store, the
+                        input to the Butterfly Effect workflow.
                         (see services/news_ingest.py)
 
 The news loop belongs here rather than in the web tier for the same reason as
@@ -88,12 +88,18 @@ def _document_sync_interval_seconds() -> int:
 
 
 # ── News ingestion cadence ───────────────────────────────────────────────────
-# Publisher RSS feeds refresh on the order of minutes and the ingest is
-# idempotent (ON CONFLICT DO NOTHING on url_hash), so polling more often than
-# this buys nothing but load on other people's CDNs. Slower off-hours, since
-# Indian financial publishers post very little overnight — but never stopped,
-# because the global feeds that matter most for butterfly chains are on other
-# time zones and a US Fed decision lands while Indian markets are shut.
+# marketaux is a paid API with a real per-day request quota (unlike the old
+# RSS/GDELT providers, which had none to budget), so this cadence is sized
+# against that budget rather than against publisher-CDN courtesy. At 7 themed
+# queries per cycle (services/news_sources/marketaux_client.py), this works
+# out to roughly 400 calls/day — about 4% of the "Pro 10K" plan's 10,000/day
+# — leaving generous headroom for retries and future per-portfolio lookups.
+# Slower off-hours, since Indian financial publishers post very little
+# overnight — but never stopped, because the global queries that matter most
+# for butterfly chains cover other time zones, and a US Fed decision lands
+# while Indian markets are shut. The ingest is idempotent (ON CONFLICT DO
+# NOTHING on url_hash) either way, so polling faster than the underlying news
+# actually changes would buy nothing.
 NEWS_SYNC_INTERVAL_OPEN_SECONDS = 15 * 60
 NEWS_SYNC_INTERVAL_CLOSED_SECONDS = 45 * 60
 
@@ -202,11 +208,11 @@ def _news_interval_seconds() -> int:
 
 
 async def _news_sync_loop() -> None:
-    """Poll every registered news source into ``news_items``.
+    """Poll every registered marketaux query into ``news_items``.
 
     Runs immediately on start rather than after a sleep, so a fresh deploy has a
     populated feed within a minute instead of a quarter of an hour. Individual
-    feed failures are swallowed inside the ingest itself — only a total failure
+    query failures are swallowed inside the ingest itself — only a total failure
     of the cycle reaches this handler.
     """
     while True:

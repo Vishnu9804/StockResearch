@@ -20,7 +20,7 @@ from core.config import settings
 from core.database import async_session_maker
 from models.models import NewsItem
 from services.news_ingest import cleanup_stale_news, ingest_news
-from services.news_sources.rss_client import RSS_FEEDS, feed_health
+from services.news_sources import QUERIES, query_health
 
 logger = logging.getLogger("news.router")
 
@@ -217,10 +217,11 @@ async def latest_news(limit: int = Query(12, ge=1, le=50)):
 
 @router.get("/health")
 async def news_health():
-    """Ingestion observability: row counts, freshness, and per-feed state.
+    """Ingestion observability: row counts, freshness, and per-query state.
 
-    RSS URLs rot silently — a publisher reorganises a section and the feed 404s
-    forever. ``feeds`` is what turns that into something you can see.
+    A marketaux query can start failing silently (a bad param, a lapsed key,
+    the plan's quota running out) — ``queries`` is what turns that into
+    something you can see instead of a feed that quietly goes stale.
     """
     async with async_session_maker() as session:
         total = await session.scalar(select(func.count()).select_from(NewsItem))
@@ -244,29 +245,30 @@ async def news_health():
             )
         ).all()
 
-    feeds = feed_health()
+    queries = query_health()
     return {
         "total_items": total or 0,
         "ingested_last_24h": last_24h or 0,
         "newest_published_at": newest.isoformat() if newest else None,
         "analysis_status": {status: count for status, count in by_status},
         "categories": {(cat or "UNCLASSIFIED"): count for cat, count in by_category},
-        "registered_feeds": len(RSS_FEEDS),
-        "feeds_reporting": len(feeds),
-        "feeds_failing": [f["slug"] for f in feeds if not f["ok"]],
-        "feeds": feeds,
+        "provider": "marketaux",
+        "registered_queries": len(QUERIES),
+        "queries_reporting": len(queries),
+        "queries_failing": [q["slug"] for q in queries if not q["ok"]],
+        "queries": queries,
     }
 
 
 @router.post("/ingest")
-async def trigger_ingest(include_gdelt: bool = Query(True)):
+async def trigger_ingest():
     """Run one ingestion cycle synchronously.
 
-    Manual trigger for first-run seeding and for testing feed changes without
+    Manual trigger for first-run seeding and for testing query changes without
     waiting on the background loop.
     """
     try:
-        return await ingest_news(include_gdelt=include_gdelt)
+        return await ingest_news()
     except Exception as exc:
         logger.error("[news.router] manual ingest failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=502, detail=f"Ingestion failed: {exc}")
