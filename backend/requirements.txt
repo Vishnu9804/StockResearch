@@ -15,7 +15,7 @@ httpcore==1.0.5
 httpx==0.28.1
 idna==3.7
 pydantic==2.13.4
-pydantic-settings==2.5.2
+pydantic-settings==2.15.0
 pydantic_core==2.46.4
 PyJWT==2.10.1
 pytest==8.3.3
@@ -39,6 +39,10 @@ websockets==15.0.1
 # will likely require bumping those four again in lockstep.
 google-adk==2.5.0
 google-genai==2.14.0
+# litellm: ADK's LiteLlm wrapper (agents/shared/llm.py) routes every ZLM (Z.ai
+# GLM model) call through this — google-adk 2.5.0 declares litellm>=1.84 for
+# its own "extensions"/"test" extras, so that's the floor pinned here too.
+litellm>=1.84
 
 # ── Research Chat / RAG (services/rag/, agents/research_chat/) ─────────────
 # pgvector: the SQLAlchemy column type for rag_chunks.embedding. The Postgres

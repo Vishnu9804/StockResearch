@@ -35,6 +35,7 @@ from agents.butterfly.schemas import (
 from agents.butterfly.verifier import verify_thematic_result
 from agents.shared.adk_runner import QuotaExhaustedError, is_quota_error, run_agent_text
 from agents.shared.json_utils import parse_structured
+from agents.shared.zlm_web_search import format_results, web_search_many
 from core.config import settings
 from services.butterfly_scorer import score_analysis_for_users
 
@@ -175,7 +176,27 @@ async def _run_pipeline(news: NewsItem) -> dict:
         )
 
     # ── Steps 4-6: Thematic research (sparse — most news earns nothing) ──
-    await _run_thematic_research(news, analysis_id, article_text)
+    # Isolated exactly like the scoring pass above, and for a stronger reason:
+    # by this point O1 (the expensive part — triage + causal analyst + skeptic,
+    # two of them on the SMART tier) is already computed, already committed to
+    # news_impact_analyses, and already scored into user_news_alerts. O2 is a
+    # sparse, independent bonus output that most news never earns at all.
+    # Letting an O2 failure propagate would mark the whole item FAILED and send
+    # it back through the retry loop, which re-runs and re-pays for all of O1
+    # from scratch — real ZLM spend, to redo work whose result is already
+    # sitting in the database. Worse, after BUTTERFLY_MAX_ANALYSIS_ATTEMPTS the
+    # item lands in FAILED for good, which reads as "this news was never
+    # analysed" when in fact its O1 analysis and alerts are present and
+    # correct. So: log it, keep the committed O1 result, and report ANALYZED.
+    try:
+        await _run_thematic_research(news, analysis_id, article_text)
+    except Exception:
+        logger.exception(
+            "[butterfly.pipeline] news_id=%s thematic research (O2) failed — keeping the "
+            "already-committed O1 analysis and alerts, marking ANALYZED. Only the optional "
+            "research note is missing for this item.",
+            news.id,
+        )
 
     return {"news_status": "ANALYZED"}
 
@@ -194,9 +215,9 @@ async def _write_analysis(news: NewsItem, compiled: dict, latency_ms: int):
         skeptic_verdict=compiled["skeptic_verdict"],
         evidence=[],
         model_versions={
-            "triage": settings.GEMINI_MODEL_CHEAP,
-            "causal_analyst": settings.GEMINI_MODEL_SMART,
-            "skeptic": settings.GEMINI_MODEL_SMART,
+            "triage": settings.ZLM_MODEL_CHEAP,
+            "causal_analyst": settings.ZLM_MODEL_SMART,
+            "skeptic": settings.ZLM_MODEL_SMART,
         },
         token_usage={},
         latency_ms=latency_ms,
@@ -228,16 +249,29 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
     if settings.BUTTERFLY_SKIP_GROUNDED_RESEARCH:
         logger.warning(
             "[butterfly.pipeline] news_id=%s thematic trigger fired (need_key=%s) but "
-            "BUTTERFLY_SKIP_GROUNDED_RESEARCH is set — skipping the google_search-grounded "
-            "researcher_agent call rather than retrying a 429 it can't clear. No "
-            "news_thematic_research row written this pass.",
+            "BUTTERFLY_SKIP_GROUNDED_RESEARCH is set — skipping the web-search-grounded "
+            "researcher_agent call. No news_thematic_research row written this pass. "
+            "This step runs on ZLM's web_search now (agents/shared/zlm_web_search.py), not "
+            "Gemini's billed google_search, so there's no billing gate left to wait on — "
+            "flip this to false whenever you're ready to test it.",
             news.id, trigger.need_key,
         )
         return
 
+    queries = trigger.search_queries or [trigger.need_description]
+    try:
+        search_results = await web_search_many(queries[:4], count_per_query=settings.ZLM_WEB_SEARCH_RESULT_COUNT)
+    except Exception:
+        logger.exception(
+            "[butterfly.pipeline] news_id=%s web_search failed — skipping thematic research this pass",
+            news.id,
+        )
+        return
+    search_results_text = format_results(search_results)
+
     research_text = await run_agent_text(
         butterfly_agents.researcher_agent(),
-        prompts.format_researcher_input(article_text, trigger),
+        prompts.format_researcher_input(article_text, trigger, search_results_text),
     )
     extractor_raw = await run_agent_text(
         butterfly_agents.thematic_extractor_agent(),
@@ -266,9 +300,9 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
         skeptic_verdict={},
         evidence=verified["evidence"],
         model_versions={
-            "trigger": settings.GEMINI_MODEL_CHEAP,
-            "researcher": settings.GEMINI_MODEL_SMART,
-            "extractor": settings.GEMINI_MODEL_CHEAP,
+            "trigger": settings.ZLM_MODEL_CHEAP,
+            "researcher": settings.ZLM_MODEL_SMART,
+            "extractor": settings.ZLM_MODEL_CHEAP,
         },
         token_usage={},
         latency_ms=latency_ms,

@@ -212,10 +212,12 @@ async def ask(
             status_code=400,
             detail=f"Message is too long (limit {settings.CHAT_MAX_QUESTION_CHARS} characters).",
         )
-    if not settings.GEMINI_API_KEY:
+    # ZLM drives both halves of a question — embedding it for retrieval and
+    # generating the answer — see agents/research_chat/pipeline.py.
+    if not settings.ZLM_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="Research Chat is not configured yet — GEMINI_API_KEY is missing on the server.",
+            detail="Research Chat is not configured yet — ZLM_API_KEY is missing on the server.",
         )
 
     if body.conversation_id is not None:
@@ -300,7 +302,7 @@ async def ask(
 @router.get("/index/stats")
 async def get_index_stats():
     stats = await index_stats()
-    stats["chatModel"] = settings.GEMINI_MODEL_CHAT
+    stats["chatModel"] = settings.ZLM_MODEL_CHAT
     # What the frontend actually needs to decide whether to warn "the index is
     # empty, answers will be thin" before the user's first question.
     stats["ready"] = bool(stats.get("totalChunks"))

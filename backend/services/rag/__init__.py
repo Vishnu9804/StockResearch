@@ -4,7 +4,7 @@ The retrieval layer behind Research Chat (agents/research_chat/).
     sources/     turn a real object (company profile, transcript PDF, news
                  article, help topic) into a RagSourceDocument
     chunking     split a document's text into retrievable passages
-    embeddings   Gemini embeddings, batched and normalised
+    embeddings   Zhipu (ZLM) embeddings, batched and normalised
     indexer      write documents+chunks to Postgres, skipping anything whose
                  content hash hasn't moved
     retriever    hybrid (vector + full-text) search with fusion and re-ranking

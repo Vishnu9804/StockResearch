@@ -4,9 +4,9 @@ import { useDispatch, useSelector } from 'react-redux'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
-import finscreenApi, { butterflyApi, type ButterflyAlertDto } from '@/services/finscreenApi'
+import finscreenApi, { butterflyApi, type ButterflyAlertDto, type ThematicResearchDto } from '@/services/finscreenApi'
 import { AppFooter } from '@/components/shared/AppFooter'
-import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox, BellRing, X, LogIn } from 'lucide-react'
+import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox, BellRing, X, LogIn, Lightbulb, ShieldCheck } from 'lucide-react'
 import { FeedCardSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
@@ -94,9 +94,17 @@ export function Feed() {
   // articles) that must never be blended into the same list as news.
   // 'alerts' is the user's own RED/ORANGE/YELLOW butterfly alerts — portfolio-
   // scoped, requires auth, never mixed into the public news/announcements lists.
+  // 'research' ("Pattern Research") is the Butterfly Effect's second, sparse
+  // output (O2 — backend/routers/butterfly.py:/thematic): the same
+  // portfolio-INDEPENDENT "what new demand does this event create" note
+  // shown to every user, public, no auth required — never mixed with the
+  // portfolio-scored alerts tab.
   const tabParam = searchParams.get('tab')
-  const activeTab: 'news' | 'announcements' | 'alerts' =
-    tabParam === 'announcements' ? 'announcements' : tabParam === 'alerts' ? 'alerts' : 'news'
+  const activeTab: 'news' | 'announcements' | 'alerts' | 'research' =
+    tabParam === 'announcements' ? 'announcements'
+      : tabParam === 'alerts' ? 'alerts'
+      : tabParam === 'research' ? 'research'
+      : 'news'
   const activeNewsCategory = searchParams.get('ncat') ?? 'All'
   const activeSeverity = (searchParams.get('sev') ?? 'All') as typeof ALERT_SEVERITIES[number]
 
@@ -131,6 +139,15 @@ export function Feed() {
   const [alertLimit] = useState(25)
   const [alertLoading, setAlertLoading] = useState(true)
   const [alertError, setAlertError]     = useState<string | null>(null)
+
+  // ── Pattern Research tab state (backend/routers/butterfly.py:/thematic —
+  // public, portfolio-independent O2 output) ────────────────────────────────
+  const [researchItems, setResearchItems]     = useState<ThematicResearchDto[]>([])
+  const [researchTotal, setResearchTotal]     = useState(0)
+  const [researchPage, setResearchPage]       = useState(1)
+  const [researchLimit] = useState(20)
+  const [researchLoading, setResearchLoading] = useState(true)
+  const [researchError, setResearchError]     = useState<string | null>(null)
 
   // ── Redux state ────────────────────────────────────────────────────────────
   const { items: rawItems, total, page, limit, status, error } =
@@ -219,6 +236,30 @@ export function Feed() {
       })
     return () => { cancelled = true }
   }, [activeTab, activeSeverity, alertPage, alertLimit, isAuthenticated])
+
+  // ── Pattern Research tab fetch — GET /api/butterfly/thematic, public (no
+  // auth gate, unlike the Alerts tab above) since O2 is portfolio-independent.
+  useEffect(() => {
+    if (activeTab !== 'research') return
+    let cancelled = false
+    setResearchLoading(true)
+    setResearchError(null)
+    butterflyApi
+      .listThematic({ page: researchPage, limit: researchLimit })
+      .then((res) => {
+        if (cancelled) return
+        setResearchItems(Array.isArray(res?.data) ? res.data : [])
+        setResearchTotal(typeof res?.total === 'number' ? res.total : 0)
+      })
+      .catch((err: any) => {
+        if (cancelled) return
+        setResearchError(err?.response?.data?.detail || err?.message || 'Failed to load pattern research')
+      })
+      .finally(() => {
+        if (!cancelled) setResearchLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [activeTab, researchPage, researchLimit])
 
   // ── Sidebar data (results calendar + news) ────────────────────────────────
   useEffect(() => {
@@ -309,7 +350,7 @@ export function Feed() {
   const displayResults = upcomingResultsList.some(d => d.items.length > 0) ? upcomingResultsList : UPCOMING_RESULTS
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const handleTabChange = (tab: 'news' | 'announcements' | 'alerts') => {
+  const handleTabChange = (tab: 'news' | 'announcements' | 'alerts' | 'research') => {
     const p = new URLSearchParams(searchParams)
     tab === 'news' ? p.delete('tab') : p.set('tab', tab)
     setSearchParams(p)
@@ -426,6 +467,13 @@ export function Feed() {
                 <BellRing className="size-3.5" />
                 Alerts
               </button>
+              <button
+                onClick={() => handleTabChange('research')}
+                className={`px-3.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'research' ? 'bg-surface text-accent shadow-xs' : 'hover:text-textPrimary'}`}
+              >
+                <Lightbulb className="size-3.5" />
+                Pattern Research
+              </button>
             </div>
 
             {/* Severity filter — Alerts tab only, keyed to the same
@@ -452,7 +500,7 @@ export function Feed() {
             )}
 
             {/* Filter controls */}
-            {activeTab !== 'alerts' && (
+            {activeTab !== 'alerts' && activeTab !== 'research' && (
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-surface border border-border/40 p-4 rounded-xl shadow-xs">
               <div className="flex overflow-x-auto scrollbar-hide gap-1.5 w-full sm:w-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
                 {(activeTab === 'news' ? NEWS_CATEGORIES : CATEGORIES).map(cat => (
@@ -502,7 +550,7 @@ export function Feed() {
             )}
 
             {/* Active search banner */}
-            {activeTab !== 'alerts' && (searchQuery || activeCategory !== 'All') && (
+            {activeTab !== 'alerts' && activeTab !== 'research' && (searchQuery || activeCategory !== 'All') && (
               <div className="bg-surface border border-border/40 px-5 py-3 rounded-xl flex items-center justify-between text-xs text-textSecondary shadow-xs animate-[fadeIn_0.15s_ease-out]">
                 <span>Active filter: <span className="font-semibold text-textPrimary">"{searchQuery || activeCategory}"</span></span>
                 <Link
@@ -691,7 +739,7 @@ export function Feed() {
                   />
                 )}
               </div>
-            ) : (
+            ) : activeTab === 'alerts' ? (
               /* ── Alerts card — backend/routers/butterfly.py's /api/butterfly/alerts.
                   The only place in this app a news item is colored RED/ORANGE/YELLOW:
                   every row here is a real, scored user_news_alerts write from the
@@ -785,6 +833,111 @@ export function Feed() {
                     onPageChange={(p) => setAlertPage(p)}
                     onLimitChange={() => {}}
                     limitOptions={[alertLimit]}
+                  />
+                )}
+              </div>
+            ) : (
+              /* ── Pattern Research card — backend/routers/butterfly.py's
+                  /api/butterfly/thematic (O2). Public, portfolio-independent:
+                  every card here is a real news_thematic_research row — the
+                  same "what new, non-obvious demand does this event create"
+                  note shown to every user, never a UI heuristic. Sparse by
+                  design; most news never earns a card here at all. ───────── */
+              <div className="bg-surface border border-border/40 rounded-xl overflow-hidden shadow-xs">
+                {researchError ? (
+                  <div className="p-6">
+                    <InlineError message={researchError} onRetry={() => setResearchPage(p => p)} />
+                  </div>
+                ) : researchLoading ? (
+                  <div className="p-4">
+                    <FeedCardSkeleton count={3} />
+                  </div>
+                ) : researchItems.length === 0 ? (
+                  <Empty className="py-12 border-0">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon"><Lightbulb className="size-6 text-textMuted" /></EmptyMedia>
+                      <EmptyTitle className="text-textPrimary font-semibold">No pattern research yet</EmptyTitle>
+                      <EmptyDescription className="text-textSecondary">
+                        Most news doesn't earn a research note — this fills in as the workflow finds a
+                        genuine, non-obvious derived opportunity in the news.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <div className="divide-y divide-border/40 p-1">
+                    {researchItems.map((item) => (
+                      <div key={item.id} className="m-2 p-4 rounded-xl border border-border/40 bg-surfaceMuted/20 flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-accent bg-accentSoft border border-accent/30 flex items-center gap-1">
+                              <Lightbulb className="size-3" />
+                              {item.derivedNeed?.need_type || 'Pattern'}
+                            </span>
+                            {item.derivedNeed?.key && (
+                              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-surfaceMuted text-textSecondary border border-border/40">
+                                {item.derivedNeed.key}
+                              </span>
+                            )}
+                          </div>
+                          {typeof item.confidence === 'number' && (
+                            <span className="text-[11px] text-textMuted font-medium">
+                              confidence {(item.confidence * 100).toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+
+                        {item.derivedNeed?.description && (
+                          <p className="text-sm text-textSecondary leading-snug">{item.derivedNeed.description}</p>
+                        )}
+                        {item.thesis && (
+                          <p className="text-sm text-textPrimary leading-snug">{item.thesis}</p>
+                        )}
+
+                        {item.candidateCompanies?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {item.candidateCompanies.map((c) => (
+                              <span
+                                key={c.symbol}
+                                title={c.relevance_reasoning}
+                                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-surface border border-border/50 text-textPrimary flex items-center gap-1"
+                              >
+                                {c.verified && <ShieldCheck className="size-3 text-emerald-600" />}
+                                {c.symbol}
+                                {c.company_name ? ` · ${c.company_name}` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {item.news && (
+                          <a
+                            href={item.news.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-accent hover:underline leading-snug flex items-center gap-1 w-fit"
+                          >
+                            {item.news.title}
+                            <ExternalLink className="size-3 opacity-60" />
+                          </a>
+                        )}
+                        <span className="text-[12px] text-textMuted font-medium">
+                          {item.news?.sourceName ?? 'Unknown source'}
+                          {item.horizon ? ` · horizon ${item.horizon.toLowerCase()}` : ''}
+                          {' · '}{new Date(item.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!researchLoading && !researchError && researchTotal > 0 && (
+                  <PaginationBar
+                    total={researchTotal}
+                    page={researchPage}
+                    limit={researchLimit}
+                    onPageChange={(p) => setResearchPage(p)}
+                    onLimitChange={() => {}}
+                    limitOptions={[researchLimit]}
                   />
                 )}
               </div>

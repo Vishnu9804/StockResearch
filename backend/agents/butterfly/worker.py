@@ -107,9 +107,11 @@ async def _claim_batch() -> list:
 
 
 async def run_butterfly_worker() -> None:
-    if not settings.GEMINI_API_KEY:
+    # ZLM drives every step in this workflow — see agents/butterfly/agents.py
+    # — so it's the only key that gates the worker.
+    if not settings.ZLM_API_KEY:
         logger.warning(
-            "[butterfly.worker] GEMINI_API_KEY is not set — idling without "
+            "[butterfly.worker] ZLM_API_KEY is not set — idling without "
             "analysing anything until a key is configured in .env"
         )
 
@@ -128,17 +130,17 @@ async def run_butterfly_worker() -> None:
         logger.info(
             "[butterfly.worker] starting — BACKLOG SKIPPED, only analysing news "
             "ingested on/after %s — model_cheap=%s model_smart=%s",
-            cutoff.isoformat(), settings.GEMINI_MODEL_CHEAP, settings.GEMINI_MODEL_SMART,
+            cutoff.isoformat(), settings.ZLM_MODEL_CHEAP, settings.ZLM_MODEL_SMART,
         )
     else:
         logger.info(
             "[butterfly.worker] starting — processing full backlog, oldest first — "
             "model_cheap=%s model_smart=%s",
-            settings.GEMINI_MODEL_CHEAP, settings.GEMINI_MODEL_SMART,
+            settings.ZLM_MODEL_CHEAP, settings.ZLM_MODEL_SMART,
         )
 
     while True:
-        if not settings.GEMINI_API_KEY:
+        if not settings.ZLM_API_KEY:
             await asyncio.sleep(settings.BUTTERFLY_POLL_INTERVAL_IDLE_SECONDS)
             continue
 
@@ -166,7 +168,7 @@ async def run_butterfly_worker() -> None:
                 # worker.py's cooldown is: if the two workers ever collide on
                 # the same per-minute limit once, a fixed cooldown keeps them
                 # retrying in lockstep forever after — jitter breaks that.
-                cooldown = settings.GEMINI_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
+                cooldown = settings.LLM_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
                 logger.warning(
                     "[butterfly.worker] quota exhausted — cooling down %.0fs before the next attempt",
                     cooldown,

@@ -26,6 +26,20 @@ _BANNED_PHRASES = re.compile(
 )
 
 
+_NAME_NOISE = re.compile(
+    r"\b(limited|ltd|private|pvt|corporation|corp|company|co|industries|"
+    r"enterprises|holdings|india|the|and|of|inc)\b|[^a-z0-9 ]",
+    re.IGNORECASE,
+)
+
+
+def _normalise_name(name: str) -> str:
+    """'Gujarat Fluorochemicals Ltd.' -> 'gujarat fluorochemicals'. Strips the
+    corporate-suffix noise that differs between how a research write-up names a
+    company and how the exchange lists it, so the two can be compared."""
+    return " ".join(_NAME_NOISE.sub(" ", name or "").lower().split())
+
+
 async def verify_thematic_result(result: ThematicExtractorResult) -> dict:
     verified_companies: list[dict] = []
 
@@ -39,10 +53,54 @@ async def verify_thematic_result(result: ThematicExtractorResult) -> dict:
             ).scalars().all()
         by_symbol = {row.symbol.upper(): row for row in rows}
 
+        # Second chance, by NAME, for candidates whose ticker didn't resolve.
+        # The research step reads company names out of web-search prose, where
+        # the exchange TICKER usually isn't stated at all — so the model infers
+        # one, and a plausible-but-wrong guess ("GFLUORO" for Gujarat
+        # Fluorochemicals, listed as FLUOROCHEM) got the whole company thrown
+        # away even though the company itself was real, listed, and correctly
+        # identified. Matching the name against company_metrics recovers those
+        # WITHOUT weakening the guarantee that matters: the row written to
+        # news_thematic_research still carries the real listed company's own
+        # symbol/name/price straight from company_metrics, never the model's
+        # guess. A candidate that matches neither symbol nor name is still
+        # dropped outright, exactly as before.
+        unresolved = [c for c in result.candidate_companies if c.symbol.strip().upper() not in by_symbol]
+        by_name: dict[str, CompanyMetric] = {}
+        if unresolved:
+            async with async_session_maker() as session:
+                all_names = (
+                    await session.execute(select(CompanyMetric.symbol, CompanyMetric.name))
+                ).all()
+            lookup = {_normalise_name(name): symbol for symbol, name in all_names if name}
+            wanted: dict[str, str] = {}
+            for candidate in unresolved:
+                key = _normalise_name(candidate.company_name)
+                if key and key in lookup:
+                    wanted[candidate.symbol.strip().upper()] = lookup[key]
+            if wanted:
+                async with async_session_maker() as session:
+                    matched = (
+                        await session.execute(
+                            select(CompanyMetric).where(CompanyMetric.symbol.in_(list(wanted.values())))
+                        )
+                    ).scalars().all()
+                by_real_symbol = {row.symbol: row for row in matched}
+                by_name = {
+                    claimed: by_real_symbol[real]
+                    for claimed, real in wanted.items()
+                    if real in by_real_symbol
+                }
+
+        seen: set[str] = set()
         for candidate in result.candidate_companies:
-            match = by_symbol.get(candidate.symbol.strip().upper())
+            claimed = candidate.symbol.strip().upper()
+            match = by_symbol.get(claimed) or by_name.get(claimed)
             if match is None:
                 continue  # unverifiable — dropped, never stored with an invented price
+            if match.symbol in seen:
+                continue  # two candidate spellings resolved to the same listed company
+            seen.add(match.symbol)
             verified_companies.append({
                 "symbol": match.symbol,
                 "company_name": match.name,

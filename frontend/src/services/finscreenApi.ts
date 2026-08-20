@@ -156,6 +156,48 @@ export const butterflyApi = {
     apiClient.get('/butterfly/alerts/summary').then(r => r.data as { unread: Record<string, number>; unreadTotal: number }),
   markRead: (alertId: string) => apiClient.patch(`/butterfly/alerts/${alertId}/read`).then(r => r.data),
   dismiss: (alertId: string) => apiClient.patch(`/butterfly/alerts/${alertId}/dismiss`).then(r => r.data),
+  listThematic: (params: { page?: number; limit?: number } = {}) =>
+    apiClient.get('/butterfly/thematic', { params }).then(r => r.data as { data: ThematicResearchDto[]; total: number; page: number; limit: number }),
+}
+
+// --- Butterfly Effect thematic research / "Pattern Research" (O2 —
+// backend/routers/butterfly.py:/thematic). Portfolio-INDEPENDENT and public
+// (no auth): the same "what new, non-obvious real-world demand does this
+// event create" note is shown to every user, unlike the RED/ORANGE/YELLOW
+// alerts above which are scored per-portfolio. Sparse by design — most news
+// never earns a row here. derivedNeed/candidateCompanies keep the snake_case
+// keys they're stored with in Postgres jsonb (only the top-level DTO fields
+// are camelCased by the router).
+export interface ThematicResearchDto {
+  id: string
+  newsId: string
+  derivedNeed: {
+    need_type: string
+    key: string | null
+    description: string | null
+    demand_direction: number
+  } | null
+  candidateCompanies: Array<{
+    symbol: string
+    company_name: string | null
+    relevance_reasoning: string
+    current_price: number | null
+    price_as_of: string | null
+    verified: boolean
+  }>
+  thesis: string | null
+  confidence: number | null
+  novelty: number | null
+  horizon: string | null
+  evidence: string[]
+  createdAt: string
+  news: {
+    title: string
+    summary: string | null
+    url: string
+    sourceName: string
+    publishedAt: string
+  } | null
 }
 
 // Default export to satisfy components importing it directly

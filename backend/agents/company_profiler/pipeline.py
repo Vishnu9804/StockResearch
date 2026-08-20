@@ -21,6 +21,7 @@ from agents.company_profiler.schemas import ProfileExtractionResult
 from agents.company_profiler.verifier import verify_and_shape
 from agents.shared.adk_runner import run_agent_text
 from agents.shared.json_utils import parse_structured
+from agents.shared.zlm_web_search import format_results, web_search_many
 from core.config import settings
 from core.database import async_session_maker
 from models.models import CompanyExposureProfile, CompanyMetric
@@ -41,9 +42,27 @@ async def build_profile(symbol: str) -> None:
         return
 
     started = time.monotonic()
-    brief = prompts.format_company_brief(company.symbol, company.name, company.sector, company.industry)
-
     logger.info("[company_profiler.pipeline] symbol=%s START — %s", symbol, company.name)
+
+    # Three broad queries rather than one: this profile covers ten distinct
+    # exposure categories (revenue mix through peers — see prompts.py), and a
+    # single query rarely surfaces good evidence for all of them at once.
+    queries = [
+        f"{company.name} {symbol} annual report revenue business segments",
+        f"{company.name} cost structure raw material input costs",
+        f"{company.name} investor presentation export import currency exposure debt",
+    ]
+    try:
+        search_results = await web_search_many(queries, count_per_query=settings.ZLM_WEB_SEARCH_RESULT_COUNT)
+    except Exception:
+        logger.exception(
+            "[company_profiler.pipeline] symbol=%s web_search failed — deferring to next cycle",
+            symbol,
+        )
+        return
+    brief = prompts.format_company_brief(
+        company.symbol, company.name, company.sector, company.industry, format_results(search_results),
+    )
 
     research_text = await run_agent_text(profiler_agents.profiler_agent(), brief)
     extraction_raw = await run_agent_text(
@@ -88,9 +107,9 @@ async def _write_profile(symbol: str, company_name: str, sector: str | None, ind
         evidence_refs=shaped["evidence_refs"],
         confidence=shaped["confidence"],
         profile_version=WORKFLOW_VERSION,
-        # Both stages run on the cheap model — see agents/company_profiler/
-        # agents.py for why (keeps the smart-model budget free for butterfly).
-        model_version=settings.GEMINI_MODEL_CHEAP,
+        # Both stages run on the same ZLM cheap tier — see agents/
+        # company_profiler/agents.py.
+        model_version=settings.ZLM_MODEL_CHEAP,
     )
     # updated_at is maintained by the trg_exposure_updated_at DB trigger
     # (migrations/001_news_and_butterfly_effect.sql) — never set it here.

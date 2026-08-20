@@ -30,7 +30,7 @@ from sqlalchemy import select
 
 from agents.research_chat import guardrails, prompts
 from agents.shared.adk_runner import run_agent_text
-from agents.shared.llm import chat_generation_config, chat_model
+from agents.shared.llm import chat_model
 from core.config import settings
 from core.database import async_session_maker
 from models.models import RagDocument
@@ -76,12 +76,15 @@ class ChatAnswer:
 def _answering_agent(language_level: str) -> LlmAgent:
     """Built fresh per call — same reasoning as agents/butterfly/agents.py, and
     doubly so here because the instruction itself varies with the requested
-    language level."""
+    language level.
+
+    chat_model() is ZLM (agents/shared/llm.py) — no generate_content_config
+    here, since that field is Gemini-SDK-typed and thinking is controlled via
+    the model's own extra_body kwarg instead (core/config.py:ZLM_THINKING_CHAT)."""
     return LlmAgent(
         name="finscreen_research_chat",
         model=chat_model(),
         instruction=prompts.build_instruction(language_level),
-        generate_content_config=chat_generation_config(),
     )
 
 
@@ -265,5 +268,5 @@ async def answer_question(
         citations=citations,
         retrieval_debug=debug,
         latency_ms=latency_ms,
-        model=settings.GEMINI_MODEL_CHAT,
+        model=settings.ZLM_MODEL_CHAT,
     )

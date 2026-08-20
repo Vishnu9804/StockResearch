@@ -57,9 +57,11 @@ async def _symbols_needing_profile() -> list[str]:
 
 
 async def run_company_profiler_worker() -> None:
-    if not settings.GEMINI_API_KEY:
+    # ZLM drives every step in this workflow — see agents/company_profiler/
+    # agents.py — so it's the only key that gates the worker.
+    if not settings.ZLM_API_KEY:
         logger.warning(
-            "[company_profiler.worker] GEMINI_API_KEY is not set — idling without "
+            "[company_profiler.worker] ZLM_API_KEY is not set — idling without "
             "building any profiles until a key is configured in .env"
         )
     else:
@@ -78,7 +80,7 @@ async def run_company_profiler_worker() -> None:
         await asyncio.sleep(settings.COMPANY_PROFILER_STARTUP_STAGGER_SECONDS)
 
     while True:
-        if not settings.GEMINI_API_KEY:
+        if not settings.ZLM_API_KEY:
             await asyncio.sleep(settings.COMPANY_PROFILER_POLL_INTERVAL_IDLE_SECONDS)
             continue
 
@@ -115,7 +117,7 @@ async def run_company_profiler_worker() -> None:
             # ever collide on the same per-minute limit once, don't then retry
             # in lockstep forever after — see the startup-stagger comment above
             # for the fuller version of this reasoning.
-            cooldown = settings.GEMINI_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
+            cooldown = settings.LLM_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
             logger.warning("[company_profiler.worker] quota exhausted — cooling down %.0fs", cooldown)
             await asyncio.sleep(cooldown)
         else:

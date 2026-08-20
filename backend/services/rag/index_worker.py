@@ -165,9 +165,9 @@ async def run_index_cycle(include_news: bool = True, chunk_budget: int | None = 
     does run out, what gets deferred is the corpus that suffers least from
     arriving a cycle later — never the one the chat is useless without.
     """
-    if not settings.GEMINI_API_KEY:
-        logger.warning("[rag.index_worker] GEMINI_API_KEY is not set — nothing can be embedded")
-        return {"skipped": "GEMINI_API_KEY is not set"}
+    if not settings.ZLM_API_KEY:
+        logger.warning("[rag.index_worker] ZLM_API_KEY is not set — nothing can be embedded")
+        return {"skipped": "ZLM_API_KEY is not set"}
 
     budget = settings.RAG_MAX_CHUNKS_PER_CYCLE if chunk_budget is None else chunk_budget
     report: dict = {}
@@ -360,16 +360,16 @@ async def ensure_company_indexed(symbol: str) -> dict:
 
 
 async def run_rag_index_worker() -> None:
-    if not settings.GEMINI_API_KEY:
+    if not settings.ZLM_API_KEY:
         logger.warning(
-            "[rag.index_worker] GEMINI_API_KEY is not set — idling without indexing "
+            "[rag.index_worker] ZLM_API_KEY is not set — idling without indexing "
             "anything until a key is configured in .env"
         )
     else:
         # Staggered past the butterfly and company-profiler workers for the
         # same reason they are staggered from each other (see
         # COMPANY_PROFILER_STARTUP_STAGGER_SECONDS): several workers firing
-        # their first Gemini call within the same second at boot can trip a
+        # their first ZLM call within the same second at boot can trip a
         # per-minute limit before any of them has done real work. Embeddings
         # draw on a different quota than generation, but the startup burst is
         # the same shape, and being last costs nothing.
@@ -381,7 +381,7 @@ async def run_rag_index_worker() -> None:
         await asyncio.sleep(settings.RAG_INDEX_STARTUP_STAGGER_SECONDS)
 
     while True:
-        if not settings.GEMINI_API_KEY:
+        if not settings.ZLM_API_KEY:
             await asyncio.sleep(settings.RAG_INDEX_INTERVAL_SECONDS)
             continue
 
@@ -397,7 +397,7 @@ async def run_rag_index_worker() -> None:
             # Randomised, same reasoning as agents/company_profiler/worker.py:
             # so two workers that collide on a shared limit once don't then
             # retry in lockstep forever.
-            cooldown = settings.GEMINI_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
+            cooldown = settings.LLM_QUOTA_COOLDOWN_SECONDS + random.uniform(0, 15)
             logger.warning("[rag.index_worker] embedding quota exhausted — cooling down %.0fs", cooldown)
             await asyncio.sleep(cooldown)
         elif total.get("moreWorkPending"):

@@ -188,6 +188,40 @@ def iter_profile_exposure_entries(profile) -> list[dict]:
                 "rationale": fx.get("rationale", ""),
             })
 
+    # Interest-rate exposure, synthesised from the rate_sensitivity SCALAR the
+    # same way FX entries are synthesised from the fx_exposure dict above.
+    #
+    # Without this, rate sensitivity is stored but structurally unmatchable: a
+    # RATE:INDIA causal chain (rate decisions are among the most frequent
+    # market-moving stories there are) could never reach the VERIFIED tier for
+    # ANY company, because no exposure LIST column ever holds a RATE:INDIA
+    # entry — banks, NBFCs, real estate and leveraged infrastructure names,
+    # i.e. exactly the companies a rate move matters most to, were permanently
+    # capped at the NAMED/SECTOR guess tiers on rate news.
+    #
+    # The sign conventions already agree exactly — company_profiler's
+    # rate_sensitivity is documented "negative = hurt by rising rates" and
+    # ExposureEntry.net_exposure is "negative = hurt when the factor rises" —
+    # so this is a straight re-expression of a number the profile already
+    # holds, not a new estimate. Done at read time so every profile row
+    # already in the database gains it without a migration or a re-profile.
+    rate_sensitivity = getattr(profile, "rate_sensitivity", None)
+    if rate_sensitivity is not None:
+        rate_value = float(rate_sensitivity)
+        # Skip the noise floor: a near-zero sensitivity is "not rate-driven",
+        # and an entry at that magnitude could never clear a severity
+        # threshold anyway — storing it would only add a false VERIFIED match.
+        if abs(rate_value) >= 0.05 and not any(
+            e["axis"] == "RATE" and e["key"] == "RATE:INDIA" for e in entries
+        ):
+            entries.append({
+                "axis": "RATE",
+                "key": "RATE:INDIA",
+                "net_exposure": clamp(rate_value, -1.0, 1.0),
+                "hedged_pct": 0.0,
+                "rationale": "Derived from this company's overall domestic interest-rate sensitivity.",
+            })
+
     return entries
 
 

@@ -16,7 +16,7 @@ from services.rag.index_worker import run_rag_index_worker
 
 # Quiet by default, agent logs opted IN explicitly — the opposite of trying to
 # name every noisy source one by one (FinEdge sync, news ingestion, uvicorn,
-# sqlalchemy, the raw Gemini SDK, ...). logging.basicConfig sets the ROOT
+# sqlalchemy, the raw litellm/ZLM SDK, ...). logging.basicConfig sets the ROOT
 # logger, and every logger in the process that never calls its own
 # .setLevel() inherits whatever level its nearest ancestor has — so setting
 # root to WARNING silences everything in the app EXCEPT the loggers in
@@ -49,11 +49,14 @@ _AGENT_LOGGERS = (
 for _name in _AGENT_LOGGERS:
     logging.getLogger(_name).setLevel(_AGENT_LOG_LEVEL)
 
-# Belt-and-braces for google_adk/google_genai specifically: they log the FULL
-# raw Gemini error at ERROR level on every failed call, and ERROR is ABOVE
-# WARNING — root's WARNING default would not hide it. Our own code already
-# logs a clean one-line equivalent for every failure that matters (see
-# agents/shared/adk_runner.py), so nothing real is lost by silencing these.
+# Belt-and-braces for google_adk/google_genai/LiteLLM specifically: they log
+# the FULL raw provider error at ERROR level on every failed call, and ERROR
+# is ABOVE WARNING — root's WARNING default would not hide it. "LiteLLM" is
+# the logger ADK's LiteLlm wrapper drives every ZLM call through (agents/
+# shared/llm.py) — verified live against this project's own litellm install,
+# Aug 2026. Our own code already logs a clean one-line equivalent for every
+# failure that matters (see agents/shared/adk_runner.py), so nothing real is
+# lost by silencing these.
 #
 # "finedge" is the same story but for a different reason: it's a REAL,
 # unrelated system (the stock-price/fundamentals proxy, see services/
@@ -63,7 +66,7 @@ for _name in _AGENT_LOGGERS:
 # silenced too. Trade-off, on purpose: a genuine FinEdge outage won't be
 # visible here anymore — if that visibility is ever needed again, drop
 # "finedge" out of this tuple.
-for _silent_logger in ("google_adk", "google_genai", "finedge"):
+for _silent_logger in ("google_adk", "google_genai", "LiteLLM", "finedge"):
     logging.getLogger(_silent_logger).setLevel(logging.CRITICAL)
 
 logger = logging.getLogger("main")

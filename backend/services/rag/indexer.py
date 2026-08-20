@@ -131,7 +131,7 @@ async def _write_document(document: RagSourceDocument, chunks: list[str], vector
         content_hash=content_hash(document.text),
         extra_metadata=document.metadata or {},
         chunk_count=len(chunks),
-        embedding_model=settings.GEMINI_EMBEDDING_MODEL,
+        embedding_model=settings.ZLM_EMBEDDING_MODEL,
     )
 
     async with async_session_maker() as session:
@@ -379,7 +379,7 @@ async def index_stats() -> dict:
 
     chunk_counts = {source_type: count for source_type, count in chunk_rows}
     return {
-        "embeddingModel": settings.GEMINI_EMBEDDING_MODEL,
+        "embeddingModel": settings.ZLM_EMBEDDING_MODEL,
         "embeddingDim": settings.RAG_EMBEDDING_DIM,
         "totalDocuments": sum(count for _, count, _ in document_rows),
         "totalChunks": sum(chunk_counts.values()),

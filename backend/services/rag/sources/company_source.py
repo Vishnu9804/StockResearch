@@ -12,13 +12,15 @@ Two company corpora, from two tables that already exist:
                         agents/company_profiler/, the multi-agent workflow.
 
 This module reads both tables and cares not at all HOW a row got there. That
-matters right now: company_profiler's first agent uses google_search, which
-needs billing enabled, so ENABLE_COMPANY_PROFILER_WORKER is currently false and
-the three held symbols have hand-seeded rows standing in for its output
-(model_version = 'MANUAL_SEED_v1'). Reading the table rather than the workflow
-means turning the real workflow back on requires no change here at all — the
-same rows appear, with a real model_version, and get re-indexed automatically
-because their content hash moves.
+matters right now: ENABLE_COMPANY_PROFILER_WORKER is currently false (left off
+from earlier testing, back when profiler_agent's Gemini google_search step
+needed billing that wasn't in place — it now runs on ZLM instead, see agents/
+company_profiler/agents.py), so the three held symbols have hand-seeded rows
+standing in for its output (model_version = 'MANUAL_SEED_v1'). Reading the
+table rather than the workflow means turning the real workflow back on
+requires no change here at all — the same rows appear, with a real
+model_version, and get re-indexed automatically because their content hash
+moves.
 
 Fundamentals are deliberately rendered as ONE chunk per company rather than
 split. A ratio is only interpretable next to the company it belongs to and the

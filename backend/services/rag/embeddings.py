@@ -3,18 +3,19 @@ The only place in the codebase that turns text into vectors.
 
 Deliberately NOT routed through agents/shared/adk_runner.py: that module wraps
 google-adk's LlmAgent/Runner machinery, which exists to run a *conversational
-turn*. An embedding call is a plain, stateless google-genai request with no
-agent, no session and no tool loop, so it uses the SDK client directly — while
-still borrowing adk_runner's two conventions that do apply here: a per-model
-request counter for live quota visibility, and treating HTTP 429 as its own
-distinct, non-retryable-right-now failure.
+turn*. An embedding call is a plain, stateless REST request with no agent, no
+session and no tool loop, so it goes straight to Z.ai's HTTP API via httpx —
+while still borrowing adk_runner's two conventions that do apply here: a
+per-model request counter for live quota visibility, and treating HTTP 429 as
+its own distinct, non-retryable-right-now failure.
 
-Two task types, and the difference is not cosmetic. gemini-embedding-001 is
-trained asymmetrically: RETRIEVAL_DOCUMENT and RETRIEVAL_QUERY place a passage
-and the question that should find it into a *shared* space. Embedding both
-sides with the same task type measurably degrades recall, so the two entry
-points below are separate functions rather than one with a flag nobody
-remembers to set.
+Provider: Zhipu AI / Z.ai's embedding-3 (core/config.py:ZLM_EMBEDDING_MODEL),
+paid via the same ZLM_API_KEY as every LLM call in this codebase — see
+core/config.py's provider-split comment for why this replaced Gemini's
+embeddings entirely (Gemini's free tier caps at 1000 embeddings/day; a paid,
+usage-billed API has no such daily wall, which is what makes it safe to build
+a chatbot corpus — PDFs, news, transcripts — without worrying it'll stop
+mid-indexing for a day).
 """
 import asyncio
 import logging
@@ -22,14 +23,17 @@ import math
 import re
 import time
 
-from google import genai
-from google.genai import types as genai_types
-from google.genai.errors import ClientError
+import httpx
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from core.config import settings
 
 logger = logging.getLogger("services.rag.embeddings")
+
+_ENDPOINT = "https://api.z.ai/api/paas/v4/embeddings"
+# Hard API cap, verified against Z.ai/Zhipu's own docs (Aug 2026) — a request
+# over this is rejected outright, unlike Gemini's old 100-per-request cap.
+_MAX_TEXTS_PER_REQUEST = 64
 
 
 class EmbeddingError(RuntimeError):
@@ -37,19 +41,23 @@ class EmbeddingError(RuntimeError):
 
 
 class EmbeddingQuotaError(EmbeddingError):
-    """HTTP 429 from the embedding endpoint — the daily/per-minute cap is spent.
+    """HTTP 429 from the embedding endpoint — the per-minute rate limit is spent
+    right now.
 
     Kept distinct for exactly the reason agents/shared/adk_runner.py keeps
-    QuotaExhaustedError distinct: no amount of short backoff recovers a quota
-    that is already at zero, so callers must cool down rather than retry.
+    QuotaExhaustedError distinct: no amount of short backoff recovers a rate
+    limit that just tripped, so callers must cool down rather than retry
+    immediately. Unlike the old Gemini free tier, there is no separate DAILY
+    cap to distinguish here — this is a paid, usage-billed API, so a 429 only
+    ever means "too many requests this minute," never "out of free quota for
+    the day."
     """
 
 
 # Same in-process, non-persisted counter idea as agents/shared/adk_runner.py —
-# AI Studio's own dashboard lags, so this is the accurate live number during a
+# Z.ai's own dashboard lags, so this is the accurate live number during a
 # dev/test session. Not a rate limiter.
 _request_count = 0
-_client: genai.Client | None = None
 
 
 def get_request_count() -> int:
@@ -57,26 +65,18 @@ def get_request_count() -> int:
     return _request_count
 
 
-def _get_client() -> genai.Client:
-    """Built lazily and cached: constructing a Client validates nothing, but a
-    fresh one per batch would throw away the SDK's connection pool on a code
-    path that fires up to 100 times during a single index cycle."""
-    global _client
-    if not settings.GEMINI_API_KEY:
+def _headers() -> dict[str, str]:
+    if not settings.ZLM_API_KEY:
         raise EmbeddingError(
-            "GEMINI_API_KEY is not set — cannot embed. Set it in backend/.env; "
+            "ZLM_API_KEY is not set — cannot embed. Set it in backend/.env; "
             "every RAG entry point checks this and degrades gracefully rather "
             "than crashing."
         )
-    if _client is None:
-        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    return _client
+    return {"Authorization": f"Bearer {settings.ZLM_API_KEY}", "Content-Type": "application/json"}
 
 
 def is_quota_error(exc: BaseException) -> bool:
-    return isinstance(exc, (EmbeddingQuotaError,)) or (
-        isinstance(exc, ClientError) and getattr(exc, "code", None) == 429
-    )
+    return isinstance(exc, EmbeddingQuotaError)
 
 
 def _should_retry(exc: BaseException) -> bool:
@@ -85,9 +85,14 @@ def _should_retry(exc: BaseException) -> bool:
 
 # ── Proactive throttle ───────────────────────────────────────────────────────
 # Same token-bucket idea as core/rate_limiter.py, with one difference that
-# matters: a call costs N tokens, not one, because the quota this defends
-# counts TEXTS rather than HTTP requests (see
-# core/config.py:RAG_EMBEDDING_TEXTS_PER_MINUTE for how that was established).
+# matters: a call costs N tokens, not one, because whatever per-minute limit
+# this defends against counts TEXTS rather than HTTP requests — see
+# core/config.py:RAG_EMBEDDING_TEXTS_PER_MINUTE. That starting number is a
+# reasonable default, not yet verified live against a real Zhipu key (this
+# codebase has been burned before by trusting docs over a live dashboard —
+# see core/config.py:RAG_EMBEDDING_TEXTS_PER_MINUTE for that history) — so the
+# self-tuning below is what actually keeps this correct in practice,
+# regardless of whether the starting number is exactly right.
 #
 # In-process rather than the shared Redis bucket, because every embedding call
 # in this system comes from a single owner — the index worker (or a one-off
@@ -105,20 +110,13 @@ _cooldown_until: float = 0.0
 class _TextBudget:
     """Token bucket that TUNES ITSELF to whatever the key actually allows.
 
-    A fixed rate is not good enough here, and that is an empirical finding
-    rather than a design preference. The documented free-tier ceiling is 100
-    texts/minute and it holds on a rested key — but after sustained indexing
-    the same key sustains barely a third of that, and no static number is
-    right in both states. Measured directly: after 90 seconds of complete
-    silence, a 25-text request was still rejected, and each further 25-text
-    request added ~40 seconds of debt to a 60-second window.
-
-    So the rate is controlled AIMD-style, the way congestion control has
-    always handled a capacity you cannot observe directly: halve it on a
-    rejection, edge it back up on every success. On a rested key it converges
-    to the configured ceiling within a couple of minutes; on a throttled one it
-    settles wherever the throughput actually is, without a human editing a
-    config value to match the weather.
+    Ported from the Gemini version of this file with the same reasoning
+    (a fixed rate is not trustworthy — see core/config.py's live-verification
+    comments), rate-controlled AIMD-style: halve it on a rejection, edge it
+    back up on every success. On a rested key it converges to the configured
+    ceiling within a couple of minutes; on a throttled one it settles wherever
+    the throughput actually is, without a human editing a config value to
+    match the weather.
     """
 
     # Never decays below this — a bucket that backs off to nothing would look
@@ -129,40 +127,19 @@ class _TextBudget:
         self._max_rate = max(texts_per_minute / 60.0, 0.1)
         self._min_rate = min(self._MIN_TEXTS_PER_MINUTE / 60.0, self._max_rate)
         self._rate = self._max_rate
-        # Deliberately NOT full at startup. A bucket that starts full assumes
-        # the provider's window is empty, which is false whenever a process
-        # restarts shortly after doing work — and a short-lived process (the
-        # one-off /api/chat/index/run) is then guaranteed to burst straight
-        # into a 429 before it has embedded anything. Verified: starting full
-        # reproducibly 429s on the third batch of a fresh run.
-        #
-        # A small non-zero start is the compromise: the latency-sensitive path
-        # (one text, to embed a chat question) never waits, while bulk
-        # indexing ramps up over the first ~40 seconds instead of spiking.
+        # Deliberately NOT full at startup — see the Gemini-era version of
+        # this file for the measured reasoning (a bucket that starts full
+        # guarantees a burst 429 on a process that just restarted).
         self._tokens = min(float(self.capacity), 10.0)
         self._updated = time.monotonic()
         self._lock = asyncio.Lock()
 
     @property
     def capacity(self) -> int:
-        """Largest batch this bucket can charge honestly, at the CURRENT rate.
-
-        Callers size their batches to this rather than to the API's own
-        100-per-request cap, for two reasons: a batch larger than the bucket
-        would have to be clamped (silently under-charging the difference and
-        drifting over the real limit a few texts at a time), and while the
-        rate is backed off, smaller batches are what let progress continue at
-        all instead of one oversized request failing over and over.
-        """
+        """Largest batch this bucket can charge honestly, at the CURRENT rate."""
         return max(1, int(self._rate * 60.0))
 
     def penalise(self) -> None:
-        """Multiplicative decrease, plus a drain. Called on every rejection.
-
-        The drain is not redundant with the cooldown: the cooldown stops the
-        NEXT call from going out too early, and the drain stops it from going
-        out with a full allowance the moment the cooldown lapses.
-        """
         previous = self._rate * 60.0
         self._rate = max(self._min_rate, self._rate * 0.5)
         self._tokens = 0.0
@@ -173,15 +150,6 @@ class _TextBudget:
         )
 
     def reward(self) -> None:
-        """Additive increase after a success — a TENTH of the ceiling.
-
-        Small on purpose. A larger step (a fifth was tried first) overshoots
-        immediately once the sustainable rate is well below the ceiling:
-        observed live, 15/min succeeded, the reward jumped it to 27, and 27 was
-        rejected — so the controller spent every other call paying for its own
-        optimism. A tenth still recovers a rested key to full speed inside a
-        dozen successful calls, which is fast enough for a background job.
-        """
         if self._rate >= self._max_rate:
             return
         self._rate = min(self._max_rate, self._rate + self._max_rate / 10.0)
@@ -192,11 +160,10 @@ class _TextBudget:
         `max_wait` caps how long the caller is willing to be blocked, raising
         instead of waiting past it. Background indexing passes None — waiting
         is exactly what it should do. The chat's per-question query embedding
-        passes a couple of seconds, because a user is on the other end: when
-        the daily quota is spent the cooldown is an HOUR, and waiting it out
-        would hang the request rather than degrade it. Failing fast there lets
-        services/rag/retriever.py fall back to keyword-only search, which is a
-        worse answer delivered in seconds instead of no answer at all.
+        passes a couple of seconds, because a user is on the other end.
+        Failing fast there lets services/rag/retriever.py fall back to
+        keyword-only search, which is a worse answer delivered in seconds
+        instead of no answer at all.
         """
         cost = max(1, min(cost, self.capacity))
 
@@ -215,10 +182,6 @@ class _TextBudget:
         while True:
             async with self._lock:
                 now = time.monotonic()
-                # Accumulate no more than the CURRENT rate's worth, not the
-                # configured maximum: while backed off, letting a long idle
-                # refill the bucket to the old ceiling would hand back exactly
-                # the burst the backoff just took away.
                 self._tokens = min(
                     float(self.capacity), self._tokens + (now - self._updated) * self._rate
                 )
@@ -249,8 +212,7 @@ def _get_budget() -> _TextBudget:
 # How many CONSECUTIVE 429s one embed_documents call absorbs before deferring
 # the rest. Each retry costs a real wait (the provider's own suggested delay,
 # enforced by _cooldown_until), so this is a time budget as much as an attempt
-# count — three in a row is enough to ride out a window boundary, few enough
-# that a genuinely spent quota is noticed within a couple of minutes.
+# count.
 _MAX_QUOTA_RETRIES = 3
 
 # How long the chat's per-question query embedding will wait for allowance
@@ -258,36 +220,32 @@ _MAX_QUOTA_RETRIES = 3
 # because a user is watching a loading indicator.
 _QUERY_MAX_WAIT_SECONDS = 2.5
 
+# Best-effort — matches the "retry in Xs" phrasing Gemini used to return.
+# NOT verified against Zhipu's actual 429 body (unlike the rest of this
+# comment block's Gemini-era numbers, which were confirmed live before being
+# relied on). Harmless if it never matches: _suggested_retry_seconds then
+# returns None and the caller falls back to a flat 60s wait.
 _RETRY_DELAY_RE = re.compile(r"retry in ([0-9.]+)s", re.IGNORECASE)
-# The 429 body names the exact quota it tripped. Distinguishing the two
-# matters a lot: a per-minute wall clears in under a minute, a daily one does
-# not clear meaningfully until the reset — and both arrive with a
-# tens-of-seconds "retry in" hint, so the hint alone cannot tell them apart.
-_DAILY_QUOTA_RE = re.compile(r"PerDay|RequestsPerDay", re.IGNORECASE)
 
 
 def _suggested_retry_seconds(exc: BaseException) -> float | None:
-    """Gemini's own "Please retry in 1.8s". Honouring it turns a recoverable
-    throttle into a short pause instead of a deferred cycle."""
     match = _RETRY_DELAY_RE.search(str(exc))
     return float(match.group(1)) if match else None
-
-
-def is_daily_quota_error(exc: BaseException) -> bool:
-    return bool(_DAILY_QUOTA_RE.search(str(exc)))
 
 
 def _normalise(vector: list[float]) -> list[float]:
     """Re-scale to unit length.
 
-    Required, not optional: gemini-embedding-001 returns unit-normalised
-    vectors ONLY at its native 3072 dimensions. Ask for fewer (Matryoshka
-    truncation, which is what RAG_EMBEDDING_DIM does) and the result is a
-    truncated prefix whose norm is < 1 and, crucially, VARIES with the text.
-    Cosine distance in Postgres would then be comparing vectors of different
-    lengths — google's own guidance is to re-normalise after truncating, and
-    skipping it produces a ranking that is subtly, silently wrong rather than
-    obviously broken.
+    Defensive rather than confirmed-necessary: unlike gemini-embedding-001
+    (whose Matryoshka truncation was verified live to return a vector whose
+    norm varies with the text unless renormalised), Zhipu's `dimensions`
+    parameter is not documented as truncation of a larger native vector, and
+    there's no live-verified evidence either way for embedding-3's specific
+    behaviour at a non-default dimension. Renormalising is a no-op on a
+    vector that's already unit length, so this stays on as cheap insurance
+    against a ranking that would otherwise be silently, subtly wrong rather
+    than obviously broken — the same failure mode the Gemini version of this
+    file was written to avoid.
     """
     norm = math.sqrt(sum(component * component for component in vector))
     if norm == 0.0:
@@ -297,50 +255,21 @@ def _normalise(vector: list[float]) -> list[float]:
 
 @retry(reraise=True, stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=20),
        retry=retry_if_exception(_should_retry))
-async def _embed_batch(
-    texts: list[str],
-    task_type: str,
-    max_wait: float | None = None,
-) -> list[list[float]]:
+async def _embed_batch(texts: list[str], max_wait: float | None = None) -> list[list[float]]:
     """Exactly ONE paced attempt. Retrying is the caller's job — see
-    embed_documents, and this is not an arbitrary split.
-
-    The counter-intuitive fact the whole design turns on, established live: **a
-    rejected embedding request is still metered.** Measured directly — five
-    50-text calls, 45 seconds apart, all rejected, and the provider's own
-    suggested retry delay climbed monotonically with each one (16s, 30s, 45s,
-    59s) instead of falling. A conventional retry loop, with a backoff schedule
-    guessed in advance, makes this strictly worse the harder it tries.
-
-    Retrying HERE has a second, subtler problem that is why the retry moved
-    out: a 429 shrinks the pacing rate (see _TextBudget), but this function has
-    already been handed a fixed list of texts, so a local retry would re-send
-    the same oversized batch the reduced rate has just decided is too big. The
-    caller can re-slice; this cannot.
-    """
+    embed_documents, and this is not an arbitrary split (see the Gemini-era
+    version of this file for the measured reasoning: a rejected request is
+    still metered on some providers, and a local retry here would re-send a
+    batch size the pacer has just decided is too big)."""
     global _cooldown_until
 
     budget = _get_budget()
     await budget.acquire(len(texts), max_wait=max_wait)
     try:
-        vectors = await _embed_once(texts, task_type)
+        vectors = await _embed_once(texts)
     except EmbeddingQuotaError as exc:
-        if is_daily_quota_error(exc):
-            # The DAILY budget, not the per-minute window. Its "retry in 43s"
-            # hint describes a trickle refill, not real recovery — obeying it
-            # would have the worker retry every minute for the rest of the day.
-            wait_for = float(settings.RAG_EMBEDDING_DAILY_QUOTA_COOLDOWN_SECONDS)
-            logger.warning(
-                "[rag.embeddings] DAILY embedding quota is spent (free tier is 1000 "
-                "texts/day). Standing down for %.0f minutes — indexing resumes "
-                "automatically; already-indexed content keeps answering questions.",
-                wait_for / 60,
-            )
-        else:
-            hinted = _suggested_retry_seconds(exc)
-            # No hint means we have no idea how deep the hole is; assume a full
-            # window rather than optimistically resuming.
-            wait_for = hinted if hinted is not None else 60.0
+        hinted = _suggested_retry_seconds(exc)
+        wait_for = hinted if hinted is not None else 60.0
         _cooldown_until = max(_cooldown_until, time.monotonic() + wait_for + 2.0)
         budget.penalise()
         raise
@@ -349,48 +278,60 @@ async def _embed_batch(
         return vectors
 
 
-async def _embed_once(texts: list[str], task_type: str) -> list[list[float]]:
+async def _embed_once(texts: list[str]) -> list[list[float]]:
     global _request_count
-    client = _get_client()
     _request_count += 1
 
     logger.info(
-        "[rag.embeddings] REQUEST #%d — %d text(s), task=%s, model=%s",
-        _request_count, len(texts), task_type, settings.GEMINI_EMBEDDING_MODEL,
+        "[rag.embeddings] REQUEST #%d — %d text(s), model=%s, dim=%d",
+        _request_count, len(texts), settings.ZLM_EMBEDDING_MODEL, settings.RAG_EMBEDDING_DIM,
     )
 
-    try:
-        response = await client.aio.models.embed_content(
-            model=settings.GEMINI_EMBEDDING_MODEL,
-            contents=texts,
-            config=genai_types.EmbedContentConfig(
-                task_type=task_type,
-                output_dimensionality=settings.RAG_EMBEDDING_DIM,
-            ),
-        )
-    except Exception as exc:
-        if isinstance(exc, ClientError) and getattr(exc, "code", None) == 429:
-            logger.warning(
-                "[rag.embeddings] LIMIT HIT — embedding model '%s' is out of free "
-                "capacity right now (%s).",
-                settings.GEMINI_EMBEDDING_MODEL,
-                f"retry suggested in {_suggested_retry_seconds(exc):.1f}s"
-                if _suggested_retry_seconds(exc) is not None else "no retry hint given",
-            )
-            raise EmbeddingQuotaError(str(exc)) from exc
-        raise
+    payload = {
+        "model": settings.ZLM_EMBEDDING_MODEL,
+        "input": texts,
+        "dimensions": settings.RAG_EMBEDDING_DIM,
+    }
 
-    vectors = [list(embedding.values or []) for embedding in (response.embeddings or [])]
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(_ENDPOINT, json=payload, headers=_headers())
+    except httpx.HTTPError as exc:
+        raise EmbeddingError(f"embedding request failed: {exc}") from exc
+
+    if response.status_code == 429:
+        hinted = _suggested_retry_seconds(EmbeddingError(response.text))
+        logger.warning(
+            "[rag.embeddings] LIMIT HIT — embedding model '%s' is rate-limited right now (%s).",
+            settings.ZLM_EMBEDDING_MODEL,
+            f"retry suggested in {hinted:.1f}s" if hinted is not None else "no retry hint given",
+        )
+        raise EmbeddingQuotaError(response.text)
+    if response.status_code != 200:
+        raise EmbeddingError(
+            f"embedding model '{settings.ZLM_EMBEDDING_MODEL}' returned HTTP "
+            f"{response.status_code}: {response.text[:500]}"
+        )
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise EmbeddingError("embedding endpoint returned non-JSON response") from exc
+
+    # Zhipu's response indexes each embedding, so a batch is reassembled by
+    # `index` rather than trusted to arrive in request order — cheap
+    # insurance against exactly the kind of silent misalignment corruption
+    # the length check below also guards against.
+    entries = sorted(data.get("data") or [], key=lambda entry: entry.get("index", 0))
+    vectors = [list(entry.get("embedding") or []) for entry in entries]
 
     # A response that silently returns a different number of vectors than we
     # sent texts would misalign EVERY chunk with someone else's embedding —
     # a corruption that produces plausible-looking but wrong retrieval forever
-    # after, with nothing in the logs. This is exactly how `gemini-embedding-2`
-    # behaves today (verified live: it collapses a batch into one vector), so
-    # this check is a real guard, not a theoretical one.
+    # after, with nothing in the logs. Refuse rather than risk it.
     if len(vectors) != len(texts):
         raise EmbeddingError(
-            f"Embedding model '{settings.GEMINI_EMBEDDING_MODEL}' returned "
+            f"Embedding model '{settings.ZLM_EMBEDDING_MODEL}' returned "
             f"{len(vectors)} vectors for {len(texts)} inputs — refusing to index "
             "a misaligned batch."
         )
@@ -407,13 +348,11 @@ async def _embed_once(texts: list[str], task_type: str) -> list[list[float]]:
 async def embed_documents(texts: list[str]) -> list[list[float]]:
     """Embed passages for STORAGE. Returns one vector per input, in order.
 
-    Batched at RAG_EMBEDDING_BATCH_SIZE because the API rejects more than 100
-    contents per request (verified live — 120 returns INVALID_ARGUMENT).
-    Batching cuts HTTP round-trips, but note it buys nothing against the free
-    tier's quota, which counts texts rather than calls — the pacing in
-    _embed_batch is what keeps this inside the limit. A large index cycle is
-    therefore bounded by minutes, not by request count, which is why
-    RAG_MAX_CHUNKS_PER_CYCLE exists.
+    Batched at RAG_EMBEDDING_BATCH_SIZE (bounded by Zhipu's hard 64-per-request
+    cap, verified against Zhipu's own docs — see _MAX_TEXTS_PER_REQUEST).
+    Batching cuts HTTP round-trips, but buys nothing against the per-minute
+    pacer, which counts texts rather than calls — the pacing in _embed_batch is
+    what keeps this inside whatever the real limit turns out to be.
     """
     if not texts:
         return []
@@ -421,23 +360,14 @@ async def embed_documents(texts: list[str]) -> list[list[float]]:
     vectors: list[list[float]] = []
     budget = _get_budget()
     start = 0
-    # CONSECUTIVE failures, reset by every success. Counting total failures
-    # instead aborts a run that is genuinely making progress: on a heavily
-    # throttled key the controller settles into "one small batch succeeds,
-    # occasionally one is rejected", and a total counter turns that steady
-    # crawl into a stop after the third hiccup — even with hundreds of chunks
-    # already safely embedded.
+    # CONSECUTIVE failures, reset by every success — see the Gemini-era
+    # version of this file for why a total counter would be wrong here.
     consecutive_quota_failures = 0
 
     while start < len(texts):
-        # Recomputed every iteration, not once up front: the bucket's capacity
-        # moves as it tunes itself (see _TextBudget). That is what makes the
-        # retry below meaningful — after a 429 the rate has halved, so the
-        # SAME offset is retried with a smaller batch rather than re-sending
-        # the size that was just rejected.
-        batch_size = max(1, min(settings.RAG_EMBEDDING_BATCH_SIZE, 100, budget.capacity))
+        batch_size = max(1, min(settings.RAG_EMBEDDING_BATCH_SIZE, _MAX_TEXTS_PER_REQUEST, budget.capacity))
         try:
-            vectors.extend(await _embed_batch(texts[start:start + batch_size], "RETRIEVAL_DOCUMENT"))
+            vectors.extend(await _embed_batch(texts[start:start + batch_size]))
         except EmbeddingQuotaError:
             consecutive_quota_failures += 1
             if consecutive_quota_failures > _MAX_QUOTA_RETRIES:
@@ -458,8 +388,7 @@ async def embed_documents(texts: list[str]) -> list[list[float]]:
 
 
 async def embed_query(text: str) -> list[float]:
-    """Embed ONE user question for SEARCH. See the module docstring for why
-    this cannot just call embed_documents with a one-item list.
+    """Embed ONE user question for SEARCH.
 
     Impatient by design: a person is waiting. If the allowance is more than a
     couple of seconds away this raises rather than blocking, and
@@ -467,5 +396,5 @@ async def embed_query(text: str) -> list[float]:
     _TextBudget.acquire for why that is the right trade on this path and the
     wrong one for indexing.
     """
-    vectors = await _embed_batch([text], "RETRIEVAL_QUERY", max_wait=_QUERY_MAX_WAIT_SECONDS)
+    vectors = await _embed_batch([text], max_wait=_QUERY_MAX_WAIT_SECONDS)
     return vectors[0]

@@ -72,75 +72,90 @@ class Settings(BaseSettings):
     # deletion, independent of how many articles arrived on any given day.
     NEWS_RETENTION_DAYS: int = 21
 
-    # ── Multi-agent workflows (Google ADK + Gemini) ───────────────────────────
-    # A single Gemini key drives every agent in every workflow under agents/.
+    # ── Multi-agent workflows (Google ADK, running entirely on ZLM) ────────────
+    # Every LlmAgent in every workflow under agents/ runs on ZLM (Zhipu AI /
+    # Z.ai's GLM models), routed through ADK's LiteLlm wrapper — see agents/
+    # shared/llm.py. ZLM_API_KEY is the ONLY model spend in this codebase.
+    #
+    # Gemini used to have a foothold here: ADK's built-in google_search tool
+    # (used by butterfly's researcher_agent and company_profiler's
+    # profiler_agent) is hard-coded Gemini-only (google/adk/tools/
+    # google_search_tool.py raises ValueError for any other model), and that
+    # tool also needs Google Cloud billing enabled for real use (verified live,
+    # Aug 2026: 5,000 free grounded prompts/month on Gemini 3.x, then billed
+    # per query) — exactly the kind of second, harder-to-predict spend this
+    # project intentionally avoids. Both agents were moved onto ZLM instead:
+    # agents/shared/zlm_web_search.py calls Z.ai's own web_search REST endpoint
+    # BEFORE either agent runs, and the results are handed to the agent as
+    # plain prompt text — see agents/butterfly/pipeline.py and agents/
+    # company_profiler/pipeline.py. RAG embeddings (below) made the same move,
+    # to Zhipu's embedding-3. Nothing left in this codebase ever calls Gemini.
+    #
     # Empty by default so a fresh checkout never accidentally spends a token —
-    # every worker below checks this and idles (with a log warning) until it's set.
-    GEMINI_API_KEY: str = ""
+    # every worker below checks this and idles (with a log warning) until
+    # it's set.
+    ZLM_API_KEY: str = ""
 
-    # Model ids every workflow shares — see agents/shared/llm.py.
-    #
-    # Published free-tier tables are NOT reliable here — this project's own
-    # AI Studio rate-limit dashboard (checked directly, Aug 2026) showed wildly
-    # different real per-model daily caps than generic docs suggest:
-    #   gemini-2.5-flash        20 RPD
-    #   gemini-2.5-flash-lite   20 RPD
-    #   gemini-3.6-flash        20 RPD
-    #   gemini-3.5-flash-lite  500 RPD   <- the real outlier, verified live
-    # gemini-3.5-flash-lite's real 500 RPD (25x the others on THIS account) is
-    # why it's the cheap/high-volume model despite 3.x's generic free-tier
-    # flakiness reports — always re-check the live dashboard
-    # (aistudio.google.com/rate-limit) before assuming a number from docs.
-    #
-    # gemini-3.6-flash over gemini-2.5-flash for the smart tier because
-    # 2.5-flash is scheduled for deprecation 2026-10-16 (verified live,
-    # Aug 2026) — no reason to build fresh reliance on a model with a set
-    # expiry date when a same-quota, non-deprecating alternative exists.
-    #
-    # Once the client's billed key is in place, RPD stops being the
-    # constraint and this can be revisited purely on $/token and quality —
-    # see the cost comment on THINKING_LEVEL_SMART below for the other half
-    # of that tradeoff.
-    GEMINI_MODEL_CHEAP: str = "gemini-3.5-flash-lite"
-    GEMINI_MODEL_SMART: str = "gemini-3.5-flash-lite"
+    # Z.ai's web_search endpoint (agents/shared/zlm_web_search.py) — the
+    # replacement for ADK's google_search tool, called directly rather than
+    # through the agent/tool-calling machinery (verified live, Aug 2026: it's
+    # a standalone REST endpoint, not a model-invoked function-calling tool).
+    ZLM_WEB_SEARCH_ENGINE: str = "search-prime"
+    # Per query. butterfly's researcher_agent runs this once per suggested
+    # search query (up to 4); company_profiler's profiler_agent runs it across
+    # 3 fixed queries covering the different facts it needs (see that
+    # pipeline). Kept modest — each extra result is more prompt tokens for a
+    # step that already runs on the smart/cheap tier, not more accuracy past a
+    # point.
+    ZLM_WEB_SEARCH_RESULT_COUNT: int = 6
 
-    # ── Thinking budget (cost + reliability control) ─────────────────────────
-    # Both models think by default with an unbounded/dynamic budget, and
-    # thinking tokens bill as output tokens — on the smart model in
-    # particular this makes real cost unpredictable (verified live: Gemini's
-    # own docs confirm "Auto" thinking on Flash-tier models, billed at the
-    # output-token rate). agents/shared/llm.py applies these via
-    # generate_content_config on every LlmAgent so it's one switch for the
-    # whole workflow, not something to remember per-agent.
-    #
-    # MINIMAL for the cheap model: every cheap-tier step (triage, thematic
-    # trigger, both extractors) is classification/extraction, not judgment —
-    # thinking adds cost and latency without adding accuracy here, and a
-    # bounded-low level also avoids the known failure mode where an
-    # unbounded thinking pass consumes the entire output-token budget and
-    # returns an empty response (github.com/valentinfrlch/ha-llmvision#609).
-    #
-    # MEDIUM for the smart model: causal-chain analysis and adversarial
-    # skepticism are exactly the judgment calls thinking helps with, so this
-    # is deliberately NOT disabled — just bounded, so cost stays predictable
-    # instead of "however much the model decides."
-    #
-    # NOTE — model-family coupling: `thinking_level` (MINIMAL/LOW/MEDIUM/HIGH)
-    # is the Gemini 3.x mechanism. The 2.x family (e.g. gemini-2.5-flash)
-    # does NOT support it and errors on "thinking_level not supported" — if
-    # GEMINI_MODEL_CHEAP/SMART ever point back at a 2.x model, agents/shared/
-    # llm.py's generation configs must switch to the numeric `thinking_budget`
-    # field instead (0 = disabled, -1 = automatic, else a fixed token count).
-    THINKING_LEVEL_CHEAP: str = "MINIMAL"
-    THINKING_LEVEL_SMART: str = "MEDIUM"
+    # Cheap tier: classification/extraction only, never judgment — triage,
+    # thematic trigger, both extractors (butterfly's thematic_extractor,
+    # company_profiler's extractor). glm-4.7-flashx: ~$0.06/1M input,
+    # ~$0.40/1M output (verified live via Z.ai's own pricing page + two
+    # independent trackers, Aug 2026) — Z.ai's cheapest PAID (non-rate-capped)
+    # SKU, 200K context, no free-tier concurrency ceiling.
+    ZLM_MODEL_CHEAP: str = "glm-4.7-flashx"
 
-    # How long ANY worker that calls Gemini (butterfly, company profiler) pauses
-    # after hitting a 429 RESOURCE_EXHAUSTED before trying again — long enough
-    # to stop hammering a quota that's already at zero (see agents/shared/
-    # adk_runner.py), short enough that a transient/short-lived throttle still
-    # recovers within a session. Shared across workflows since they draw on the
-    # same per-model daily quota.
-    GEMINI_QUOTA_COOLDOWN_SECONDS: int = 90
+    # Smart tier: causal-chain analysis and adversarial skepticism — the
+    # judgment calls thinking is actually for. glm-4.7: $0.60/1M input,
+    # $2.20/1M output (verified live, Aug 2026) — same price as glm-4.6 but a
+    # strict upgrade on reasoning/tool-use benchmarks (+12.4% HLE, +5.8%
+    # SWE-bench per Z.ai's own release notes), so there's no cost reason to
+    # pick the older model here.
+    ZLM_MODEL_SMART: str = "glm-4.7"
+
+    # Chat tier — see GLM's own setting further down for why this is separate
+    # from CHEAP/SMART. glm-4.5-air: $0.20/1M input, $1.10/1M output (verified
+    # live, Aug 2026). Deliberately ONE tier above the cheapest available
+    # (glm-4.7-flashx) even though the RAG pipeline hands this step
+    # already-retrieved facts, not open-ended reasoning: this is the one call
+    # in the whole product a real client sees the raw output of, and the
+    # extra tier costs a fraction of a rupee per question at this context size
+    # — not worth trading for a visible quality gap on the surface that forms
+    # the client's actual impression of the product.
+    ZLM_MODEL_CHAT: str = "glm-4.5-air"
+
+    # ── ZLM thinking mode ──────────────────────────────────────────────────────
+    # GLM's API only exposes a binary switch (thinking: {type: enabled|
+    # disabled} in the request body — see agents/shared/llm.py), not a
+    # graduated level. Off where the step is classification/extraction (cost +
+    # latency with no accuracy upside), on where it's a real judgment call.
+    ZLM_THINKING_CHEAP: bool = False
+    ZLM_THINKING_SMART: bool = True
+    # Off, not on: the chat model's job is grounded summarisation over
+    # passages retrieval already selected (see agents/research_chat/
+    # pipeline.py's module docstring), not open-ended reasoning. Thinking
+    # tokens would bill as output on every single user question for a
+    # reasoning step this call doesn't need.
+    ZLM_THINKING_CHAT: bool = False
+
+    # How long ANY worker that calls an LLM (butterfly/company profiler on
+    # ZLM, the RAG index worker on Zhipu embeddings) pauses after hitting a
+    # 429 before trying again — long enough to stop hammering a rate limit
+    # that just tripped (see agents/shared/adk_runner.py), short enough that a
+    # transient/short-lived throttle still recovers within a session.
+    LLM_QUOTA_COOLDOWN_SECONDS: int = 90
 
     # ── Butterfly Effect workflow: per-news causal analysis (O1) + thematic
     # research (O2), scored against portfolios in plain Python. ──────────────
@@ -178,14 +193,15 @@ class Settings(BaseSettings):
     BUTTERFLY_TEST_NEWS_IDS: str = ""
 
     # False (default) = real production behaviour: thematic research always
-    # runs its full researcher_agent (google_search grounded) step. Set True
-    # only when the Gemini key's project has no grounding quota available
-    # (grounding requires billing enabled on the project — see agents/
-    # butterfly/pipeline.py:_run_thematic_research) — the pipeline still runs
-    # the free thematic_trigger_agent classification (no search tool, no
-    # billing needed) and logs its verdict, it just stops BEFORE the
-    # guaranteed-to-429 grounded call instead of retrying it forever. Flip
-    # back to False the moment the key's project has real grounding quota.
+    # runs its full web-search-grounded researcher_agent step (agents/shared/
+    # zlm_web_search.py + agents/butterfly/pipeline.py:_run_thematic_research).
+    # Historically this existed to skip Gemini's google_search, which needed
+    # Google Cloud billing to work at all — that billing gate no longer
+    # applies now that this step runs on ZLM's own web_search instead, so
+    # there's no longer a structural reason to leave this on. The pipeline
+    # still runs the cheap thematic_trigger_agent classification either way
+    # and logs its verdict; setting this True just stops it BEFORE the
+    # (now working) grounded call.
     BUTTERFLY_SKIP_GROUNDED_RESEARCH: bool = False
 
     # Second, smarter gate after the ingestion-time heuristic floor — a cheap
@@ -194,9 +210,47 @@ class Settings(BaseSettings):
     BUTTERFLY_TRIAGE_SIGNIFICANCE_FLOOR: float = 0.35
 
     # Per-user alert severity thresholds (see services/butterfly_scorer.py).
-    BUTTERFLY_RED_THRESHOLD: float = 0.65
-    BUTTERFLY_ORANGE_THRESHOLD: float = 0.45
-    BUTTERFLY_YELLOW_THRESHOLD: float = 0.30
+    #
+    # CALIBRATED EMPIRICALLY (Aug 2026) against real pipeline output, not
+    # picked a priori. The scorer's severity number is the product of SEVEN
+    # independent 0-1 terms (materiality x attenuation x directness x
+    # confidence x novelty x significance x position), so it does not spread
+    # across 0-1 the way a single-factor score would — seven terms averaging
+    # ~0.8 already land at 0.21. Measured over the first real run (15 analyses
+    # x this project's 8-symbol test portfolio): max 0.67, median 0.13,
+    # min 0.08.
+    #
+    # The old 0.65/0.45/0.30 values were a priori guesses on a 0-1 scale, and
+    # against the formula's real distribution they meant only a single
+    # near-perfect case (direct hit + tier-1 source + 0.9 significance + zero
+    # hop attenuation) could ever clear even YELLOW — a crude-price shock
+    # scored against a refiner's own VERIFIED crude exposure came out at 0.24
+    # and produced no alert at all, which is plainly the wrong answer.
+    #
+    # These map to what each tier is supposed to MEAN under this formula:
+    #   RED    >= 0.40  direct, material, high-significance hit on a real holding
+    #   ORANGE >= 0.24  solid, material exposure worth reading today
+    #   YELLOW >= 0.11  real but second-order — worth knowing, not acting on
+    #
+    # RED is deliberately set against the VERIFIED tier's range, not the
+    # NAMED tier's. The two are not on the same scale: NAMED assumes the
+    # maximum possible materiality (1.0) because the article is about that
+    # company, while VERIFIED uses the company's OWN measured exposure, which
+    # is a real fraction and therefore almost never near 1.0. So the tier the
+    # system trusts most systematically produces SMALLER numbers than the tier
+    # it trusts less. Calibrating RED off NAMED-inflated scores would mean a
+    # fully verified, measured, correctly-signed hit could effectively never
+    # be RED, while an unverified name-match routinely could — backwards.
+    # Measured example: a surprise 50bp RBI cut against a bank whose profile
+    # documents a +0.5 rate sensitivity, held at ~15% of the portfolio, scores
+    # 0.43 — that is unambiguously a "read this first" alert and must be RED.
+    # This also matters more over time, not less: as company_exposure_profiles
+    # fills in, VERIFIED becomes the common path and NAMED the fallback.
+    # Re-measure these (a scoring dry-run over news_impact_analyses needs no
+    # LLM calls at all) if the formula's terms are ever changed again.
+    BUTTERFLY_RED_THRESHOLD: float = 0.40
+    BUTTERFLY_ORANGE_THRESHOLD: float = 0.24
+    BUTTERFLY_YELLOW_THRESHOLD: float = 0.11
 
     # Flood control: caps how many alerts one news item can generate for one
     # user, and how many RED alerts one user can receive in a day, so "the
@@ -230,85 +284,63 @@ class Settings(BaseSettings):
     # ── Research Chat: RAG index ──────────────────────────────────────────────
     # The retrieval corpus behind agents/research_chat/. Built by
     # services/rag/indexer.py into rag_documents + rag_chunks (migration
-    # 003_rag_and_research_chat.sql), and READ on every chat question.
+    # 003_rag_and_research_chat.sql / 005_zlm_embeddings.sql), and READ on
+    # every chat question.
     #
-    # Embedding model: gemini-embedding-001. Verified live against this
-    # project's own key (Aug 2026) rather than taken from docs — the newer
-    # `gemini-embedding-2` is listed as available but silently collapses a
-    # BATCH of N texts into ONE vector, which would corrupt the index without
-    # raising anything. gemini-embedding-001 batches correctly (hard API cap:
-    # 100 texts per request, also verified) and is the only embedding model
-    # here that can be trusted with bulk indexing.
-    GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
+    # Embedding model: Zhipu's embedding-3, paid via ZLM_API_KEY — the same
+    # provider as every LLM call in this codebase (see the "Multi-agent
+    # workflows" comment above for why Gemini's embeddings were dropped
+    # entirely: its free tier hard-caps at 1000 embeddings/day, which is not
+    # remotely enough to keep a growing PDF/news/transcript corpus current for
+    # a chatbot in real use). embedding-3's `dimensions` parameter accepts any
+    # value from 256-2048 (verified against Zhipu's own API docs, Aug 2026),
+    # so — unlike Gemini's Matryoshka-truncated 768 — this is a native
+    # request, not a truncation of a larger vector.
+    ZLM_EMBEDDING_MODEL: str = "embedding-3"
 
-    # 768 via Matryoshka truncation of the model's native 3072, re-normalised
-    # to unit length afterwards (see services/rag/embeddings.py). 768 keeps the
-    # HNSW index ~4x smaller and ~4x faster to probe for a retrieval-quality
-    # difference that is negligible at this corpus size.
+    # 1024: comfortably under pgvector's hard 2000-dimension ceiling for an
+    # indexable column (HNSW/IVFFlat both refuse to build past that — verified
+    # against pgvector's own docs, Aug 2026: every index tuple has to fit in
+    # an 8KB Postgres page), while still holding meaningfully more signal per
+    # vector than the old 768. 2048 (embedding-3's max) was ruled out for
+    # exactly that pgvector ceiling — it can be STORED as an un-indexed
+    # column but never searched with HNSW, which would defeat the entire
+    # point of this table.
     #
-    # HARD COUPLING: rag_chunks.embedding is declared vector(768) in migration
-    # 003. Changing this number without a matching migration fails loudly at
-    # insert time — deliberately, since a silently mixed-dimension index would
-    # return quietly wrong neighbours instead of an error.
-    RAG_EMBEDDING_DIM: int = 768
-    # Well under the API's hard 100-contents-per-request cap on purpose. The
-    # quota below is a SLIDING per-minute window, and spending it in two
-    # near-maximal gulps sits exactly on the window edge — verified live: 90 +
-    # 90 sixty seconds apart still 429s, because the first 90 have not all
-    # aged out at the instant the second batch fires. Smaller batches let the
-    # token bucket spread the same throughput smoothly instead of in spikes
-    # that collide with the window boundary.
-    RAG_EMBEDDING_BATCH_SIZE: int = 50
+    # HARD COUPLING: rag_chunks.embedding is declared vector(1024) in
+    # migration 005. Changing this number without a matching migration fails
+    # loudly at insert time — deliberately, since a silently mixed-dimension
+    # index would return quietly wrong neighbours instead of an error.
+    RAG_EMBEDDING_DIM: int = 1024
+    # Under embedding-3's hard 64-texts-per-request cap (verified against
+    # Zhipu's own API docs, Aug 2026 — a lower ceiling than Gemini's old 100).
+    RAG_EMBEDDING_BATCH_SIZE: int = 60
 
-    # ── The two embedding quotas, both verified live from the 429 bodies
-    # against this project's own key (Aug 2026). Neither matches what a
-    # generic docs table would tell you, and BOTH count every TEXT in a batch
-    # rather than every HTTP call — so batching helps latency and HTTP
-    # overhead but buys nothing at all against either limit.
-    #
-    #   PER MINUTE   quotaId EmbedContentRequestsPerMinutePerUser...
-    #                limit 100. This is what the pacing below defends.
-    #
-    #   PER DAY      quotaId EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier
-    #                limit 1000. THIS is the one that actually constrains a
-    #                free-tier build-out, and it is easy to miss because it
-    #                surfaces as the same 429 with the same shape.
-    #
-    # What 1000/day means in practice, and it is worth internalising before
-    # tuning anything here:
-    #   - help topics + exposure profiles + fundamentals  ~25 embeddings. Free.
-    #   - one company's last two concall transcripts      ~130 embeddings.
-    #   - the whole 21-day news window (~2900 articles)   ~2900 — three days.
-    #   - one user question                               1.
-    # So on a free key the news corpus is a multi-day backfill, which is
-    # exactly why services/rag/index_worker.py indexes it LAST and why
-    # RAG_MAX_CHUNKS_PER_CYCLE exists. A billed key removes the ceiling.
-    #
-    # SAFETY is far below the 0.9 used for FinEdge, for a reason specific to
-    # this endpoint: a REJECTED embedding request is still metered (verified —
-    # five throttled calls 45s apart produced monotonically INCREASING
-    # retry-after hints, 16s/30s/45s/59s). Overshooting doesn't cost one
-    # wasted call, it compounds, and no retry strategy digs out of it — only
-    # waiting does. Note this is only the STARTING rate: services/rag/
-    # embeddings.py tunes itself down from here whenever the key can't sustain
-    # it, and back up when it can.
-    RAG_EMBEDDING_TEXTS_PER_MINUTE: int = 100
-    RAG_EMBEDDING_RATE_SAFETY: float = 0.6
+    # Starting point for services/rag/embeddings.py's self-tuning pacer — NOT
+    # verified live against a real Zhipu key the way the old Gemini numbers in
+    # this file used to be (that took this project actually hitting 429s on a
+    # live key; nothing here has been exercised against one yet). Deliberately
+    # picked as a reasonable middle rather than an aggressive one: the pacer
+    # halves on any rejection and climbs back gradually on success, so a wrong
+    # starting number costs a few minutes of self-correction, never a hard
+    # failure — see services/rag/embeddings.py's _TextBudget for the mechanism.
+    # Re-verify against Z.ai's own rate-limit dashboard once real traffic has
+    # exercised this — this project has already been burned once by trusting
+    # a provider's published number over a live-checked one (Gemini's old
+    # free-tier RPD figures), so treat this as a reminder to check, not a
+    # permanent number.
+    RAG_EMBEDDING_TEXTS_PER_MINUTE: int = 300
+    RAG_EMBEDDING_RATE_SAFETY: float = 0.8
 
-    # How long to stand down when the DAILY quota (not the per-minute one) is
-    # the wall that was hit. The provider's suggested retry delay is useless
-    # in that case — it reports the trickle-refill interval, tens of seconds,
-    # which would have a worker retry hundreds of times against a budget that
-    # does not meaningfully return until the daily reset.
-    RAG_EMBEDDING_DAILY_QUOTA_COOLDOWN_SECONDS: int = 3600
-
-    # Ceiling on how many chunks ONE index cycle may embed. At ~60 texts per
-    # minute (above), 300 chunks is roughly a five-minute cycle — bounded
-    # enough that POST /api/chat/index/run returns in a sensible time and a
-    # first run on a large backlog makes visible progress instead of appearing
-    # to hang. Whatever is left over is picked up by the next cycle, because
-    # an un-indexed document's hash simply hasn't moved yet.
-    RAG_MAX_CHUNKS_PER_CYCLE: int = 300
+    # Ceiling on how many chunks ONE index cycle may embed. Bounded so
+    # POST /api/chat/index/run returns in a sensible time and a first run on a
+    # large backlog makes visible progress instead of appearing to hang.
+    # Whatever is left over is picked up by the next cycle, because an
+    # un-indexed document's hash simply hasn't moved yet. Higher than the old
+    # Gemini-era default (300) because there's no free daily cap to respect
+    # anymore — a paid, usage-billed API has no reason to spread a backlog
+    # over multiple days the way a 1000/day free tier used to force.
+    RAG_MAX_CHUNKS_PER_CYCLE: int = 1000
 
     # Chunking. Concall transcripts are the only genuinely long source (20-40
     # page PDFs); everything else is already a short, self-contained record.
@@ -327,12 +359,11 @@ class Settings(BaseSettings):
     # thousands of articles spreads its embedding calls over several cycles
     # instead of firing them all at once.
     RAG_NEWS_BATCH_SIZE: int = 600
-    # How many concall transcript PDFs to pull per company. Transcripts are by
-    # far the heaviest corpus — a single 40-page call is ~70 chunks, so 2 per
-    # company is already ~140 chunks each against the 100-texts-per-minute
-    # ceiling above. Two covers "the last call" and "the one before", which is
-    # what almost every management-commentary question is actually about.
-    # Raise it once the key is billed and minutes stop being the constraint.
+    # How many concall transcript PDFs to pull per company. Two covers "the
+    # last call" and "the one before", which is what almost every
+    # management-commentary question is actually about — raise this if a
+    # deeper history turns out to matter more than keeping each company's
+    # first index pass fast.
     RAG_TRANSCRIPTS_PER_SYMBOL: int = 2
     # Hard ceiling on transcript PDF size — a 40-page concall is ~1-2 MB;
     # anything far past that is a scanned annual report misfiled as a
@@ -409,22 +440,14 @@ class Settings(BaseSettings):
     # transcript can't crowd out every other source for a broad question.
     RAG_MAX_CHUNKS_PER_DOC: int = 4
 
-    # Answering model. Deliberately its own setting rather than reusing
-    # GEMINI_MODEL_CHEAP/SMART: this is the only user-facing, unmetered,
-    # per-question call in the product (every other Gemini call in this
+    # Answering model — see ZLM_MODEL_CHAT above (agents/shared/llm.py's
+    # ZLM section). Deliberately its own setting rather than reusing
+    # ZLM_MODEL_CHEAP/SMART: this is the only user-facing, unmetered,
+    # per-question call in the product (every other model call in this
     # codebase is offline batch work), so its cost/quality tradeoff is a
     # different decision from the workflows' and must be tunable on its own.
-    #
-    # flash-lite is the right tier for a RAG chat specifically: retrieval has
-    # already done the hard part (finding the right facts), leaving the model
-    # a grounded summarisation job rather than an open-ended reasoning one.
-    # Accuracy here is bought with retrieval quality and citations, not with a
-    # bigger model.
-    GEMINI_MODEL_CHAT: str = "gemini-3.5-flash-lite"
-    # LOW, not MINIMAL: the model still has to weigh several retrieved sources
-    # against each other and notice when they disagree. Not MEDIUM/HIGH —
-    # thinking tokens bill as output and this call runs on every message.
-    THINKING_LEVEL_CHAT: str = "LOW"
+    # Retrieval's embeddings also run on ZLM now (ZLM_EMBEDDING_MODEL above)
+    # — the whole answer path, retrieval and generation both, is one provider.
 
     # How many previous turns are replayed to the model. The full thread stays
     # in the database and on screen; only this many are sent, so a long

@@ -279,16 +279,77 @@ def _severity_for_score(score: float) -> str | None:
     return None
 
 
-def _build_explanation(compiled: dict, axis: dict | None, tier: str) -> str:
-    summary = compiled["event"].get("summary", "")
+# Plain-English rendering of the machine vocabulary. A user reading their feed
+# must never be shown a raw taxonomy token like "COMMODITY:CRUDE_OIL" or
+# "INPUT_COST" — those exist for the matching engine, not for people.
+_AXIS_PHRASE = {
+    "INPUT_COST": "what it costs them to produce",
+    "OUTPUT_PRICING": "the prices they can charge",
+    "DEMAND": "demand for what they sell",
+    "FX": "their currency exposure",
+    "RATE": "their borrowing costs",
+    "REGULATORY": "the rules they operate under",
+    "SUBSTITUTION": "competition from alternatives",
+    "PRICING_POWER": "their pricing power",
+    "CAPEX": "their spending on new capacity",
+    "LOGISTICS": "their shipping and supply routes",
+}
+
+
+def _humanise_key(key: str) -> str:
+    """'COMMODITY:CRUDE_OIL' -> 'crude oil'. The prefix is dropped: it's a
+    routing detail for the matcher, and the identifier alone is what a person
+    actually recognises."""
+    _, _, identifier = key.partition(":")
+    return (identifier or key).replace("_", " ").lower()
+
+
+def _build_explanation(
+    compiled: dict, axis: dict | None, tier: str, direction: int, company_label: str
+) -> str:
+    """Two short sentences, plain language, no jargon: what happened, then why
+    it lands on THIS holding and with what confidence. This string is the whole
+    reason a user trusts (or dismisses) the colour on the card, so it states
+    the direction — helped or hurt — rather than leaving them to infer it."""
+    summary = (compiled["event"].get("summary") or "").strip()
     if axis is None:
         return summary
-    axis_label = axis["axis"].replace("_", " ").lower()
+
+    subject = _humanise_key(axis["key"])
+    effect = _AXIS_PHRASE.get(axis["axis"], "their business")
+    movement = "rising" if axis["direction"] > 0 else "falling" if axis["direction"] < 0 else "shifting"
+
     if tier == "VERIFIED":
-        return f"{summary} Your holding has a confirmed {axis_label} exposure to {axis['key']}."
+        # ONLY here is `direction` genuinely company-specific: it's the factor's
+        # own movement multiplied by the sign of this company's documented
+        # net_exposure (see _score_one), so it really does say whether THIS
+        # company is helped or hurt. Safe to state plainly.
+        if direction > 0:
+            impact = f"Likely a tailwind for {company_label}"
+        elif direction < 0:
+            impact = f"Likely a headwind for {company_label}"
+        else:
+            impact = f"Unclear which way this cuts for {company_label}"
+        return f"{summary} {impact}: it has a documented exposure to {subject}, which affects {effect}.".strip()
+
+    # NAMED / SECTOR: `direction` here is only the FACTOR's own movement — the
+    # scorer explicitly does NOT know which side of that factor this company
+    # sits on (it has no exposure profile to say whether the company pays for
+    # this input or earns from it). Rendering that as "tailwind"/"headwind"
+    # states a coin-flip as a finding: it produced "headwind for HDFC Bank" on
+    # a repo-rate CUT the article itself called them a beneficiary of, and
+    # "tailwind for Sun Pharma" on an FDA import alert. So these tiers describe
+    # WHAT MOVED and leave the direction to the reader, which is the honest
+    # rendering of what the system actually knows.
     if tier == "NAMED":
-        return f"{summary} This article names your holding directly."
-    return f"{summary} Your holding's sector may have a {axis_label} exposure to {axis['key']} (approximate match)."
+        return (
+            f"{summary} This story names {company_label} directly, and turns on {subject} {movement}, "
+            f"which affects {effect}."
+        ).strip()
+    return (
+        f"{summary} {company_label} is in a sector exposed to {subject} {movement}, which affects {effect}. "
+        f"This is a broad sector match rather than a company-specific finding — context, not a company call."
+    ).strip()
 
 
 def _score_one(news: NewsItem, compiled: dict, symbol: str, candidate: dict, holding: dict, total_portfolio_value) -> dict | None:
@@ -346,7 +407,16 @@ def _score_one(news: NewsItem, compiled: dict, symbol: str, candidate: dict, hol
 
     exposure_value = holding["quantity"] * holding["price"]
     exposure_pct = (exposure_value / float(total_portfolio_value)) if total_portfolio_value else 0.0
-    position_weight = min(max(0.5 + exposure_pct * 2, 0.5), 1.5)
+    # Centred so a NORMAL position is neutral (≈1.0), not a penalty. The old
+    # `0.5 + pct*2` curve only reached 1.0 at a 25% position, meaning every
+    # holding in any sanely diversified portfolio was silently discounted —
+    # an 8-stock portfolio (12.5% each) scored every alert at 0.75x purely for
+    # being diversified, which is not a reason to trust an alert less. This
+    # curve keeps the intended behaviour (an oversized position amplifies, a
+    # token position attenuates) around a neutral midpoint instead: ~12% → 1.0,
+    # 30% → 1.25, 2% → 0.83, hard-capped at 1.5 so one huge position can't
+    # manufacture a RED on its own.
+    position_weight = min(max(0.80 + exposure_pct * 1.5, 0.80), 1.5)
 
     score = (
         materiality * attenuation * directness
@@ -380,7 +450,9 @@ def _score_one(news: NewsItem, compiled: dict, symbol: str, candidate: dict, hol
             "position_weight": round(position_weight, 4),
         },
         "chain": [a for a in exposure_axes if chain_id and a.get("chain_id") == chain_id],
-        "explanation": _build_explanation(compiled, axis, tier),
+        "explanation": _build_explanation(
+            compiled, axis, tier, direction, holding.get("company_name") or symbol
+        ),
         "hops": hops,
         "exposure_value": exposure_value,
         "exposure_pct": exposure_pct,
