@@ -6,7 +6,7 @@ import { Heading } from '@/components/ui/Heading'
 import { Text } from '@/components/ui/Text'
 import finscreenApi, { butterflyApi, type ButterflyAlertDto, type ThematicResearchDto } from '@/services/finscreenApi'
 import { AppFooter } from '@/components/shared/AppFooter'
-import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox, BellRing, X, LogIn, Lightbulb, ShieldCheck } from 'lucide-react'
+import { ChevronRight, FileText, Calendar, Newspaper, ExternalLink, Bookmark, Search, Inbox, BellRing, X, LogIn, Lightbulb, ShieldCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { FeedCardSkeleton } from '@/components/ui/SkeletonLoader'
 import { InlineError } from '@/components/ui/InlineError'
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty'
@@ -894,18 +894,40 @@ export function Feed() {
                         )}
 
                         {item.candidateCompanies?.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {item.candidateCompanies.map((c) => (
-                              <span
-                                key={c.symbol}
-                                title={c.relevance_reasoning}
-                                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-surface border border-border/50 text-textPrimary flex items-center gap-1"
-                              >
-                                {c.verified && <ShieldCheck className="size-3 text-emerald-600" />}
-                                {c.symbol}
-                                {c.company_name ? ` · ${c.company_name}` : ''}
-                              </span>
-                            ))}
+                          <div className="flex flex-col gap-2 pt-1">
+                            {item.candidateCompanies.map((group) => {
+                              const badge = group.impact === 'POSITIVE'
+                                ? { Icon: TrendingUp, cls: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30' }
+                                : group.impact === 'NEGATIVE'
+                                ? { Icon: TrendingDown, cls: 'text-rose-600 bg-rose-500/10 border-rose-500/30' }
+                                : { Icon: Minus, cls: 'text-amber-600 bg-amber-500/10 border-amber-500/30' }
+                              return (
+                                <div key={group.sector} className="rounded-lg border border-border/40 bg-surface p-2.5 flex flex-col gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${badge.cls}`}>
+                                      <badge.Icon className="size-3" />
+                                      {group.sector}
+                                    </span>
+                                  </div>
+                                  {group.mechanism && (
+                                    <p className="text-[13px] text-textSecondary leading-snug">{group.mechanism}</p>
+                                  )}
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {group.companies?.map((c) => (
+                                      <span
+                                        key={c.symbol}
+                                        title={c.relevance_reasoning}
+                                        className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-surfaceMuted/40 border border-border/50 text-textPrimary flex items-center gap-1"
+                                      >
+                                        {c.verified && <ShieldCheck className="size-3 text-emerald-600" />}
+                                        {c.symbol}
+                                        {c.company_name ? ` · ${c.company_name}` : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
 

@@ -42,7 +42,8 @@ export const finscreenApi = {
   fetchCompanyBalanceSheet: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/balance-sheet`, { params }).then(r => r.data),
   fetchCompanyCashFlow: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/financials/cash-flow`, { params }).then(r => r.data),
   fetchCompanySegments: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/segments`, { params }).then(r => r.data),
-  fetchCompanyRatios: (symbol: string) => finscreenClient.get(`/company/${symbol}/ratios`).then(r => r.data),
+  fetchCompanyRatios: (symbol: string, params?: { statement_type?: 's' | 'c' }) =>
+    finscreenClient.get(`/company/${symbol}/ratios`, { params }).then(r => r.data),
   fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
   fetchShareholdingBreakdown: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/breakdown`).then(r => r.data),
   fetchShareholdingBaseStats: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/base-stats`).then(r => r.data),
@@ -167,7 +168,10 @@ export const butterflyApi = {
 // alerts above which are scored per-portfolio. Sparse by design — most news
 // never earns a row here. derivedNeed/candidateCompanies keep the snake_case
 // keys they're stored with in Postgres jsonb (only the top-level DTO fields
-// are camelCased by the router).
+// are camelCased by the router). candidateCompanies is a list of SECTOR
+// GROUPS (agents/butterfly/schemas.py:SectorImpact), not a flat company list
+// — each sector names its own specific, non-obvious linkage and its own real,
+// verified companies.
 export interface ThematicResearchDto {
   id: string
   newsId: string
@@ -178,12 +182,19 @@ export interface ThematicResearchDto {
     demand_direction: number
   } | null
   candidateCompanies: Array<{
-    symbol: string
-    company_name: string | null
-    relevance_reasoning: string
-    current_price: number | null
-    price_as_of: string | null
-    verified: boolean
+    sector: string
+    impact: 'POSITIVE' | 'NEGATIVE' | 'MIXED'
+    mechanism: string
+    companies: Array<{
+      symbol: string
+      company_name: string | null
+      relevance_reasoning: string
+      sector: string | null
+      industry: string | null
+      current_price: number | null
+      price_as_of: string | null
+      verified: boolean
+    }>
   }>
   thesis: string | null
   confidence: number | null

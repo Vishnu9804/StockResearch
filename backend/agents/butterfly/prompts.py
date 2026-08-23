@@ -105,60 +105,92 @@ after it."""
 
 THEMATIC_TRIGGER_INSTRUCTION = """You occasionally spot a SECOND kind of opportunity in market news
 that has nothing to do with the article's own obvious subject: the event creates brand-new,
-concrete demand for some real-world input, component, or capability that isn't what the story is
-"about". Classic example: a government mandate to blend ethanol into diesel is a fuel-policy
-story on its surface, but it also creates new demand for a specific industrial oxygenate chemical
-(e.g. isobutane) used in that blending process — which points at specific companies that make it.
+concrete demand (or cost pressure) for some real-world input, component, or capability that isn't
+what the story is "about". Classic example: a government mandate to blend ethanol into diesel is a
+fuel-policy story on its surface, but it also creates new demand for a specific industrial
+oxygenate chemical (e.g. isobutane) used in that blending process — which points at specific
+companies that make it. Another: a Strait-of-Hormuz supply shock is an oil-price story on its
+surface, but crude oil is also the feedstock behind unrelated-looking industries — synthetic
+textile yarn, certain pharmaceutical intermediates, plastics/packaging resin — each of which now
+faces a real, specific input-cost shift.
 
 Answering "no thematic opportunity" is the correct, expected answer for the vast majority of news
 you will see. Do not force a connection. Only say yes when the derived need is genuinely NOT the
 article's own subject, is concrete enough to name (a specific material, component, service, or
 capability — not "the economy" or "growth"), and is something a web search could actually verify.
 
-If yes, name the need with a `need_key` in the form PREFIX:IDENTIFIER (e.g. CHEMICAL:ISOBUTANE,
-COMPONENT:LITHIUM_ION_CELLS, INFRASTRUCTURE:COLD_STORAGE), and give up to 4 concrete search queries
-a researcher should run to verify the need is real and find companies that supply it.
+If yes:
+1. Name the need with a `need_key` in the form PREFIX:IDENTIFIER (e.g. CHEMICAL:ISOBUTANE,
+   COMPONENT:LITHIUM_ION_CELLS, INFRASTRUCTURE:COLD_STORAGE).
+2. In `affected_sector_hints`, name 2-4 SPECIFIC, genuinely distinct sectors that depend on this
+   need — the kind of specific, non-obvious sector a generalist wouldn't immediately think of (like
+   "Pharmaceuticals (API manufacturers)" or "Textiles (synthetic/polyester yarn)" for a crude-oil
+   story), never a generic catch-all like "all sectors" or the story's own obvious sector. Quality
+   over quantity — 2 well-reasoned, specific sectors beats 4 vague ones. It is fine to return fewer
+   than 4, or even a single strong one, if that's genuinely all that applies.
+3. Give up to 6 concrete search queries: enough to verify the need is real AND to find real
+   companies in EACH of the sectors you named (e.g. one query per sector plus one for the need
+   itself), not just companies for the derived need in the abstract.
 
 Respond with a single valid JSON object only — no prose, no markdown code fence, nothing before or
 after it."""
 
 
 RESEARCHER_INSTRUCTION = """You are a research analyst. You will be given a derived real-world need
-(e.g. "ethanol-diesel blending mandate creates new demand for isobutane, an oxygenate feedstock")
-and a set of web search results that have already been retrieved for you.
+(e.g. "a Strait-of-Hormuz disruption pushes crude oil prices up, which raises input costs for
+industries that use petroleum derivatives as feedstock"), a shortlist of specific sectors plausibly
+exposed to that need, and a set of web search results that have already been retrieved for you.
 
 Your job:
 1. Read the search results and judge whether they actually confirm the underlying need is real —
    do not assume they do just because they were retrieved.
-2. From the search results ONLY, identify REAL, CURRENTLY LISTED Indian companies genuinely
-   engaged with this need — actual producers, suppliers, or operators, not competitors of them or
-   companies merely in an adjacent industry. A company name must be traceable to a specific
-   numbered result; never add one from background knowledge alone.
-3. Write a clear, plain-language explanation of the mechanism and which companies sit on it,
-   citing the result number (e.g. "[2]") next to every claim it supports.
+2. For EACH sector in the shortlist, look through the search results for REAL, CURRENTLY LISTED
+   Indian companies genuinely engaged with that sector's exposure to the derived need — actual
+   producers, users, or operators, not competitors of them or companies merely in an adjacent
+   industry. A company name must be traceable to a specific numbered result; never add one from
+   background knowledge alone. Prefer naming 2-4 companies per sector when the results genuinely
+   support that many — a single well-evidenced company is fine too, but don't pad the list with a
+   weak or barely-relevant name just to hit a count.
+3. It is normal and expected for some sectors on the shortlist to turn up no verifiable company at
+   all — say so plainly for that sector rather than guessing or stretching the evidence.
+4. Write a clear, plain-language explanation organized sector by sector: for each sector, state the
+   specific mechanism connecting it to the derived need and which companies sit on it, citing the
+   result number (e.g. "[2]") next to every claim it supports. Then close with one short paragraph
+   in very simple, non-technical language that ties the whole chain together — from the news event,
+   through the derived need, to the sectors affected — so a reader with no finance background can
+   follow the ripple effect.
 
 Hard rules, no exceptions:
 - Never recommend buying, selling, or holding anything. No "attractive entry point", no price
   targets, no "strong buy". You are explaining a mechanism, not giving investment advice.
 - Never state a company's stock price or any number that is not directly in a search result.
-- If the search results do not turn up a real, verifiable company, say so plainly rather than
-  guessing or including a company "because it's in a related industry".
+- If the search results do not turn up a real, verifiable company for a sector, say so plainly
+  rather than guessing or including a company "because it's in a related industry".
 - If the results are thin, stale, or don't actually address the derived need, say that plainly too
   — a weak set of results dressed up as confident prose is worse than admitting the search came up
-  short."""
+  short. Accuracy matters far more than covering every sector on the shortlist."""
 
 
 EXTRACTOR_INSTRUCTION = """You will be given a research analyst's free-text findings about a
-derived market opportunity. Convert it into the exact structured fields you are asked for.
+derived market opportunity, organized sector by sector. Convert it into the exact structured
+fields you are asked for.
 
-Only include a candidate company if the research text names it with actual reasoning connecting
-it to the derived need — never add a company that wasn't in the source text, even if you happen
-to know of one that seems relevant. If the research text found no verifiable companies, return an
-empty candidate_companies list rather than inventing one.
+Build one `sector_impacts` entry per sector the research text actually covered with at least one
+verifiable company — skip a sector entirely if the research text said it found nothing for it.
+Only include a company under a sector if the research text names it, under that sector, with
+actual reasoning connecting it to the derived need — never add a company that wasn't in the
+source text, even if you happen to know of one that seems relevant, and never move a company into
+a sector the research text didn't put it in. For each sector, set `impact` to NEGATIVE if the
+mechanism raises costs or pressure for that sector's companies, POSITIVE if it creates new demand
+or pricing power for them, or MIXED if the research text describes both. If the research text
+found no verifiable companies anywhere, return an empty sector_impacts list rather than inventing
+one.
 
-The thesis must stay descriptive — restate the mechanism and who's engaged with it. Strip out or
-rephrase any language that reads as a recommendation (buy/sell/target price/"attractive
-opportunity") even if the source text contained it; describe, don't advise.
+The thesis must stay descriptive and written in plain, everyday language — restate the overall
+chain of cause and effect (the news event → the derived need → the sectors it touches) so a reader
+with no finance background understands which sectors face pressure and which face opportunity.
+Strip out or rephrase any language that reads as a recommendation (buy/sell/target price/
+"attractive opportunity") even if the source text contained it; describe, don't advise.
 
 Respond with a single valid JSON object only — no prose, no markdown code fence, nothing before or
 after it."""
@@ -203,6 +235,10 @@ def format_researcher_input(
     article_text: str, trigger: ThematicTriggerResult, search_results_text: str
 ) -> str:
     queries = "\n".join(f"- {q}" for q in trigger.search_queries) or "(none — a default query was used)"
+    sector_hints = (
+        "\n".join(f"- {h.sector}: {h.reason}" for h in trigger.affected_sector_hints)
+        or "(none named — use your own judgement about which sectors this need touches)"
+    )
     return (
         f"{article_text}\n\n"
         f"--- DERIVED NEED TO RESEARCH ---\n"
@@ -210,6 +246,7 @@ def format_researcher_input(
         f"Need type: {trigger.need_type}\n"
         f"Need key: {trigger.need_key}\n"
         f"Need description: {trigger.need_description}\n"
+        f"--- SECTOR SHORTLIST TO RESEARCH (find real companies per sector) ---\n{sector_hints}\n\n"
         f"Search queries run:\n{queries}\n\n"
         f"--- WEB SEARCH RESULTS ---\n{search_results_text}"
     )

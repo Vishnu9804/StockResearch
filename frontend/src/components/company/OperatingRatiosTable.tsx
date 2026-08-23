@@ -1,9 +1,10 @@
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppSelector } from '@/store/hooks'
 import { ratios, fiscalYears } from '@/lib/data/financials'
 import { cn } from '@/lib/utils'
 import { ArrowDown, ArrowUp, Info, TrendingUp } from 'lucide-react'
+import finscreenApi from '@/services/finscreenApi'
 
 // Operating ratio rows: Debtor Days, Inventory Days, Days Payable, CCC, Working Capital Days, ROCE%
 const OPERATING_ROWS = [
@@ -54,13 +55,44 @@ function TrendLine({ values, positive }: { values: number[]; positive: boolean }
 }
 
 export function OperatingRatiosTable() {
-  const storeRatios = useAppSelector((state) => state.company?.ratios)
+  const symbol = useAppSelector((state) => state.company?.data?.symbol)
+  // Defaults to 'standalone' to match the backend's own default statement_type
+  // ('s' — routers/finedge.py:get_ratios) so the toggle's initial highlighted
+  // state actually matches what gets fetched, rather than the old default of
+  // 'consolidated' which was purely cosmetic and never affected the fetch.
+  const [consolidation, setConsolidation] = useState<'consolidated' | 'standalone'>('standalone')
+  const [fetchedRatios, setFetchedRatios] = useState<any | null>(null)
+  const [ratiosLoading, setRatiosLoading] = useState(true)
 
-  // Determine standard ratios list dynamically from state if present, otherwise fall back to static mock ratios
+  // This card's own Standalone/Consolidated toggle used to be purely
+  // decorative — clicking it never re-fetched anything, so both buttons
+  // silently showed the exact same (always-standalone) data. It now drives
+  // its own independent fetch, same pattern as RatiosTable.tsx's "Key
+  // Financial Ratios" card just above it.
+  useEffect(() => {
+    if (!symbol) return
+    let cancelled = false
+    setRatiosLoading(true)
+    const statementType = consolidation === 'standalone' ? 's' : 'c'
+    finscreenApi.fetchCompanyRatios(symbol, { statement_type: statementType })
+      .then((data: any) => {
+        if (!cancelled) setFetchedRatios(data)
+      })
+      .catch((err: any) => {
+        console.error('[OperatingRatiosTable] Failed to load ratios:', err)
+        if (!cancelled) setFetchedRatios(null)
+      })
+      .finally(() => {
+        if (!cancelled) setRatiosLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [symbol, consolidation])
+
+  // Determine standard ratios list dynamically from the fetch if present, otherwise fall back to static mock ratios
   const activeRatios = useMemo(() => {
-    if (storeRatios && Array.isArray(storeRatios.sections)) {
+    if (fetchedRatios && Array.isArray(fetchedRatios.sections)) {
       const flatRows: any[] = []
-      storeRatios.sections.forEach((sec: any) => {
+      fetchedRatios.sections.forEach((sec: any) => {
         if (Array.isArray(sec.rows)) {
           flatRows.push(...sec.rows)
         }
@@ -68,28 +100,26 @@ export function OperatingRatiosTable() {
       if (flatRows.length > 0) return flatRows
     }
     return ratios
-  }, [storeRatios])
+  }, [fetchedRatios])
 
-  // Extract columns dynamically from state if present, otherwise fall back to static mock columns
+  // Extract columns dynamically from the fetch if present, otherwise fall back to static mock columns
   const columns = useMemo(() => {
-    if (storeRatios && Array.isArray(storeRatios.sections) && storeRatios.sections[0]?.columns) {
-      return storeRatios.sections[0].columns
+    if (fetchedRatios && Array.isArray(fetchedRatios.sections) && fetchedRatios.sections[0]?.columns) {
+      return fetchedRatios.sections[0].columns
     }
     return fiscalYears.slice(2, 10)
-  }, [storeRatios])
+  }, [fetchedRatios])
 
   const isLive = useMemo(() => {
-    if (!storeRatios || !Array.isArray(storeRatios.sections)) return false
-    return storeRatios.sections.some((sec: any) => Array.isArray(sec.rows) && sec.rows.length > 0)
-  }, [storeRatios])
+    if (!fetchedRatios || !Array.isArray(fetchedRatios.sections)) return false
+    return fetchedRatios.sections.some((sec: any) => Array.isArray(sec.rows) && sec.rows.length > 0)
+  }, [fetchedRatios])
 
   // Map label → data array
   const ratioMap: Record<string, number[]> = {}
   activeRatios.forEach((r: any) => {
     ratioMap[r.label] = r.values as number[]
   })
-
-  const [consolidation, setConsolidation] = useState<'consolidated' | 'standalone'>('consolidated')
 
   return (
     <div className="space-y-5 select-none">
@@ -135,8 +165,9 @@ export function OperatingRatiosTable() {
                 <button
                   key={c}
                   onClick={() => setConsolidation(c)}
+                  disabled={ratiosLoading}
                   className={cn(
-                    "px-3 py-1.5 text-xs font-medium uppercase tracking-wider rounded-lg border transition-all",
+                    "px-3 py-1.5 text-xs font-medium uppercase tracking-wider rounded-lg border transition-all disabled:opacity-60",
                     consolidation === c
                       ? "bg-accent text-white border-transparent"
                       : "border-border text-textSecondary hover:bg-surfaceMuted"

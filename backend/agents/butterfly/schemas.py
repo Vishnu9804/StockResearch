@@ -116,6 +116,20 @@ NEED_TYPE = Literal[
 ]
 
 
+class SectorHint(BaseModel):
+    sector: str = Field(
+        description="A SPECIFIC, plain-English sector/industry name that genuinely, "
+        "non-obviously depends on the derived need — e.g. 'Pharmaceuticals (API "
+        "manufacturers)' or 'Textiles (synthetic/polyester yarn)'. Never a generic "
+        "catch-all like 'all sectors', 'the economy', or the event's own obvious subject."
+    )
+    reason: str = Field(
+        description="One sentence naming the concrete, specific mechanism linking this "
+        "sector to the derived need, e.g. 'uses petroleum-derived solvents and "
+        "intermediates as a key raw material in API synthesis'."
+    )
+
+
 class ThematicTriggerResult(BaseModel):
     has_thematic_opportunity: bool = Field(
         description="True only if this event creates a NEW, non-obvious real-world demand or "
@@ -127,24 +141,71 @@ class ThematicTriggerResult(BaseModel):
     need_key: str | None = Field(default=None, description="PREFIX:IDENTIFIER, e.g. 'CHEMICAL:ISOBUTANE'.")
     need_description: str | None = None
     demand_direction: DIRECTION_LABEL = "FLAT"
-    search_queries: list[str] = Field(
+    affected_sector_hints: list[SectorHint] = Field(
         default_factory=list, max_length=4,
-        description="Concrete web search queries the researcher should run to verify this and find real companies.",
+        description="2-4 specific, non-obvious sectors that plausibly depend on this derived "
+        "need, each genuinely distinct from the others. Leave empty only when "
+        "has_thematic_opportunity is False.",
+    )
+    search_queries: list[str] = Field(
+        default_factory=list, max_length=6,
+        description="Concrete web search queries the researcher should run to verify this and "
+        "find real companies — cover the underlying need itself AND each named sector hint, so "
+        "the researcher has enough to find companies in every sector, not just one.",
     )
 
 
 # ── 5/6. Researcher (free text, no schema) → Extractor ──────────────────────
-class CandidateCompany(BaseModel):
+SECTOR_IMPACT = Literal["POSITIVE", "NEGATIVE", "MIXED"]
+
+
+class SectorCompany(BaseModel):
     symbol: str = Field(description="NSE trading symbol, e.g. 'RELIANCE'. Must be a real, currently listed company.")
     company_name: str
-    relevance_reasoning: str = Field(description="Why this specific company sits on the derived need.")
+    relevance_reasoning: str = Field(
+        description="Why this specific company, in this specific sector, sits on the derived need."
+    )
+
+
+class SectorImpact(BaseModel):
+    sector: str = Field(
+        description="Specific, plain-English sector/industry name — never a generic catch-all "
+        "and never the event's own obvious subject sector."
+    )
+    impact: SECTOR_IMPACT = Field(
+        description="Whether the derived need is, on balance, a headwind (NEGATIVE — e.g. higher "
+        "input costs), a tailwind (POSITIVE — e.g. new demand for what these companies supply), or "
+        "genuinely MIXED for companies in this sector. Descriptive of the mechanism only, never a "
+        "recommendation."
+    )
+    mechanism: str = Field(
+        description="One or two plain-language sentences on WHY this specific sector is exposed — "
+        "the concrete, non-obvious linkage (e.g. 'uses X as a raw material'), never a generic "
+        "'this affects everyone' statement."
+    )
+    companies: list[SectorCompany] = Field(
+        min_length=1, max_length=4,
+        description="Real, individually-verifiable companies genuinely engaged with this sector's "
+        "exposure to the derived need. Prefer several (2-4) when the evidence genuinely supports "
+        "that many — never pad with a weak or borderline company just to reach a count.",
+    )
 
 
 class ThematicExtractorResult(BaseModel):
-    thesis: str = Field(description="Plain-language synthesis of the mechanism. Descriptive only — "
-                         "never a buy/sell/hold recommendation or price target.")
+    thesis: str = Field(
+        description="A plain-language synthesis of the whole ripple mechanism, written for a "
+        "reader with no finance background: what happened, what real-world chain of cause and "
+        "effect follows from it, and which kinds of businesses sit on each side of that chain. "
+        "Purely descriptive — never a buy/sell/hold recommendation, never a price target, never "
+        "the words 'buy'/'sell'/'invest'. The reader should come away understanding which sectors "
+        "face pressure and which face opportunity without ever being told what to do about it."
+    )
     confidence: float = Field(ge=0, le=1)
     novelty: float = Field(ge=0, le=1)
     horizon: HORIZON
-    candidate_companies: list[CandidateCompany] = Field(default_factory=list, max_length=8)
+    sector_impacts: list[SectorImpact] = Field(
+        default_factory=list, max_length=4,
+        description="Up to 4 distinct, specific sectors, each with its own real companies. Empty "
+        "list if the research didn't turn up anything verifiable — that is a normal, honest outcome.",
+    )
     evidence: list[str] = Field(default_factory=list, description="URLs or named sources cited in the research.")

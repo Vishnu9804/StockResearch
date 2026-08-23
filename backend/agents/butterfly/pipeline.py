@@ -41,7 +41,13 @@ from services.butterfly_scorer import score_analysis_for_users
 
 logger = logging.getLogger("agents.butterfly.pipeline")
 
-WORKFLOW_VERSION = "butterfly-v1"
+# Bumped from -v1 to -v2 when news_thematic_research.candidate_companies changed
+# shape from a flat list of companies to a list of {sector, impact, mechanism,
+# companies: [...]} groups (see agents/butterfly/schemas.py:SectorImpact and
+# routers/butterfly.py's WORKFLOW_VERSION filter on /thematic) — old -v1 rows
+# use the old flat shape and must never be served to a frontend built for the
+# new grouped one.
+WORKFLOW_VERSION = "butterfly-v2"
 
 
 async def analyze_news_item(news_id) -> None:
@@ -260,7 +266,7 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
 
     queries = trigger.search_queries or [trigger.need_description]
     try:
-        search_results = await web_search_many(queries[:4], count_per_query=settings.ZLM_WEB_SEARCH_RESULT_COUNT)
+        search_results = await web_search_many(queries[:6], count_per_query=settings.ZLM_WEB_SEARCH_RESULT_COUNT)
     except Exception:
         logger.exception(
             "[butterfly.pipeline] news_id=%s web_search failed — skipping thematic research this pass",
@@ -292,7 +298,7 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
             "description": trigger.need_description,
             "demand_direction": DIRECTION_TO_INT[trigger.demand_direction],
         },
-        candidate_companies=verified["candidate_companies"],
+        candidate_companies=verified["sector_impacts"],
         thesis=verified["thesis"],
         confidence=verified["confidence"],
         novelty=verified["novelty"],
@@ -318,6 +324,7 @@ async def _run_thematic_research(news: NewsItem, analysis_id, article_text: str)
         await session.commit()
 
     logger.info(
-        "[butterfly.pipeline] news_id=%s wrote news_thematic_research — %d candidate company(ies)",
-        news.id, len(verified["candidate_companies"]),
+        "[butterfly.pipeline] news_id=%s wrote news_thematic_research — %d sector(s), %d company(ies)",
+        news.id, len(verified["sector_impacts"]),
+        sum(len(s["companies"]) for s in verified["sector_impacts"]),
     )

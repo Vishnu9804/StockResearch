@@ -286,6 +286,49 @@ RATIO_CATALOG = [
     {"key": "return6m", "label": "Return over 6 months", "category": "Returns", "format": "percent"},
     {"key": "noEqShares", "label": "No. of Equity Shares", "category": "Per Share", "format": "crore"},
     {"key": "cashCycle", "label": "Cash Conversion Cycle", "category": "Efficiency", "format": "days"},
+
+    # ── Income statement line items — same figures as the Quarterly Results /
+    # Profit & Loss Statement tables (latest annual period), pinnable here so a
+    # user doesn't have to scroll to that section for one number. Deliberately
+    # excludes Revenue from Operations and Net Profit — already covered above
+    # by `sales`/`salesLatestQuarter` and `profitAfterTax` respectively, same
+    # underlying value under a name this catalog already used first. ──
+    {"key": "totalExpenses", "label": "Total Expenses", "category": "Income Statement", "format": "crore"},
+    {"key": "materialCost", "label": "Material Cost", "category": "Income Statement", "format": "crore"},
+    {"key": "employeeCost", "label": "Employee Cost", "category": "Income Statement", "format": "crore"},
+    {"key": "otherExpenses", "label": "Other Expenses", "category": "Income Statement", "format": "crore"},
+    {"key": "ebitda", "label": "EBITDA", "category": "Income Statement", "format": "crore"},
+    {"key": "depreciation", "label": "Depreciation & Amortisation", "category": "Income Statement", "format": "crore"},
+    {"key": "ebit", "label": "EBIT", "category": "Income Statement", "format": "crore"},
+    {"key": "financeCost", "label": "Finance Cost (Interest)", "category": "Income Statement", "format": "crore"},
+    {"key": "otherIncome", "label": "Other Income", "category": "Income Statement", "format": "crore"},
+    {"key": "profitBeforeTax", "label": "Profit Before Tax (PBT)", "category": "Income Statement", "format": "crore"},
+    {"key": "taxExpense", "label": "Tax", "category": "Income Statement", "format": "crore"},
+
+    # ── Balance sheet line items — same figures as the Balance Sheet table. ──
+    {"key": "equityCapital", "label": "Equity Capital", "category": "Balance Sheet", "format": "crore"},
+    {"key": "reservesAndSurplus", "label": "Reserves & Surplus", "category": "Balance Sheet", "format": "crore"},
+    {"key": "totalEquity", "label": "Total Equity (Net Worth)", "category": "Balance Sheet", "format": "crore"},
+    {"key": "totalLiabilities", "label": "Total Liabilities", "category": "Balance Sheet", "format": "crore"},
+    {"key": "fixedAssets", "label": "Fixed Assets (Net Block)", "category": "Balance Sheet", "format": "crore"},
+    {"key": "capitalWorkInProgress", "label": "Capital Work in Progress", "category": "Balance Sheet", "format": "crore"},
+    {"key": "investments", "label": "Investments", "category": "Balance Sheet", "format": "crore"},
+    {"key": "totalAssets", "label": "Total Assets", "category": "Balance Sheet", "format": "crore"},
+
+    # ── Cash flow line items — same figures as the Cash Flow Statement table. ──
+    {"key": "cashFromOperations", "label": "Cash from Operations", "category": "Cash Flow", "format": "crore"},
+    {"key": "cashFromInvesting", "label": "Cash from Investing", "category": "Cash Flow", "format": "crore"},
+    {"key": "cashFromFinancing", "label": "Cash from Financing", "category": "Cash Flow", "format": "crore"},
+    {"key": "netCashFlow", "label": "Net Cash Flow", "category": "Cash Flow", "format": "crore"},
+
+    # ── Ratios shown in Key Financial Ratios / Operating Ratios that aren't
+    # already covered above or by the always-visible Key Fundamentals grid
+    # (which already carries ROE, ROCE, Net Profit Margin, Debt to Equity,
+    # Book Value — repeating those here would just be the same number twice). ──
+    {"key": "grossProfitMargin", "label": "Gross Profit Margin", "category": "Profitability", "format": "percent"},
+    {"key": "quickRatio", "label": "Quick Ratio", "category": "Liquidity", "format": "number"},
+    {"key": "assetTurnover", "label": "Asset Turnover", "category": "Efficiency", "format": "number"},
+    {"key": "inventoryTurnover", "label": "Inventory Turnover", "category": "Efficiency", "format": "number"},
 ]
 
 
@@ -382,6 +425,39 @@ async def _compute_extended_ratios(
             if pat is not None and prev_pat:
                 out["profitGrowth"] = round((pat - prev_pat) / abs(prev_pat) * 100, 2)
 
+        # ── Income statement line items — mirrors PL_MAP's mapping exactly, so
+        # these match the Quarterly Results / Profit & Loss Statement tables. ──
+        if exp is not None:
+            out["totalExpenses"] = round(exp / 1e7, 2)
+        material_cost = latest.get("costOfMaterialsConsumed")
+        if material_cost is not None:
+            out["materialCost"] = round(material_cost / 1e7, 2)
+        employee_cost = latest.get("employeeBenefitExpense")
+        if employee_cost is not None:
+            out["employeeCost"] = round(employee_cost / 1e7, 2)
+        other_exp = latest.get("otherExpenses")
+        if other_exp is not None:
+            out["otherExpenses"] = round(other_exp / 1e7, 2)
+        if rev is not None and exp is not None:
+            out["ebitda"] = round((rev - exp) / 1e7, 2)
+        dep = latest.get("depreciationAndAmortisation")
+        if dep is not None:
+            out["depreciation"] = round(dep / 1e7, 2)
+            if rev is not None and exp is not None:
+                out["ebit"] = round((rev - exp - dep) / 1e7, 2)
+        finance_cost = latest.get("financeCosts")
+        if finance_cost is not None:
+            out["financeCost"] = round(finance_cost / 1e7, 2)
+        other_income = latest.get("otherIncome")
+        if other_income is not None:
+            out["otherIncome"] = round(other_income / 1e7, 2)
+        pbt = latest.get("profitBeforeTax")
+        if pbt is not None:
+            out["profitBeforeTax"] = round(pbt / 1e7, 2)
+        tax_expense = latest.get("taxExpense")
+        if tax_expense is not None:
+            out["taxExpense"] = round(tax_expense / 1e7, 2)
+
     # ── Quarterly P&L derived: latest quarter + YoY growth (vs same quarter, 4 back) ──
     if pl_q:
         latest_q = pl_q[0]
@@ -410,6 +486,33 @@ async def _compute_extended_ratios(
             if equity_capital and face_value:
                 out["noEqShares"] = round((equity_capital / face_value) / 1e7, 2)
 
+        # ── Balance sheet line items — mirrors BS_MAP's mapping exactly, so
+        # these match the Balance Sheet table. ──
+        eq_cap = latest_bs.get("equityCapital")
+        if eq_cap is not None:
+            out["equityCapital"] = round(eq_cap / 1e7, 2)
+        reserves = latest_bs.get("reserves")
+        if reserves is not None:
+            out["reservesAndSurplus"] = round(reserves / 1e7, 2)
+        total_equity = latest_bs.get("totalEquity")
+        if total_equity is not None:
+            out["totalEquity"] = round(total_equity / 1e7, 2)
+        total_liabilities = latest_bs.get("equityAndLiabilities")
+        if total_liabilities is not None:
+            out["totalLiabilities"] = round(total_liabilities / 1e7, 2)
+        ppe, intangibles = latest_bs.get("propertyPlantAndEquipment"), latest_bs.get("otherIntangibleAssets")
+        if ppe is not None or intangibles is not None:
+            out["fixedAssets"] = round(((ppe or 0) + (intangibles or 0)) / 1e7, 2)
+        cwip = latest_bs.get("capitalWorkInProgress")
+        if cwip is not None:
+            out["capitalWorkInProgress"] = round(cwip / 1e7, 2)
+        noncurrent_inv, current_inv = latest_bs.get("noncurrentInvestments"), latest_bs.get("currentInvestments")
+        if noncurrent_inv is not None or current_inv is not None:
+            out["investments"] = round(((noncurrent_inv or 0) + (current_inv or 0)) / 1e7, 2)
+        total_assets = latest_bs.get("assets")
+        if total_assets is not None:
+            out["totalAssets"] = round(total_assets / 1e7, 2)
+
     # ── Cash flow derived: free cash flow (fallback only — annual-price-ratios'
     #    own `pfcf` below is FinEdge's authoritative figure and takes priority) ──
     fallback_pfcf = None
@@ -422,6 +525,20 @@ async def _compute_extended_ratios(
             if fcf_cr:
                 fallback_pfcf = round(market_cap / fcf_cr, 2)
 
+        # ── Cash flow line items — mirrors CF_MAP's mapping exactly, so these
+        # match the Cash Flow Statement table. ──
+        if cfo is not None:
+            out["cashFromOperations"] = round(cfo / 1e7, 2)
+        cfi = latest_cf.get("cashFlowsFromInvestingActivities")
+        if cfi is not None:
+            out["cashFromInvesting"] = round(cfi / 1e7, 2)
+        cff = latest_cf.get("cashFlowsFromFinancingActivities")
+        if cff is not None:
+            out["cashFromFinancing"] = round(cff / 1e7, 2)
+        net_cf = latest_cf.get("netCashFlow")
+        if net_cf is not None:
+            out["netCashFlow"] = round(net_cf / 1e7, 2)
+
     # ── Ratio bag (merged pr/le/li/ef) — field names confirmed against live FinEdge
     #    responses: returnOnAsset is singular, cashConversionCycle lives under 'ef'. ──
     roa_frac = _gv(combined_ratio_fields, "returnOnAsset", "returnOnAssets", "roa")
@@ -429,6 +546,13 @@ async def _compute_extended_ratios(
     out["currentRatio"] = _gv(combined_ratio_fields, "currentRatio", "current_ratio")
     out["interestCoverageRatio"] = _gv(combined_ratio_fields, "interestCoverage", "interest_coverage")
     out["cashCycle"] = _gv(combined_ratio_fields, "cashConversionCycle", "workingCapitalDays")
+    # ── Ratios shown in Key Financial Ratios / Operating Ratios (same "ratios/{sym}"
+    #    field names as routers/finedge.py:get_ratios uses for that section). ──
+    gpm_frac = _gv(combined_ratio_fields, "grossMargin", "gross_margin")
+    out["grossProfitMargin"] = round(gpm_frac * 100, 2) if gpm_frac is not None else None
+    out["quickRatio"] = _gv(combined_ratio_fields, "quickRatio", "quick_ratio")
+    out["assetTurnover"] = _gv(combined_ratio_fields, "assetTurnover", "asset_turnover")
+    out["inventoryTurnover"] = _gv(combined_ratio_fields, "inventoryTurnover", "inventory_turnover")
 
     # ── Valuation multiples — FinEdge's annual-price-ratios endpoint returns
     #    {"price_ratios": [...]}  with keys: pe, pb, ptb, ps, pfcf, average_price.
@@ -520,17 +644,26 @@ async def _build_company_profile(sym: str, extra_params: Dict[str, str], rid: st
     (e.g. custom-ratios' formula evaluator) can reuse the same aggregated
     FinEdge data without an extra internal HTTP round trip."""
     import asyncio
+    # Respect a caller-supplied statement_type ('s' standalone / 'c' consolidated)
+    # end to end — this used to be hardcoded to "s" below regardless of what was
+    # actually requested, which silently made every ratio on this endpoint
+    # (ROE/ROCE/margins/D-E here, plus everything _compute_extended_ratios
+    # derives from combined_ratio_fields) standalone-only no matter what a
+    # caller asked for. No frontend surface sends "c" here today, but the next
+    # one that does must not be silently ignored the way this was.
+    st = extra_params.get("statement_type", "s")
+
     # 1. Fetch profile
     profile = await execute_proxy_request("GET", f"company-profile/{sym}", extra_params, None, rid)
 
     # 2. Parallel: quote, ratios (4 types), shareholding
     results = await asyncio.gather(
         execute_proxy_request("GET", "quote", {"symbol": sym}, None, rid),
-        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "pr"}, None, rid),
-        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "le"}, None, rid),
-        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "li"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": st, "ratio_type": "pr"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": st, "ratio_type": "le"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": st, "ratio_type": "li"}, None, rid),
         execute_proxy_request("GET", f"shareholdings/pattern/{sym}", {"period": "quarterly"}, None, rid),
-        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": "s", "ratio_type": "ef"}, None, rid),
+        execute_proxy_request("GET", f"ratios/{sym}", {"statement_type": st, "ratio_type": "ef"}, None, rid),
         return_exceptions=True
     )
     quote_data, pr_data, le_data, li_data, sh_data, ef_data = results
@@ -618,7 +751,7 @@ async def _build_company_profile(sym: str, extra_params: Dict[str, str], rid: st
     # 10. Extended (opt-in) ratio catalog values — best-effort, never blocks the profile.
     # Also returns core_fixes: corrections for pe/bookValue/eps sourced from
     # endpoints (annual-price-ratios, PL statement) that actually carry them.
-    st = extra_params.get("statement_type", "s")
+    # `st` computed once, near the top of this function, and reused here.
     try:
         extended_ratios, core_fixes = await _compute_extended_ratios(
             sym, st, rid, current_price, market_cap, pe, combined_ratio_fields, sh_data,

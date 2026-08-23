@@ -19,6 +19,10 @@ import { TableRowsSkeleton } from '@/components/ui/SkeletonLoader'
 export function QuarterlyResultsTable() {
   const dispatch = useAppDispatch()
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({})
+  // Own toggle, independent of the Profit & Loss Statement card's global
+  // statementType — mirrors how Operating Ratios also carries its own toggle
+  // rather than sharing one global switch across every section on the page.
+  const [statementType, setStatementType] = useState<'s' | 'c'>('s')
   const storeQuarterly = useAppSelector((state) => (state.company as any)?.quarterly)
   const { financialsStatus, financialsError } = useAppSelector((state) => state.company)
   const company = useAppSelector((state) => state.company?.data)
@@ -26,9 +30,9 @@ export function QuarterlyResultsTable() {
 
   useEffect(() => {
     if (symbol && symbol !== 'STOCK') {
-      fetchQuarterlyResults(symbol)(dispatch)
+      fetchQuarterlyResults(symbol, statementType)(dispatch)
     }
-  }, [symbol, dispatch])
+  }, [symbol, statementType, dispatch])
 
   // Data mapping — show empty arrays while API loads
   const columnsList = storeQuarterly?.columns || []
@@ -112,23 +116,50 @@ export function QuarterlyResultsTable() {
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden select-none">
-      <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between bg-surfaceMuted/50">
+      <div className="px-5 py-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-surfaceMuted/50">
         <div>
           <h3 className="text-sm font-medium text-textPrimary uppercase tracking-wide">
             Quarterly Results
           </h3>
           <p className="text-xs text-textMuted mt-0.5">
-            Consolidated Figures in ₹ Crores (except EPS)
+            {statementType === 's' ? 'Standalone' : 'Consolidated'} Figures in ₹ Crores (except EPS)
           </p>
         </div>
-        <button
-          onClick={handleExportCSV}
-          disabled={financialsStatus === 'loading' || financialsStatus === 'error'}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors disabled:opacity-50"
-          title="Export quarterly results to CSV"
-        >
-          <FileSpreadsheet className="size-3 text-positive" /> Export
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Standalone vs Consolidated Toggle */}
+          <div className="flex items-center bg-surface border border-border rounded-lg p-0.5">
+            <button
+              onClick={() => setStatementType('s')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
+                statementType === 's'
+                  ? 'bg-accent text-white'
+                  : 'text-textSecondary hover:text-textPrimary'
+              )}
+            >
+              Standalone
+            </button>
+            <button
+              onClick={() => setStatementType('c')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
+                statementType === 'c'
+                  ? 'bg-accent text-white'
+                  : 'text-textSecondary hover:text-textPrimary'
+              )}
+            >
+              Consolidated
+            </button>
+          </div>
+          <button
+            onClick={handleExportCSV}
+            disabled={financialsStatus === 'loading' || financialsStatus === 'error'}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium uppercase tracking-wider text-textSecondary hover:text-textPrimary hover:bg-surfaceMuted transition-colors disabled:opacity-50"
+            title="Export quarterly results to CSV"
+          >
+            <FileSpreadsheet className="size-3 text-positive" /> Export
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -142,11 +173,19 @@ export function QuarterlyResultsTable() {
               {financialsError || 'Failed to load quarterly results'}
             </p>
             <button
-              onClick={() => fetchQuarterlyResults(symbol)(dispatch)}
+              onClick={() => fetchQuarterlyResults(symbol, statementType)(dispatch)}
               className="px-4 py-2 bg-secondary rounded-lg text-xs font-semibold hover:bg-secondary/80 transition-colors border"
             >
               Retry
             </button>
+          </div>
+        ) : rowsList.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-textSecondary font-medium">
+              {statementType === 'c'
+                ? 'This company does not publish consolidated quarterly results.'
+                : 'No quarterly results available for this company.'}
+            </p>
           </div>
         ) : (
           <Table className="min-w-[800px]">

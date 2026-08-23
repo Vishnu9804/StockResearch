@@ -24,6 +24,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
+from agents.butterfly.pipeline import WORKFLOW_VERSION as BUTTERFLY_WORKFLOW_VERSION
 from core.database import async_session_maker, get_db
 from dependencies.db_user import get_db_user
 from models.models import NewsImpactAnalysis, NewsItem, NewsThematicResearch, User, UserNewsAlert
@@ -199,9 +200,18 @@ async def list_thematic_research(
 ):
     """Public, portfolio-independent 'new demand this news creates' feed (O2).
     Identical for every user, same as the general news feed — no auth needed.
-    Sparse by design: most news never produces a row here at all."""
+    Sparse by design: most news never produces a row here at all.
+
+    Filtered to the current WORKFLOW_VERSION on purpose: candidate_companies'
+    stored shape changed from a flat company list to sector-grouped companies
+    when the version last bumped (see agents/butterfly/pipeline.py), and a
+    stale row in the old shape would render broken in a frontend built for
+    the new one."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
-    filters = [NewsThematicResearch.created_at >= cutoff]
+    filters = [
+        NewsThematicResearch.created_at >= cutoff,
+        NewsThematicResearch.workflow_version == BUTTERFLY_WORKFLOW_VERSION,
+    ]
 
     async with async_session_maker() as session:
         total = await session.scalar(

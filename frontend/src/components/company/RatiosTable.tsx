@@ -102,6 +102,11 @@ export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: n
   const [loading, setLoading] = useState(true)
   const [sections, setSections] = useState<RatioSection[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Own toggle — this widget fetches independently of the Financials tab's
+  // P&L/Balance Sheet/Cash Flow toggle, so it needs (and previously lacked)
+  // its own statement_type control rather than silently defaulting to
+  // standalone with no way to tell which one was showing.
+  const [statementType, setStatementType] = useState<'s' | 'c'>('s')
 
   useEffect(() => {
     if (!symbol) return
@@ -109,7 +114,7 @@ export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: n
     setLoading(true)
     setError(null)
 
-    finscreenApi.fetchCompanyRatios(symbol)
+    finscreenApi.fetchCompanyRatios(symbol, { statement_type: statementType })
       .then((data: any) => {
         if (cancelled) return
         if (data && Array.isArray(data.sections)) {
@@ -128,13 +133,31 @@ export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: n
       })
 
     return () => { cancelled = true }
-  }, [symbol])
+  }, [symbol, statementType])
+
+  const statementToggle = (
+    <div className="flex items-center bg-surface border border-border rounded-lg p-0.5 shrink-0">
+      {(['s', 'c'] as const).map((t) => (
+        <button
+          key={t}
+          onClick={() => setStatementType(t)}
+          className={cn(
+            'px-2.5 py-1 text-xs font-medium uppercase tracking-wider rounded-md transition-colors',
+            statementType === t ? 'bg-accent text-white' : 'text-textSecondary hover:text-textPrimary'
+          )}
+        >
+          {t === 's' ? 'Standalone' : 'Consolidated'}
+        </button>
+      ))}
+    </div>
+  )
 
   if (loading) {
     return (
       <Card className="border-border shadow-none bg-surface">
-        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Key Financial Ratios</CardTitle>
+          {statementToggle}
         </CardHeader>
         <CardContent className="p-6">
           <div className="space-y-3">
@@ -150,11 +173,14 @@ export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: n
   if (error || sections.length === 0 || sections.every(s => s.rows.length === 0)) {
     return (
       <Card className="border-border shadow-none bg-surface">
-        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
+        <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">Key Financial Ratios</CardTitle>
+          {statementToggle}
         </CardHeader>
         <CardContent className="p-6 text-center text-xs text-textMuted">
-          {error ?? 'No ratio data available for this company.'}
+          {error ?? (statementType === 'c'
+            ? 'This company does not publish consolidated ratio data.'
+            : 'No ratio data available for this company.')}
         </CardContent>
       </Card>
     )
@@ -162,11 +188,16 @@ export function RatiosTable({ symbol }: { symbol: string; pe?: number; price?: n
 
   return (
     <Card className="border-border shadow-none bg-surface">
-      <CardHeader className="border-b border-border/50 bg-surfaceMuted/20">
-        <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
-          Key Financial Ratios
-        </CardTitle>
-        <p className="text-xs text-textMuted mt-0.5">Historical trend · Annual data</p>
+      <CardHeader className="border-b border-border/50 bg-surfaceMuted/20 flex-row items-center justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle className="text-sm font-medium text-textPrimary uppercase tracking-wide">
+            Key Financial Ratios
+          </CardTitle>
+          <p className="text-xs text-textMuted mt-0.5">
+            Historical trend · Annual data · {statementType === 's' ? 'Standalone' : 'Consolidated'}
+          </p>
+        </div>
+        {statementToggle}
       </CardHeader>
       <CardContent className="p-5">
         {sections.map((section) => (

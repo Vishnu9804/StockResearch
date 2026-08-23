@@ -99,19 +99,29 @@ def _render_analysis(analysis: NewsImpactAnalysis) -> list[str]:
 
 
 def _render_thematic(research: NewsThematicResearch) -> list[str]:
+    # research.candidate_companies is a list of SECTOR GROUPS, not a flat
+    # company list — see agents/butterfly/schemas.py:SectorImpact and
+    # agents/butterfly/verifier.py, which is what actually writes this shape.
     parts = ["", "Derived theme — new demand or dependency this event creates:"]
     need = research.derived_need if isinstance(research.derived_need, dict) else {}
     if need.get("description"):
         parts.append(f"- {need['description']}")
     if research.thesis:
         parts.append(f"- Reasoning: {research.thesis}")
-    companies = [
-        f"{c.get('symbol')} ({c.get('company_name')})"
-        for c in (research.candidate_companies or [])
-        if isinstance(c, dict) and c.get("symbol")
-    ]
-    if companies:
-        parts.append(f"- Verified listed companies sitting on that dependency: {', '.join(companies)}.")
+    for group in (research.candidate_companies or []):
+        if not isinstance(group, dict):
+            continue
+        sector = group.get("sector")
+        companies = [
+            f"{c.get('symbol')} ({c.get('company_name')})"
+            for c in (group.get("companies") or [])
+            if isinstance(c, dict) and c.get("symbol")
+        ]
+        if not sector or not companies:
+            continue
+        impact = group.get("impact")
+        headwind = f", {impact.lower()} impact" if impact else ""
+        parts.append(f"- {sector}{headwind}: {group.get('mechanism') or ''} Companies: {', '.join(companies)}.")
     return parts if len(parts) > 2 else []
 
 

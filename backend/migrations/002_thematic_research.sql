@@ -46,13 +46,17 @@ create table if not exists public.news_thematic_research (
   -- model's unverified general knowledge alone.
   derived_need          jsonb not null default '{}'::jsonb,
 
-  -- Candidate companies engaged with derived_need. Every entry here MUST have
-  -- been cross-checked against company_metrics/FinEdge before this row is
-  -- written — a candidate the verifier couldn't confirm as a real, currently
-  -- listed company is discarded outright, never stored with an invented
-  -- price. Shape per entry:
-  --   {"symbol": "...", "company_name": "...", "relevance_reasoning": "...",
-  --    "current_price": 123.4, "price_as_of": "...", "verified": true}
+  -- Sector groups affected by derived_need (NOT a flat company list — see
+  -- agents/butterfly/schemas.py:SectorImpact). Every company inside every
+  -- group MUST have been cross-checked against company_metrics/FinEdge before
+  -- this row is written — an unverifiable candidate is discarded outright,
+  -- never stored with an invented price, and a sector left with zero verified
+  -- companies is dropped entirely rather than shown empty. Shape:
+  --   [{"sector": "Pharmaceuticals (API manufacturers)", "impact": "NEGATIVE",
+  --     "mechanism": "Uses petroleum-derived solvents as a key raw material.",
+  --     "companies": [{"symbol": "...", "company_name": "...",
+  --       "relevance_reasoning": "...", "sector": "...", "industry": "...",
+  --       "current_price": 123.4, "price_as_of": "...", "verified": true}]}]
   candidate_companies   jsonb not null default '[]'::jsonb,
 
   -- Plain-language synthesis. Descriptive/analytical only — describes the

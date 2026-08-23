@@ -423,10 +423,15 @@ class NewsThematicResearch(Base):
     or dependency the event creates — e.g. a government ethanol-diesel
     blending mandate implies demand for a specific industrial input (an
     oxygenate such as isobutane), which points at specific, verifiable Indian
-    producers of that input. ``candidate_companies`` entries must be
+    producers of that input. ``candidate_companies`` stores a LIST OF SECTOR
+    GROUPS (not a flat company list): each entry is
+    ``{sector, impact (POSITIVE/NEGATIVE/MIXED), mechanism, companies: [...]}``
+    — see agents/butterfly/schemas.py:SectorImpact, the shape
+    agents/butterfly/verifier.py writes. Every company, in every sector, is
     cross-checked against company_metrics/FinEdge before this row is written —
     an unverifiable candidate is discarded, never stored with an invented
-    price. ``thesis`` is descriptive/analytical only, never a recommendation —
+    price, and a sector left with zero verified companies is dropped entirely.
+    ``thesis`` is descriptive/analytical only, never a recommendation —
     enforced by prompt and a code-level banned-phrase check before it is ever
     populated."""
 

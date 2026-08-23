@@ -203,13 +203,17 @@ export const {
 
 export const companyReducer = companySlice.reducer
 
-// Thunk action for fetching quarterly results via FastAPI financials/pl?period=quarterly
-export const fetchQuarterlyResults = (symbol: string) => async (dispatch: any) => {
+// Thunk action for fetching quarterly results via FastAPI financials/pl?period=quarterly.
+// statementType defaults to 's' (standalone) — matching the backend's own default
+// (routers/finedge.py:get_company_pl) — so a caller that doesn't pass one still
+// gets a value consistent with what's actually fetched, rather than the FIXED
+// "Consolidated" label this table used to show regardless of what it fetched.
+export const fetchQuarterlyResults = (symbol: string, statementType: 's' | 'c' = 's') => async (dispatch: any) => {
   dispatch(setFinancialsStatus('loading'))
   dispatch(setFinancialsError(null))
   try {
     const res = await finscreenClient.get(`/company/${symbol}/financials/pl`, {
-      params: { period: 'quarterly' }
+      params: { period: 'quarterly', statement_type: statementType }
     })
     dispatch(fetchCompanyQuarterlySuccess(res.data))
     dispatch(setFinancialsStatus('success'))
