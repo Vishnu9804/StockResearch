@@ -177,6 +177,20 @@ def is_quota_error(exc: BaseException) -> bool:
     return getattr(exc, "status_code", None) == 429
 
 
+def is_permanent_client_error(exc: BaseException) -> bool:
+    """A 4xx OTHER than 429 — malformed request, or Z.ai's content-safety
+    filter rejecting the input/output (litellm.BadRequestError, verified
+    live Aug 2026: "System detected potentially unsafe or sensitive content
+    in input or generation"). The exact same request produces the exact same
+    rejection every time, so retrying it is pure wasted latency, not a
+    reasonable bet the way retrying a network blip is. 429 is deliberately
+    excluded — it IS worth a fresh attempt after a real cooldown, which
+    QuotaExhaustedError/callers already handle separately; this only cuts
+    the pointless immediate 3-attempt backoff for errors no wait fixes."""
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and 400 <= status < 500 and status != 429
+
+
 def _model_id(agent: LlmAgent) -> str:
     """agent.model is normally the LiteLlm (ZLM) instance built by agents/
     shared/llm.py (model=cheap_model()/smart_model()/etc.); fall back to
@@ -187,9 +201,10 @@ def _model_id(agent: LlmAgent) -> str:
 
 def _should_retry(exc: BaseException) -> bool:
     # Every other transient failure (empty response, brief network blip) is
-    # still worth the normal 3-attempt backoff — only quota exhaustion is
-    # excluded, since no wait this short changes the outcome.
-    return not is_quota_error(exc)
+    # still worth the normal 3-attempt backoff — quota exhaustion and any
+    # other permanent 4xx rejection are excluded, since no wait this short
+    # changes either outcome.
+    return not is_quota_error(exc) and not is_permanent_client_error(exc)
 
 
 @retry(reraise=True, stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=20),

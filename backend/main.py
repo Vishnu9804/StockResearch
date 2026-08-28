@@ -45,6 +45,8 @@ _AGENT_LOGGERS = (
     "services.rag.company_resolver",       # which company a question resolved to
     "services.rag.sources.transcript",     # transcript PDF fetch/extract results
     "services.rag.sources.news",           # how many articles a cycle picked up
+    "services.ai_summary.pipeline",        # per-company AI summary generation progress
+    "services.ai_summary.text_extraction", # PDF fetch/extract results for AI summary
 )
 for _name in _AGENT_LOGGERS:
     logging.getLogger(_name).setLevel(_AGENT_LOG_LEVEL)

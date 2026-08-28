@@ -101,7 +101,16 @@ def _extract_quarter(description: str, announced: datetime | None) -> str:
         quarter_by_month = {4: "Q4", 5: "Q4", 6: "Q1", 7: "Q1", 8: "Q1", 9: "Q2",
                             10: "Q2", 11: "Q2", 12: "Q3", 1: "Q3", 2: "Q3", 3: "Q4"}
         quarter = quarter_by_month.get(announced.month, "Q1")
-        financial_year = announced.year + 1 if announced.month >= 4 else announced.year
+        # NOT a flat "month >= 4 -> year+1": April/May filings report Q4
+        # (Jan-Mar) of the FY that just ENDED, so they must resolve to the
+        # filing's OWN calendar year, not the next one — e.g. a transcript
+        # filed May 2026 covers Q4 FY26 (Jan-Mar 2026), not Q4 FY27. Every
+        # other month's filing reports a quarter that falls inside the FY
+        # beginning that same April, so year+1 is correct from June onward.
+        # A single boundary at month 6 (not 4) is what resolves both cases
+        # correctly with one comparison instead of a special-cased exception
+        # for April/May — verified against every month of the mapping above.
+        financial_year = announced.year + 1 if announced.month >= 6 else announced.year
         return f"{quarter} FY{str(financial_year)[2:]}"
     return "recent quarter"
 

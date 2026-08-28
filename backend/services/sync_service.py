@@ -45,6 +45,7 @@ from core.config import settings
 from core.database import async_session_maker
 from core.market_hours import is_market_open
 from models.models import CompanyMetric
+from services.ai_summary.pipeline import sync_ai_summaries_batch
 from services.document_sync import sync_documents_batch
 from services.metrics_sync import sync_fundamentals_batch, sync_quote_data
 from services.news_ingest import cleanup_stale_news, ingest_news
@@ -199,6 +200,21 @@ async def _document_sync_loop() -> None:
         await asyncio.sleep(_document_sync_interval_seconds())
 
 
+async def _ai_summary_sync_loop() -> None:
+    """Background sweep for services/ai_summary/ — see core/config.py:
+    ENABLE_AI_SUMMARY_SYNC. Off by default; the on-demand path in
+    routers/finedge.py::get_ai_summary covers real user traffic either way."""
+    while True:
+        try:
+            async with async_session_maker() as db:
+                await sync_ai_summaries_batch(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[SyncService] AI summary sync iteration failed")
+        await asyncio.sleep(settings.AI_SUMMARY_SYNC_INTERVAL_SECONDS)
+
+
 def _news_interval_seconds() -> int:
     return (
         NEWS_SYNC_INTERVAL_OPEN_SECONDS
@@ -258,4 +274,6 @@ async def run_background_sync() -> None:
     ]
     if settings.ENABLE_DOCUMENT_SYNC:
         loops.append(_document_sync_loop())
+    if settings.ENABLE_AI_SUMMARY_SYNC:
+        loops.append(_ai_summary_sync_loop())
     await asyncio.gather(*loops)

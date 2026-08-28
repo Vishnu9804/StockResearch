@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatExternalUrl } from '@/lib/formatters'
+import { AiSummaryPanel } from './AiSummaryPanel'
 
 interface DocumentItem {
   id: string
@@ -51,6 +52,7 @@ const TABS = [
   { id: 'concalls', label: 'Concalls' },
   { id: 'presentations', label: 'Presentations' },
   { id: 'credit-ratings', label: 'Credit Ratings' },
+  { id: 'ai-summary', label: '✨ AI Summary' },
 ]
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -108,6 +110,7 @@ export function DocumentsList() {
   }, [filteredDocuments, currentPage])
 
   const totalPages = Math.ceil(filteredDocuments.length / PAGE_SIZE)
+  const isAiSummaryTab = activeTab === 'ai-summary'
 
   return (
     <div className="bg-surface border border-border/40 shadow-xs rounded-2xl overflow-hidden select-none">
@@ -116,27 +119,31 @@ export function DocumentsList() {
         <div>
           <h3 className="text-sm font-medium text-textPrimary">Documents &amp; Announcements</h3>
           <p className="text-xs text-textMuted mt-0.5">
-            Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.
+            {isAiSummaryTab
+              ? 'A plain-language AI summary of this quarter\'s filings, in simple terms.'
+              : <>Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.</>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => showToast('✓ Data refreshed')}
-            className="size-8 rounded-lg border border-border bg-surface text-textSecondary hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
-          >
-            <RefreshCw className="size-3.5" />
-          </button>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
-            <Input
-              type="text"
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 h-8 text-xs font-medium border-border focus:border-accent bg-surface w-52"
-            />
+        {!isAiSummaryTab && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => showToast('✓ Data refreshed')}
+              className="size-8 rounded-lg border border-border bg-surface text-textSecondary hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />
+              <Input
+                type="text"
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-3 h-8 text-xs font-medium border-border focus:border-accent bg-surface w-52"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Filter tabs */}
@@ -157,6 +164,10 @@ export function DocumentsList() {
         ))}
       </div>
 
+      {isAiSummaryTab ? (
+        <AiSummaryPanel />
+      ) : (
+      <>
       {/* Document list */}
       <div className="divide-y divide-border/40">
         {filteredDocuments.length === 0 ? (
@@ -251,6 +262,8 @@ export function DocumentsList() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Toast */}
       {toastMsg && (

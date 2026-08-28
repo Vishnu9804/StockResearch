@@ -128,6 +128,10 @@ class CompanyMetric(Base):
     # largest-market-cap-first — the same pattern fundamentals_synced_at
     # already drives for sync_fundamentals_batch. See migration 004.
     documents_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Same pattern again, one level downstream: services/ai_summary/pipeline.py
+    # picks oldest-synced-first, largest-market-cap-first for the AI Summary
+    # background sweep. See migration 006.
+    ai_summary_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -166,6 +170,55 @@ class CompanyDocument(Base):
     source_ref: Mapped[str | None] = mapped_column(Text)
 
     discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CompanyAiSummary(Base):
+    """Cached, plain-language AI summary of ONE company's CURRENT-QUARTER
+    documents (announcements + concall + presentation only — never annual
+    reports or credit ratings, which are separate concerns). One row PER
+    SYMBOL, always overwritten in place as the quarter rolls forward — by
+    product decision, no history is kept here (see migration 006).
+
+    Built OFFLINE by services/ai_summary/pipeline.py, either the on-demand
+    cold-start path (routers/finedge.py::get_ai_summary, mirroring
+    services/document_sync.py::sync_one_symbol's pattern exactly) or the
+    background batch sweep (sync_ai_summaries_batch). A page view NEVER
+    triggers an LLM call directly — it reads this table, so the exact same
+    summary a user generated the cost of building is what every OTHER user
+    sees for free afterward.
+    """
+
+    __tablename__ = "company_ai_summaries"
+    __table_args__ = (
+        Index("ix_company_ai_summaries_symbol", "symbol"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    symbol: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+
+    fiscal_year: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    quarter_number: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    quarter_label: Mapped[str] = mapped_column(Text, nullable=False)
+
+    overview: Mapped[str] = mapped_column(Text, nullable=False)
+    announcements_summary: Mapped[str | None] = mapped_column(Text)
+    concall_summary: Mapped[str | None] = mapped_column(Text)
+    presentation_summary: Mapped[str | None] = mapped_column(Text)
+
+    key_highlights: Mapped[list] = mapped_column(JSONB, server_default="[]")
+    documents_covered: Mapped[list] = mapped_column(JSONB, server_default="[]")
+    documents_skipped: Mapped[list] = mapped_column(JSONB, server_default="[]")
+
+    source_content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+
+    status: Mapped[str] = mapped_column(Text, server_default="ready")
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+    model_used: Mapped[str | None] = mapped_column(Text)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

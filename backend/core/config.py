@@ -458,6 +458,48 @@ class Settings(BaseSettings):
     CHAT_MAX_CONVERSATIONS_PER_USER: int = 10
     CHAT_MAX_QUESTION_CHARS: int = 2000
 
+    # ── AI Summary of company documents (services/ai_summary/) ───────────────
+    # Reads company_documents (already populated by services/document_sync.py
+    # above) and turns the CURRENT quarter's announcement/concall/presentation
+    # filings into one cached, plain-language summary per company, stored in
+    # company_ai_summaries (migration 006). Runs entirely on ZLM — no
+    # embeddings, no vector search; see services/ai_summary/pipeline.py's
+    # module docstring for why retrieval doesn't apply to this feature.
+    #
+    # ON by default — this feature must PROACTIVELY refresh a cached summary
+    # the moment a company's underlying documents move to a new quarter,
+    # never wait for a user's visit to notice. The on-demand path in
+    # routers/finedge.py::get_ai_summary still exists as a cold-start safety
+    # net (same pattern as get_documents), but it is no longer the thing this
+    # feature relies on to stay current.
+    ENABLE_AI_SUMMARY_SYNC: bool = True
+    # Test-mode allowlist, same pattern/semantics as BUTTERFLY_TEST_NEWS_IDS
+    # below — comma-separated symbols. Empty (production behaviour) sweeps
+    # the WHOLE universe (every symbol document_sync has reached), oldest-
+    # ai_summary-first, largest-market-cap-first. Set while piloting a fixed
+    # list of companies (see scripts/generate_ai_summaries.py's
+    # PILOT_SYMBOLS) so the background sweep can't silently start spending
+    # ZLM calls on the other ~6700 symbols the moment it's turned on — clear
+    # this once ready to sweep the real universe; no code change needed.
+    AI_SUMMARY_SYNC_SYMBOLS: str = "RELIANCE,TCS,HDFCBANK,INFY,ICICIBANK,HINDUNILVR,SBIN,BHARTIARTL,ITC,LT"
+    # Small on purpose: unlike document_sync's 2 lightweight HTTP calls per
+    # symbol, one symbol here can mean several PDF downloads + several LLM
+    # calls. A small batch keeps one sweep cycle fast and keeps this feature
+    # from ever being the thing that saturates the ZLM request budget.
+    AI_SUMMARY_SYNC_BATCH_SIZE: int = 5
+    AI_SUMMARY_SYNC_INTERVAL_SECONDS: int = 600
+    # Same cap/reasoning as RAG_TRANSCRIPT_MAX_BYTES — a filing far past this
+    # is almost certainly a scanned document misfiled under one of these
+    # three categories, not a genuinely huge text-native PDF.
+    AI_SUMMARY_MAX_PDF_BYTES: int = 12 * 1024 * 1024
+    # Bounds LLM calls per company per quarter even for a company that files
+    # an unusually high volume of announcements. NOT a flat "newest N" —
+    # concall/presentation filings and results-related announcements are
+    # always kept regardless of date; only routine announcement volume
+    # (newspaper clippings, postal ballots, subsidiary notices) is trimmed to
+    # fit this budget. See services/ai_summary/quarter.py::select_within_budget.
+    AI_SUMMARY_MAX_DOCS_PER_QUARTER: int = 20
+
     @property
     def FINEDGE_API_KEYS(self) -> List[str]:
         return [self.FINEDGE_API_KEY_1, self.FINEDGE_API_KEY_2, self.FINEDGE_API_KEY_3]

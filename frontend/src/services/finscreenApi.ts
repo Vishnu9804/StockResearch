@@ -49,6 +49,14 @@ export const finscreenApi = {
   fetchShareholdingBaseStats: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/base-stats`).then(r => r.data),
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
   fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
+  // AI Summary of this quarter's announcements/concall/presentation filings
+  // (backend/routers/finedge.py::get_ai_summary) — served from a cached row,
+  // generated on-demand the first time a symbol is requested. No timeout
+  // override here on purpose: the very first request for a cold symbol can
+  // take a while (PDF downloads + a couple of LLM calls) and axios's default
+  // has no client-side timeout, so a slow first generation still resolves
+  // instead of erroring out from under it.
+  fetchCompanyAiSummary: (symbol: string) => finscreenClient.get(`/company/${symbol}/ai-summary`).then(r => r.data),
   fetchPeers: (symbol: string) => finscreenClient.get(`/company/${symbol}/peers`).then(r => r.data),
   fetchPeerComparison: (symbol: string, sector?: string, limit?: number) =>
     finscreenClient.get(`/company/${symbol}/peer-comparison`, {
