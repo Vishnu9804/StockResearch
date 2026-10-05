@@ -44,11 +44,19 @@ export const finscreenApi = {
   fetchCompanySegments: (symbol: string, params: any) => finscreenClient.get(`/company/${symbol}/segments`, { params }).then(r => r.data),
   fetchCompanyRatios: (symbol: string, params?: { statement_type?: 's' | 'c' }) =>
     finscreenClient.get(`/company/${symbol}/ratios`, { params }).then(r => r.data),
+  // Both were called (company-header, ProfitLossTable) but never defined, so
+  // the rating badge and P&L row notes silently threw "is not a function".
+  fetchCompanyCreditRatings: (symbol: string) => finscreenClient.get(`/company/${symbol}/credit-ratings`).then(r => r.data),
+  fetchCompanyNotes: (symbol: string, params?: any) => finscreenClient.get(`/company/${symbol}/notes`, { params }).then(r => r.data),
   fetchCompanyShareholding: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding`).then(r => r.data),
   fetchShareholdingBreakdown: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/breakdown`).then(r => r.data),
   fetchShareholdingBaseStats: (symbol: string) => finscreenClient.get(`/company/${symbol}/shareholding/base-stats`).then(r => r.data),
   fetchCompanyCorporateActions: (symbol: string) => finscreenClient.get(`/company/${symbol}/corporate-actions`).then(r => r.data),
-  fetchCompanyDocuments: (symbol: string) => finscreenClient.get(`/company/${symbol}/documents`).then(r => r.data),
+  // refresh=true makes the backend re-check FinEdge for new filings before
+  // responding (the Documents tab's Refresh button); without it the stored set
+  // is returned at once and refreshed in the background when it's stale.
+  fetchCompanyDocuments: (symbol: string, refresh = false) =>
+    finscreenClient.get(`/company/${symbol}/documents`, { params: refresh ? { refresh: true } : undefined }).then(r => r.data),
   // AI Summary of this quarter's announcements/concall/presentation filings
   // (backend/routers/finedge.py::get_ai_summary) — served from a cached row,
   // generated on-demand the first time a symbol is requested. No timeout

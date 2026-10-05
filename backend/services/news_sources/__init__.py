@@ -13,10 +13,10 @@ is by definition a DIRECT statement about one company, so it can only ever
 produce red alerts. Butterfly chains start from macro, commodity, policy and
 global events that never name the affected company at all.
 
-marketaux is the sole provider (see marketaux_client.py's module docstring
-for the vendor review it won).
+Global Trade Alert is the sole provider (see gta_client.py's module
+docstring for what it is, why it fits this workflow, and the API's quota).
 """
 
-from services.news_sources.marketaux_client import QUERIES, fetch_marketaux, query_health
+from services.news_sources.gta_client import QUERIES, fetch_gta, lookback_floor, query_health
 
-__all__ = ["QUERIES", "fetch_marketaux", "query_health"]
+__all__ = ["QUERIES", "fetch_gta", "lookback_floor", "query_health"]

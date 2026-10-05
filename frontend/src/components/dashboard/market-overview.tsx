@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatNumber, formatPct, changeClass } from "@/lib/formatters"
 import { MetricCard } from "@/components/shared/metric-card"
 import { Link } from "react-router-dom"
-import { marketIndices, marketBreadth } from "@/lib/data/market"
+import { marketIndices } from "@/lib/data/market"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
 // ─── Static Fallback Config ──────────────────────────────────────────────────
@@ -207,7 +207,10 @@ interface BreadthCardsProps {
 }
 
 export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
-  if (loading || !quotes || Object.keys(quotes).length === 0) {
+  // Skeleton only while the request is in flight. It used to stay up for as
+  // long as `quotes` was empty, so a failed /market/movers call meant shimmer
+  // forever; now the cards render with "—" for anything genuinely missing.
+  if (loading) {
     return (
       <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -223,37 +226,42 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
     )
   }
 
-  // Calculate Advances and Declines from live quotes
+  // Advances/declines and 52-week highs/lows, all from the same batch quotes
+  // (live, or the backend's flagged snapshot when live quotes are refused).
+  // No mock fallback: invented breadth numbers are worse than "—".
   let advances = 0
   let declines = 0
   let unchanged = 0
+  let highs52 = 0
+  let lows52 = 0
+  let asOf: string | null = null
 
-  Object.values(quotes).forEach((q: any) => {
-    if (q && q.change) {
+  Object.values(quotes || {}).forEach((q: any) => {
+    if (!q) return
+    if (q.stale && q.as_of && !asOf) asOf = q.as_of
+    if (q.change !== undefined && q.change !== null) {
       const changeVal = parseFloat(String(q.change).replace('%', ''))
       if (changeVal > 0) advances++
       else if (changeVal < 0) declines++
       else unchanged++
     }
+    const price = Number(q.current_price || q.close_price || 0)
+    if (price > 0 && Number(q.high52) > 0 && price >= Number(q.high52) * 0.99) highs52++
+    if (price > 0 && Number(q.low52) > 0 && price <= Number(q.low52) * 1.01) lows52++
   })
 
-  // Fallback to mock breadth if quotes are empty
-  if (advances === 0 && declines === 0) {
-    advances = marketBreadth.advances
-    declines = marketBreadth.declines
-    unchanged = marketBreadth.unchanged
-  }
-
+  const hasBreadth = advances + declines + unchanged > 0
   const total = advances + declines + unchanged
   const advPct = total > 0 ? (advances / total) * 100 : 50
   const decPct = total > 0 ? (declines / total) * 100 : 50
+  const breadthHint = asOf
+    ? `Snapshot ${new Date(asOf).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+    : 'Today'
 
-  // Find India VIX from indices
+  // India VIX comes from the (live) index feed.
   const vixLive = indices?.find(
     (idx: any) => idx.index_symbol === 'INDVIX' || idx.index_name?.toLowerCase().includes('vix')
   )
-  const vixValue = vixLive ? vixLive.close_price : marketBreadth.vix
-  const vixChangePct = vixLive ? vixLive.change_pct : marketBreadth.vixChangePct
 
   return (
     <div className="grid grid-cols-2 gap-5 md:grid-cols-4 animate-count-up">
@@ -264,12 +272,13 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
           </div>
           <div className="mt-1 flex items-baseline gap-2 font-mono tabular">
             <span className="text-positive text-2xl font-semibold">
-              {advances}
+              {hasBreadth ? advances : '—'}
             </span>
             <span className="text-muted-foreground">/</span>
             <span className="text-negative text-2xl font-semibold">
-              {declines}
+              {hasBreadth ? declines : '—'}
             </span>
+            {hasBreadth && <span className="text-xs text-textMuted font-sans ml-auto">{breadthHint}</span>}
           </div>
           <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-muted">
             <div className="bg-positive" style={{ width: `${advPct}%` }} />
@@ -280,23 +289,25 @@ export function BreadthCards({ loading, indices, quotes }: BreadthCardsProps) {
 
       <MetricCard
         label="India VIX"
-        value={formatNumber(vixValue, 2)}
-        changePct={vixChangePct}
+        value={vixLive ? formatNumber(vixLive.close_price, 2) : '—'}
+        changePct={vixLive ? vixLive.change_pct : undefined}
         hint="Volatility index"
       />
 
+      {/* These two replaced "FII / DII Net Flow", which were hard-coded mock
+          numbers: no data source in this app provides institutional flows. */}
       <MetricCard
-        label="FII Net Flow"
-        value={`+₹${formatNumber(marketBreadth.fiiNetCr, 0)}`}
-        unit="Cr"
-        hint="Today, equities"
+        label="52W Highs"
+        value={hasBreadth ? highs52 : '—'}
+        unit={hasBreadth ? 'stocks' : undefined}
+        hint={hasBreadth ? `Within 1% · ${breadthHint}` : 'Within 1% of 52W high'}
       />
 
       <MetricCard
-        label="DII Net Flow"
-        value={`+₹${formatNumber(marketBreadth.diiNetCr, 0)}`}
-        unit="Cr"
-        hint="Today, equities"
+        label="52W Lows"
+        value={hasBreadth ? lows52 : '—'}
+        unit={hasBreadth ? 'stocks' : undefined}
+        hint={hasBreadth ? `Within 1% · ${breadthHint}` : 'Within 1% of 52W low'}
       />
     </div>
   )

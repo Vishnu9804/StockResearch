@@ -26,7 +26,7 @@ Four independent loops:
                         just held/watched symbols. Feeds both the company
                         page's Documents tab and Research Chat's transcript
                         fetch. (see services/document_sync.py)
-  * news loop         — marketaux into the central ``news_items`` store, the
+  * news loop         — Global Trade Alert into the central ``news_items`` store, the
                         input to the Butterfly Effect workflow.
                         (see services/news_ingest.py)
 
@@ -39,6 +39,8 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+import httpx
+
 from sqlalchemy import func, select
 
 from core.config import settings
@@ -47,6 +49,7 @@ from core.market_hours import is_market_open
 from models.models import CompanyMetric
 from services.ai_summary.pipeline import sync_ai_summaries_batch
 from services.document_sync import sync_documents_batch
+from services.finedge_service import AUTH_BACKOFF_SECONDS, is_auth_error
 from services.metrics_sync import sync_fundamentals_batch, sync_quote_data
 from services.news_ingest import cleanup_stale_news, ingest_news
 
@@ -89,20 +92,19 @@ def _document_sync_interval_seconds() -> int:
 
 
 # ── News ingestion cadence ───────────────────────────────────────────────────
-# marketaux is a paid API with a real per-day request quota (unlike the old
-# RSS/GDELT providers, which had none to budget), so this cadence is sized
-# against that budget rather than against publisher-CDN courtesy. At 7 themed
-# queries per cycle (services/news_sources/marketaux_client.py), this works
-# out to roughly 400 calls/day — about 4% of the "Pro 10K" plan's 10,000/day
-# — leaving generous headroom for retries and future per-portfolio lookups.
-# Slower off-hours, since Indian financial publishers post very little
-# overnight — but never stopped, because the global queries that matter most
-# for butterfly chains cover other time zones, and a US Fed decision lands
-# while Indian markets are shut. The ingest is idempotent (ON CONFLICT DO
-# NOTHING on url_hash) either way, so polling faster than the underlying news
-# actually changes would buy nothing.
-NEWS_SYNC_INTERVAL_OPEN_SECONDS = 15 * 60
-NEWS_SYNC_INTERVAL_CLOSED_SECONDS = 45 * 60
+# Global Trade Alert (services/news_sources/gta_client.py) caps each key at
+# 1,000 entries returned per rolling 24h, and publishes in dated weekday
+# batches — never minute-by-minute, and with a median ~9-month lag behind
+# the government announcement itself. Every 4 hours is therefore as fresh as
+# the source can actually be, and keeps quota use low: each poll is
+# incremental (only the newest stored GTA day onward, typically a few dozen
+# entries), i.e. ~6 polls/day stays well under the cap even on GTA's busiest
+# batch days, with headroom for manual POST /api/news/ingest runs. No
+# open/closed split — GTA's schedule has nothing to do with Indian market
+# hours. The ingest is idempotent (ON CONFLICT DO NOTHING on url_hash), so a
+# re-polled entry costs quota but never creates a duplicate row.
+NEWS_SYNC_INTERVAL_OPEN_SECONDS = 4 * 60 * 60
+NEWS_SYNC_INTERVAL_CLOSED_SECONDS = 4 * 60 * 60
 
 # Retention cleanup runs on its own daily cadence rather than every ingest
 # tick — a delete pass over the table on every 15-minute poll would be pure
@@ -127,6 +129,17 @@ def _fundamentals_interval_seconds() -> int:
     )
 
 
+async def _auth_backoff(loop_name: str, exc: Exception) -> None:
+    """FinEdge refused the key/plan for a whole batch. Retrying every few
+    seconds can't succeed and floods the log (and FinEdge) — wait, then probe
+    again; the loop resumes by itself once the account is fixed."""
+    logger.warning(
+        "[SyncService] %s sync paused for %d min — FinEdge refused the API key or plan: %s",
+        loop_name, AUTH_BACKOFF_SECONDS // 60, exc,
+    )
+    await asyncio.sleep(AUTH_BACKOFF_SECONDS)
+
+
 async def _quote_sync_loop() -> None:
     while True:
         try:
@@ -134,6 +147,10 @@ async def _quote_sync_loop() -> None:
                 await sync_quote_data(db)
         except asyncio.CancelledError:
             raise
+        except httpx.HTTPStatusError as exc:
+            # Upstream refused the request (bad key / plan / params) — the
+            # message already says why; a traceback adds nothing.
+            logger.warning("[SyncService] Quote sync iteration failed: %s", exc)
         except Exception:
             logger.exception("[SyncService] Quote sync iteration failed")
         await asyncio.sleep(_quote_interval_seconds())
@@ -183,7 +200,10 @@ async def _fundamentals_sync_loop() -> None:
                 await sync_fundamentals_batch(db, batch_size=FUNDAMENTALS_BATCH_SIZE)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
+            if is_auth_error(exc):
+                await _auth_backoff("Fundamentals", exc)
+                continue
             logger.exception("[SyncService] Fundamentals sync iteration failed")
         await asyncio.sleep(_fundamentals_interval_seconds())
 
@@ -195,7 +215,10 @@ async def _document_sync_loop() -> None:
                 await sync_documents_batch(db)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
+            if is_auth_error(exc):
+                await _auth_backoff("Document", exc)
+                continue
             logger.exception("[SyncService] Document sync iteration failed")
         await asyncio.sleep(_document_sync_interval_seconds())
 
@@ -224,7 +247,7 @@ def _news_interval_seconds() -> int:
 
 
 async def _news_sync_loop() -> None:
-    """Poll every registered marketaux query into ``news_items``.
+    """Poll every registered Global Trade Alert query into ``news_items``.
 
     Runs immediately on start rather than after a sleep, so a fresh deploy has a
     populated feed within a minute instead of a quarter of an hour. Individual

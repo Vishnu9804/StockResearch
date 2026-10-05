@@ -571,8 +571,11 @@ export function Feed() {
 
                 {!newsLoading && !newsError && newsStale && newsItems.length > 0 && (
                   <div className="px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-[12px] text-amber-700 dark:text-amber-400 font-medium">
-                    Nothing published in the last few days — showing the most recent stories available
-                    {newsNewestAt ? ` (newest: ${new Date(newsNewestAt).toLocaleString()})` : ''}.
+                    {/* GTA publishes date-only records in weekday batches with multi-week gaps, so a
+                        clock time here (always 5:30 AM IST = midnight UTC) would be invented precision. */}
+                    No new trade-policy records in the last few days (Global Trade Alert publishes in batches)
+                    — showing the most recent available
+                    {newsNewestAt ? ` (latest batch: ${new Date(newsNewestAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })})` : ''}.
                   </div>
                 )}
 

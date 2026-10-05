@@ -167,6 +167,19 @@ def _should_retry(exc: Exception) -> bool:
     return False
 
 
+def is_auth_error(exc: BaseException) -> bool:
+    """FinEdge refused the key or the plan doesn't cover the endpoint (verified
+    live: 401 "ER0012 - user not authorized to view this content"). Account-
+    wide and not transient, so background syncs back off instead of retrying
+    symbol after symbol."""
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403)
+
+
+# How long a background sync loop waits after FinEdge refuses the key, before
+# probing again.
+AUTH_BACKOFF_SECONDS = 30 * 60
+
+
 # ── 9. Core fetch with retry + exponential backoff ───────────────────────────
 async def _fetch_with_retry(
     method: str, endpoint: str, query: dict, body: Any, request_id: str
@@ -227,7 +240,18 @@ async def _do_fetch(method: str, endpoint: str, query: dict, body: Any, request_
         logger.error(f"[FinEdge] TIMEOUT after {timeout}s on {url}")
         raise
 
-    response.raise_for_status()
+    if response.is_error:
+        # Same exception type raise_for_status() would give (so _should_retry
+        # and the routers' _api_error keep working), but with FinEdge's own
+        # reason (e.g. "ER0012 - user not authorized to view this content")
+        # and without the ?token=... query string, which httpx's default
+        # message would otherwise copy into every log line.
+        reason = (response.text or "").strip().strip('"')[:200]
+        raise httpx.HTTPStatusError(
+            f"FinEdge {response.status_code} on /api/v1/{clean}: {reason or response.reason_phrase}",
+            request=response.request,
+            response=response,
+        )
 
     content = response.content.strip() if response.content else b""
     if not content:
@@ -300,6 +324,10 @@ async def execute_proxy_request(
         return result
     except Exception as exc:
         future.set_exception(exc)
+        # Mark it retrieved: when no duplicate request was waiting on this
+        # future, asyncio would otherwise log "Future exception was never
+        # retrieved" with a full traceback for an error already raised below.
+        future.exception()
         raise
     finally:
         _active_requests.pop(cache_key, None)

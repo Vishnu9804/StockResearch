@@ -29,6 +29,7 @@ about yet.
 """
 
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -38,33 +39,80 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from models.models import CompanyDocument, CompanyMetric
-from services.finedge_service import execute_proxy_request
+from services.finedge_service import execute_proxy_request, is_auth_error
 
 logger = logging.getLogger("document_sync")
 
 _LOOKBACK_DAYS = 2 * 365
 
 
-def _classify(item: dict) -> str:
-    """Same keyword rules routers/finedge.py used inline before this module
-    existed — moved here, not changed, so a filing already seen keeps the
-    category a user has already looked at."""
-    text = f"{item.get('category', '')} {item.get('description', '')}".lower()
-    if "annual report" in text:
+_NEWSPAPER_RE = re.compile(r"newspaper (publication|advertisement|ad)\b")
+_TRANSCRIPT_RE = re.compile(r"\btranscripts?\b")
+_RECORDING_RE = re.compile(r"\b(audio|video)[\s/-]*(and video |and audio )?recordings?\b|\brecordings?\b|\bwebcast\b")
+_PRESENTATION_RE = re.compile(
+    r"\b(investors?|analysts?|earnings|results?|corporate|company) presentations?\b"
+    r"|\babout presentation\b|^presentation\b"
+)
+_LARGE_CORPORATE_RE = re.compile(r"\blarge corporates?\b|\bmonitoring agency\b")
+_AGM_RE = re.compile(r"\bannual general meeting\b|\bagm\b|\begm\b|\bpostal ballot\b")
+# "<Company> Limited has informed the Exchange about/regarding ..." — the
+# company's own name says nothing about the filing, and for a rating agency
+# ("CARE Ratings Limited has informed the Exchange about Schedule of meet")
+# it made every one of its filings look like a credit rating.
+_FILER_PREFIX_RE = re.compile(r"^.*?\bhas informed the exchange\b\s*(about|regarding)?\s*")
+_RATING_RE = re.compile(
+    r"\bcredit ratings?\b|\bcrisil\b|\bicra\b|\bcare ?(ratings|edge)\b|\bindia ratings\b|\bind-ra\b"
+    r"|\brating (agency|action)\b|\bbrickwork\b|\bacuite\b|\binfomerics\b"
+)
+
+
+def classify_document(exchange_category: str | None, description: str | None) -> str:
+    """Which Documents-tab section a filing belongs in, decided from what the
+    filing itself SAYS it is (its description), not the exchange category it
+    was filed under.
+
+    Filing under the exchange category isn't enough, and was the bug here:
+    "Analysts/Institutional Investor Meet/Con. Call Updates" holds earnings-
+    call transcripts, but also every analyst-meet schedule, investor-
+    conference attendance notice, board-meeting date and audio-recording link
+    letter — verified across the stored universe, only ~19% of what that rule
+    labelled "concall" were transcripts. So:
+      concall            a transcript (the document with what management said)
+      concall-recording  a letter linking to the call's audio/video recording
+      presentation       an investor/analyst/results presentation deck
+      annual-report      the annual report itself
+      credit-rating      a rating agency action
+      announcement       everything else — including meet schedules, newspaper
+                         ad copies and SEBI "large corporate" disclosures that
+                         merely mention a rating or the annual report.
+    Works from the description alone too (stored rows keep only that, as
+    their title), so stored and freshly fetched filings classify the same way.
+    """
+    category = (exchange_category or "").strip().lower()
+    desc = _FILER_PREFIX_RE.sub("", " ".join((description or "").lower().split()), count=1)
+
+    if _NEWSPAPER_RE.search(desc) or category.startswith("copy of newspaper"):
+        return "announcement"
+    is_shareholder_meeting = bool(_AGM_RE.search(desc))
+    if _TRANSCRIPT_RE.search(desc):
+        # An AGM transcript is shareholder-meeting proceedings, not an
+        # earnings call — it belongs with the other notices.
+        return "announcement" if is_shareholder_meeting else "concall"
+    if "annual report" in desc or category == "annual report":
         return "annual-report"
-    if any(x in text for x in [
-        "concall", "con. call", "conference call", "earnings call",
-        "institutional investor meet", "analyst meet", "investor meet",
-        "earnings press conference", "audio and video recording",
-        "transcript of the analyst",
-    ]):
-        return "concall"
-    if any(x in text for x in [
-        "credit rating", "crisil", "icra", "care ratings", "care edge",
-        "india ratings", "ind-ra", "rating agency", "rating action",
-    ]):
+    if _RECORDING_RE.search(desc):
+        return "announcement" if is_shareholder_meeting else "concall-recording"
+    if category == "investor presentation" or _PRESENTATION_RE.search(desc):
+        return "presentation"
+    if _LARGE_CORPORATE_RE.search(desc):
+        return "announcement"
+    if category == "credit rating" or _RATING_RE.search(desc):
         return "credit-rating"
     return "announcement"
+
+
+def _classify(item: dict) -> str:
+    return classify_document(item.get("category"), item.get("description") or item.get("category"))
 
 
 def _real_pdf_url(item: dict) -> str:
@@ -115,17 +163,27 @@ async def fetch_documents_for_symbol(symbol: str, request_id: str) -> list[dict[
         "to_date": today.strftime("%Y-%m-%d"),
     }
 
+    errors: list[Exception] = []
+
     async def safe(coro):
         try:
             return await coro
         except Exception as exc:
-            logger.warning("[document_sync] %s — fetch failed: %s", symbol, exc)
+            if not is_auth_error(exc):
+                logger.warning("[document_sync] %s — fetch failed: %s", symbol, exc)
+            errors.append(exc)
             return None
 
     announcements, presentations = await asyncio.gather(
         safe(execute_proxy_request("GET", "corp-announcements", query, None, request_id)),
         safe(execute_proxy_request("GET", "investor-presentations", query, None, request_id)),
     )
+    # Both feeds failed: raise rather than return [] — an empty list would be
+    # written down as "this company has no documents" and stamped synced, so
+    # it wouldn't be retried for DOCUMENT_REFRESH_DAYS even once FinEdge is
+    # back. One feed failing still returns the other's rows.
+    if len(errors) == 2:
+        raise errors[0]
 
     rows: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
@@ -255,7 +313,13 @@ async def sync_documents_batch(db: AsyncSession, batch_size: int | None = None) 
             # the log line below already claimed was true.
             await db.commit()
             synced += 1
-        except Exception:
+        except Exception as exc:
+            if is_auth_error(exc):
+                # Account-wide (key/plan), not this symbol — every other
+                # symbol in the batch would fail the same way. Hand it to the
+                # loop, which backs off (services/sync_service.py).
+                await db.rollback()
+                raise
             logger.exception("[document_sync] symbol=%s failed — leaving documents_synced_at unset "
                              "so the next cycle retries it", symbol)
             # Required after ANY failure, not just this specific one: without

@@ -47,21 +47,31 @@ class Settings(BaseSettings):
     # dedicated `python sync_worker.py` process exactly once instead.
     ENABLE_BACKGROUND_SYNC: bool = True
 
-    # ── News (marketaux) ──────────────────────────────────────────────────────
-    # Sole news provider (12 Aug 2026 vendor review — marketaux over mediastack
-    # and WorldAPI): mediastack's India "business" coverage turned out to be a
-    # re-serve of the same free Google News RSS this app used to fetch itself,
-    # and WorldAPI bills per-call in crypto (no ordinary subscription exists to
-    # buy). marketaux is purpose-built for market news — every article carries
-    # per-company sentiment, industry and match-confidence, which is what
-    # services/news_ingest.py stores in NewsItem.mentioned_entities.
-    # Empty by default so a fresh checkout never calls a paid API unset.
-    MARKETAUX_API_KEY: str = ""
-    # Articles returned per themed query (services/news_sources/marketaux_client.py).
-    # 50 matches the "Pro 10K" plan (the recommended tier) — raise only after
-    # confirming the purchased plan's per-request article cap, a lower-tier key
-    # (e.g. Free's cap of 3) will get this rejected with a 422.
-    MARKETAUX_ARTICLES_PER_REQUEST: int = 50
+    # ── News (Global Trade Alert) ─────────────────────────────────────────────
+    # Sole news provider (Sep 2026, replacing marketaux): globaltradealert.org's
+    # curated database of government trade-policy interventions — tariffs,
+    # export bans, anti-dumping, safeguards, subsidies — each tagged with the
+    # implementing and affected countries and the HS products/CPC sectors
+    # touched. See services/news_sources/gta_client.py for the full picture.
+    # Empty by default so a fresh checkout never calls the API unset.
+    GTA_API_KEY: str = ""
+    # How far back (by GTA publication date) a fresh deploy fetches. GTA
+    # publishes in weekday batches with gaps of up to ~2.5 weeks seen, so a
+    # short window can come back empty on a fresh start. Always clamped below
+    # NEWS_RETENTION_DAYS by gta_client.lookback_days() — a window past
+    # retention would re-ingest (and re-analyse) rows the cleanup just deleted.
+    # Also the ingestion age cutoff in services/news_ingest.py.
+    # 45, not 14: verified live (Oct 2026) GTA went Sep 4 -> Sep 21 -> (nothing
+    # through Oct 6) between batches, so a 14-day window regularly held only a
+    # handful of items — all of which could be foreign grants the relevance
+    # gate rightly skips, leaving the alert pipeline with nothing real to read.
+    GTA_LOOKBACK_DAYS: int = 45
+    # GTA caps each key at 1,000 entries returned per rolling 24h (verified
+    # live: HTTP 429 "Not more than 1000 entries can be outputted within 24h").
+    # Steady-state polls are incremental and return a few dozen entries; this
+    # cap only bounds a fresh deploy's first fill so it can't burn the whole
+    # day's quota in one request — any remainder arrives on the next cycle.
+    GTA_MAX_ENTRIES_PER_CYCLE: int = 300
 
     # ── News retention ─────────────────────────────────────────────────────────
     # Deliberately a TIME window, never a row-count cap. A count cap (e.g. "keep
@@ -70,7 +80,9 @@ class Settings(BaseSettings):
     # would otherwise lose history that's still well within any sane retention
     # window. Time-based retention makes "how old" the only thing that decides
     # deletion, independent of how many articles arrived on any given day.
-    NEWS_RETENTION_DAYS: int = 21
+    # Sized for GTA's bursty cadence (multi-week gaps between batches) and kept
+    # comfortably above GTA_LOOKBACK_DAYS — see gta_client.lookback_days().
+    NEWS_RETENTION_DAYS: int = 60
 
     # ── Multi-agent workflows (Google ADK, running entirely on ZLM) ────────────
     # Every LlmAgent in every workflow under agents/ runs on ZLM (Zhipu AI /
@@ -410,8 +422,14 @@ class Settings(BaseSettings):
     # A document set older than this is treated as stale and re-swept, even if
     # nothing else prompted it — the floor under the "once a quarter" filing
     # cadence above, generous enough that it never re-fetches a company that
-    # was just synced minutes ago by the rolling batch.
-    DOCUMENT_REFRESH_DAYS: int = 3
+    # was just synced minutes ago by the rolling batch. A full sweep of the
+    # universe takes ~2h with the market closed (~13h open), so 1 day is
+    # achievable — 3 meant a new transcript could take up to 3 days to show.
+    DOCUMENT_REFRESH_DAYS: int = 1
+    # A company page view refreshes that one company's documents in the
+    # background when its last sync is older than this, so a filing appears
+    # on the next view instead of waiting for the rolling sweep to come round.
+    DOCUMENT_ON_VIEW_REFRESH_HOURS: int = 6
 
     # Background index worker — same single-owner rule as every other worker in
     # this codebase (see ENABLE_BACKGROUND_SYNC). Run inline in single-process

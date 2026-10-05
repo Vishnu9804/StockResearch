@@ -41,7 +41,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from agents.shared.taxonomy import effective_net_exposure, find_best_matching_entry, iter_profile_exposure_entries
@@ -50,6 +50,7 @@ from core.database import async_session_maker
 from models.models import (
     CompanyExposureProfile,
     CompanyMetric,
+    NewsImpactAnalysis,
     NewsItem,
     Portfolio,
     PortfolioHolding,
@@ -76,7 +77,11 @@ NAMED_DIRECTNESS = 1.0
 _SEVERITY_RANK = {"YELLOW": 0, "ORANGE": 1, "RED": 2}
 
 
-async def score_analysis_for_users(news: NewsItem, analysis_id, compiled: dict) -> None:
+async def score_analysis_for_users(news: NewsItem, analysis_id, compiled: dict, *, skip_existing: bool = False) -> None:
+    """``skip_existing`` leaves any (user, symbol) that already has an alert
+    on this news untouched — used by rescore_recent_analyses so a re-run only
+    fills in newly held symbols instead of re-grading (and possibly re-capping)
+    alerts a user has already seen."""
     exposure_axes = compiled["exposure_axes"]
     affected_sectors = compiled["event"].get("affected_sectors") or []
 
@@ -93,6 +98,20 @@ async def score_analysis_for_users(news: NewsItem, analysis_id, compiled: dict) 
     )
 
     holdings_by_user = await _holdings_for_symbols(list(candidates.keys()))
+    if skip_existing and holdings_by_user:
+        async with async_session_maker() as session:
+            existing = set(
+                (
+                    await session.execute(
+                        select(UserNewsAlert.user_id, UserNewsAlert.symbol).where(UserNewsAlert.news_id == news.id)
+                    )
+                ).all()
+            )
+        holdings_by_user = {
+            user_id: kept
+            for user_id, symbols in holdings_by_user.items()
+            if (kept := {s: h for s, h in symbols.items() if (user_id, s) not in existing})
+        }
     if not holdings_by_user:
         logger.info("[butterfly.scorer] news_id=%s no user holds any candidate symbol", news.id)
         return
@@ -519,3 +538,69 @@ async def _upsert_alert(session, user_id, news: NewsItem, analysis_id, row: dict
         set_=update_cols,
     )
     await session.execute(stmt)
+
+
+# ── Re-scoring against current holdings ──────────────────────────────────────
+async def rescore_recent_analyses(workflow_version: str, days: int | None = None) -> dict:
+    """Bring user_news_alerts in line with what users hold NOW. No LLM call.
+
+    score_analysis_for_users only runs at the moment a news item is analysed,
+    so a stock added to a portfolio afterwards would never get alerts for news
+    already analysed, and a stock sold would keep its alerts forever. This:
+      1. deletes alerts on symbols their user no longer holds, then
+      2. re-runs Workflow B over every OK analysis of news published in the
+         last ``days`` (default NEWS_RETENTION_DAYS), filling in alerts only
+         for (user, symbol) pairs that don't have one yet.
+    """
+    days = days if days is not None else settings.NEWS_RETENTION_DAYS
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    async with async_session_maker() as session:
+        held = (
+            select(PortfolioHolding.symbol)
+            .join(Portfolio, Portfolio.id == PortfolioHolding.portfolio_id)
+            .where(Portfolio.user_id == UserNewsAlert.user_id, PortfolioHolding.symbol == UserNewsAlert.symbol)
+        )
+        pruned = (
+            await session.execute(delete(UserNewsAlert).where(~held.exists()).returning(UserNewsAlert.id))
+        ).fetchall()
+        await session.commit()
+
+        pairs = (
+            await session.execute(
+                select(NewsImpactAnalysis, NewsItem)
+                .join(NewsItem, NewsItem.id == NewsImpactAnalysis.news_id)
+                .where(
+                    NewsImpactAnalysis.workflow_version == workflow_version,
+                    NewsImpactAnalysis.status == "OK",
+                    NewsItem.published_at >= since,
+                )
+                .order_by(NewsItem.published_at)
+            )
+        ).all()
+
+    before = await _alert_count()
+    for analysis, news in pairs:
+        compiled = {
+            "event": analysis.event or {},
+            "exposure_axes": analysis.exposure_axes or [],
+            "market_significance": float(analysis.market_significance) if analysis.market_significance is not None else None,
+            "confidence": float(analysis.confidence) if analysis.confidence is not None else 0.5,
+            "novelty": float(analysis.novelty) if analysis.novelty is not None else None,
+        }
+        if not (compiled["exposure_axes"] or news.mentioned_symbols):
+            continue
+        await score_analysis_for_users(news, analysis.id, compiled, skip_existing=True)
+
+    summary = {
+        "pruned_unheld": len(pruned),
+        "analyses_rescored": len(pairs),
+        "alerts_added": await _alert_count() - before,
+    }
+    logger.info("[butterfly.scorer] rescore complete — %s", summary)
+    return summary
+
+
+async def _alert_count() -> int:
+    async with async_session_maker() as session:
+        return (await session.execute(select(func.count()).select_from(UserNewsAlert))).scalar_one()

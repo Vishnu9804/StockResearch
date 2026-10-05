@@ -1,7 +1,7 @@
 """
 scripts/exit_test_mode.py
 THE one command that takes the Butterfly Effect workflow from "testing on a
-hand-written news set" to "running on the real marketaux feed in production".
+hand-written news set" to "running on the real Global Trade Alert feed in production".
 
 Run it when you're done demoing/testing:
 
@@ -14,8 +14,9 @@ What it does, in one pass:
      Their news_impact_analyses, news_thematic_research and user_news_alerts
      rows go with them automatically — every one of those FKs is declared
      ON DELETE CASCADE (migrations/001, 002), so there is no orphan left
-     behind in any related table. Real ingested news (source_type MARKETAUX /
-     RSS / GDELT / FINEDGE_ANNOUNCEMENT / PRESS_RELEASE) is never touched.
+     behind in any related table. Real ingested news (source_type GTA /
+     MARKETAUX / RSS / GDELT / FINEDGE_ANNOUNCEMENT / PRESS_RELEASE) is never
+     touched.
 
   2. Clears BUTTERFLY_TEST_NEWS_IDS in backend/.env. That single env var is
      the whole test-mode gate: while it holds ids, agents/butterfly/worker.py's

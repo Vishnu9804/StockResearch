@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.models import CompanyMetric
-from services.finedge_service import execute_proxy_request
+from services.finedge_service import execute_proxy_request, is_auth_error
 
 logger = logging.getLogger("metrics_sync")
 
@@ -126,6 +126,8 @@ async def _fetch_fundamentals(symbol: str, rid: str) -> dict[str, Any]:
         execute_proxy_request("GET", f"company-profile/{symbol}", {}, None, rid),
         return_exceptions=True,
     )
+    if all(is_auth_error(r) for r in results):
+        raise results[0]
     pr_data, le_data, li_data, price_ratios_data, profile_data = results
 
     def latest(data, list_key="ratios"):
@@ -183,21 +185,30 @@ async def sync_fundamentals_batch(db: AsyncSession, batch_size: int = 100) -> in
     async def enrich_one(row: CompanyMetric):
         async with sem:
             try:
-                data = await _fetch_fundamentals(row.symbol, rid)
+                return row, await _fetch_fundamentals(row.symbol, rid), None
             except Exception as e:
-                logger.warning(f"[MetricsSync] Fundamentals fetch failed for {row.symbol}: {e}")
-                data = {}
-            return row, data
+                if not is_auth_error(e):
+                    logger.warning(f"[MetricsSync] Fundamentals fetch failed for {row.symbol}: {e}")
+                return row, None, e
 
     enriched = await asyncio.gather(*(enrich_one(r) for r in targets))
 
     now = datetime.now(timezone.utc)
-    for row, data in enriched:
+    synced = 0
+    for row, data, _ in enriched:
+        if data is None:
+            # Not stamped, so the rolling order retries it first next cycle
+            # instead of treating a failed fetch as fresh data.
+            continue
         for field, value in data.items():
             setattr(row, field, value)
         row.fundamentals_synced_at = now
         row.updated_at = now
+        synced += 1
 
     await db.commit()
-    logger.info(f"[MetricsSync] Fundamentals sync enriched {len(enriched)} symbols")
-    return len(enriched)
+    errors = [e for _, _, e in enriched if e is not None]
+    if errors and len(errors) == len(enriched) and all(is_auth_error(e) for e in errors):
+        raise errors[0]
+    logger.info(f"[MetricsSync] Fundamentals sync enriched {synced}/{len(enriched)} symbols")
+    return synced

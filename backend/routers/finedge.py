@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from models.models import CompanyMetric
-from services.finedge_service import execute_proxy_request
+from services.finedge_service import execute_proxy_request, is_auth_error
 
 router = APIRouter(prefix="/api/finscreen", tags=["finedge"])
 logger = logging.getLogger("finedge_router")
@@ -799,15 +799,88 @@ async def _build_company_profile(sym: str, extra_params: Dict[str, str], rid: st
     }
 
 
+def _f(value) -> float:
+    return float(value) if value is not None else 0.0
+
+
+async def _load_metric_snapshot(sym: str) -> CompanyMetric | None:
+    from core.database import async_session_maker
+
+    async with async_session_maker() as db:
+        return await db.scalar(select(CompanyMetric).where(CompanyMetric.symbol == sym))
+
+
+def _snapshot_status(m: CompanyMetric, err: Exception) -> dict:
+    as_of = m.quote_synced_at or m.fundamentals_synced_at or m.updated_at
+    return {
+        "live": False,
+        "asOf": as_of.isoformat() if as_of else None,
+        "reason": "auth" if is_auth_error(err) else "unavailable",
+    }
+
+
+async def _snapshot_profile(sym: str, err: Exception) -> dict | None:
+    """The company-page profile rebuilt from the last company_metrics sync,
+    used ONLY when the live FinEdge build fails (plan/key refused, outage,
+    timeout). Same keys as _build_company_profile so the page renders as
+    usual, plus dataStatus so it can say the numbers are not live. Live is
+    always tried first on every request and failures are never cached
+    (services/finedge_service.py), so the moment FinEdge serves this symbol
+    again the live profile comes back on its own."""
+    m = await _load_metric_snapshot(sym)
+    if m is None:
+        return None
+    meta = COMPANY_METADATA.get(sym, {"founded": 1990, "employees": 0, "creditRating": "Stable"})
+    price = _f(m.cmp)
+    change_pct = _f(m.change_pct)
+    return {
+        "symbol": sym,
+        "name": m.name or sym,
+        "exchange": "NSE",
+        "sector": m.sector or "Other",
+        "industry": m.industry or "Other",
+        "website": "",
+        "description": "",
+        "isin": "",
+        "faceValue": 10,
+        "founded": meta["founded"],
+        "employees": meta["employees"],
+        "creditRating": meta["creditRating"],
+        "price": price,
+        "change": round(price * (change_pct / 100), 2),
+        "changePct": change_pct,
+        # Intraday fields aren't part of the snapshot — 0 is what the live
+        # path also returns when a quote field is missing.
+        "open": 0, "high": 0, "low": 0,
+        "close": price,
+        "volume": _f(m.volume),
+        "high52w": _f(m.high_52w),
+        "low52w": _f(m.low_52w),
+        "marketCap": _f(m.market_cap),
+        "pe": _f(m.pe), "eps": _f(m.eps), "bookValue": _f(m.book_value),
+        "dividendYield": _f(m.dividend_yield), "roe": _f(m.roe), "roce": _f(m.roce),
+        "netProfitMargin": _f(m.net_profit_margin), "debtToEquity": _f(m.debt_to_equity),
+        "promoterHolding": _f(m.promoter_holding), "fiiHolding": _f(m.fii_holding),
+        "diiHolding": 0, "publicHolding": 0,
+        "ratios": {k["key"]: None for k in RATIO_CATALOG},
+        "dataStatus": _snapshot_status(m, err),
+    }
+
+
 @router.get("/company/{symbol}/profile")
 async def get_company_profile(symbol: str, request: Request):
     sym = symbol.upper()
     rid = _req_id(request)
     try:
-        return await _build_company_profile(sym, dict(request.query_params), rid)
+        profile = await _build_company_profile(sym, dict(request.query_params), rid)
+        return {**profile, "dataStatus": {"live": True, "asOf": None, "reason": None}}
     except HTTPException:
         raise
     except Exception as e:
+        snapshot = await _snapshot_profile(sym, e)
+        if snapshot is not None:
+            logger.warning(f"[FinEdge] company-profile/{sym} unavailable ({e}) — serving last synced snapshot")
+            return snapshot
         _api_error(e, f"company-profile/{symbol}", rid)
 
 
@@ -965,7 +1038,21 @@ async def get_quote(symbol: str, request: Request):
     try:
         return await execute_proxy_request("GET", "quote", {"symbol": symbol, **dict(request.query_params)}, None, rid)
     except Exception as e:
-        _api_error(e, f"quote/{symbol}", rid)
+        # Same live-first, snapshot-on-failure rule as the profile route.
+        m = await _load_metric_snapshot(symbol.upper())
+        if m is None or m.cmp is None:
+            _api_error(e, f"quote/{symbol}", rid)
+        return {
+            symbol.upper(): {
+                "current_price": _f(m.cmp),
+                "change": f"{_f(m.change_pct)}%",
+                "high52": _f(m.high_52w),
+                "low52": _f(m.low_52w),
+                "market_cap": _f(m.market_cap),
+                "volume": _f(m.volume),
+                "dataStatus": _snapshot_status(m, e),
+            }
+        }
 
 @router.get("/company/{symbol}/price-history")
 async def get_price_history(symbol: str, request: Request):
@@ -1507,6 +1594,27 @@ async def get_corporate_actions(symbol: str, request: Request):
         logger.error(f"[FinEdge] corporate-actions/{symbol} failed: {e}")
         return {"corporateActions": [], "upcomingEvents": [], "dividendHistory": []}
 
+# Symbols with a background document refresh running right now, so a burst of
+# page views for the same company starts exactly one.
+_doc_refresh_tasks: dict[str, "asyncio.Task"] = {}
+
+
+async def _refresh_documents(symbol: str) -> None:
+    from core.database import async_session_maker
+    from services.document_sync import sync_one_symbol
+
+    try:
+        async with async_session_maker() as db:
+            await sync_one_symbol(db, symbol)
+    except Exception as e:
+        # Plan/key refusals are already reported once by the background sync;
+        # anything else is worth a line.
+        if not is_auth_error(e):
+            logger.warning(f"[documents] background refresh of {symbol} failed: {e}")
+    finally:
+        _doc_refresh_tasks.pop(symbol, None)
+
+
 @router.get("/company/{symbol}/documents")
 async def get_documents(symbol: str, request: Request):
     """Served from the persisted `company_documents` table whenever the
@@ -1522,24 +1630,40 @@ async def get_documents(symbol: str, request: Request):
     symbol's second page view is already instant. This is the identical
     graceful-cold-start pattern services/rag/index_worker.py uses for chat
     questions about an unindexed company: pay the live cost once, never again.
+
+    Freshness: when the stored set is older than DOCUMENT_ON_VIEW_REFRESH_HOURS
+    the view still returns instantly, and refreshes this one company in the
+    background so a new filing shows on the next view. ``?refresh=true`` (the
+    tab's Refresh button) does that refresh before responding instead; if
+    FinEdge can't be reached the stored documents are still returned, with
+    ``refreshFailed`` set.
     """
+    import asyncio
+    from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import select as sa_select
 
+    from core.config import settings
     from core.database import async_session_maker
     from models.models import CompanyDocument
     from services.document_sync import sync_one_symbol
 
     symbol_upper = symbol.upper()
     rid = _req_id(request)
+    force_refresh = request.query_params.get("refresh", "").lower() in ("1", "true", "yes")
+    refresh_failed = False
 
-    async with async_session_maker() as db:
-        rows = (
+    async def load_rows(db):
+        return (
             await db.execute(
                 sa_select(CompanyDocument)
                 .where(CompanyDocument.symbol == symbol_upper)
                 .order_by(CompanyDocument.filed_date.desc().nulls_last())
             )
         ).scalars().all()
+
+    async with async_session_maker() as db:
+        rows = await load_rows(db)
 
         if not rows:
             # Cold path: nothing synced yet for this symbol. Fetch live and
@@ -1548,14 +1672,26 @@ async def get_documents(symbol: str, request: Request):
                 await sync_one_symbol(db, symbol_upper)
             except Exception as e:
                 _api_error(e, "corp-announcements", rid)
+            rows = await load_rows(db)
+        elif force_refresh:
+            try:
+                await sync_one_symbol(db, symbol_upper)
+                rows = await load_rows(db)
+            except Exception as e:
+                await db.rollback()
+                refresh_failed = True
+                logger.warning(f"[documents] refresh of {symbol_upper} failed, serving stored documents: {e}")
+        else:
+            synced_at = await db.scalar(
+                sa_select(CompanyMetric.documents_synced_at).where(CompanyMetric.symbol == symbol_upper)
+            )
+            stale_before = datetime.now(timezone.utc) - timedelta(hours=settings.DOCUMENT_ON_VIEW_REFRESH_HOURS)
+            if (synced_at is None or synced_at < stale_before) and symbol_upper not in _doc_refresh_tasks:
+                _doc_refresh_tasks[symbol_upper] = asyncio.create_task(_refresh_documents(symbol_upper))
 
-            rows = (
-                await db.execute(
-                    sa_select(CompanyDocument)
-                    .where(CompanyDocument.symbol == symbol_upper)
-                    .order_by(CompanyDocument.filed_date.desc().nulls_last())
-                )
-            ).scalars().all()
+        synced_at = await db.scalar(
+            sa_select(CompanyMetric.documents_synced_at).where(CompanyMetric.symbol == symbol_upper)
+        )
 
     documents = [
         {
@@ -1570,7 +1706,11 @@ async def get_documents(symbol: str, request: Request):
         }
         for row in rows
     ]
-    return {"documents": documents}
+    return {
+        "documents": documents,
+        "syncedAt": synced_at.isoformat() if synced_at else None,
+        "refreshFailed": refresh_failed,
+    }
 
 
 @router.get("/company/{symbol}/ai-summary")
@@ -1741,7 +1881,41 @@ async def get_market_movers(request: Request):
         # Strictly return FinEdge proxy data without trying to map local DB sectors
         return await execute_proxy_request("GET", "quote", q, None, rid)
     except Exception as e:
-        _api_error(e, "quote", rid)
+        # Bulk /quote refused or down: serve the last quote sync from
+        # company_metrics in the same {SYMBOL: quote} shape, each entry marked
+        # stale with its as-of time so the dashboard says it's a snapshot.
+        # Live is retried on every request (failures aren't cached), so this
+        # stops the moment FinEdge serves /quote again.
+        if q:
+            _api_error(e, "quote", rid)
+        from core.database import async_session_maker
+
+        async with async_session_maker() as db:
+            rows = (
+                await db.execute(
+                    select(
+                        CompanyMetric.symbol, CompanyMetric.cmp, CompanyMetric.change_pct,
+                        CompanyMetric.volume, CompanyMetric.market_cap,
+                        CompanyMetric.high_52w, CompanyMetric.low_52w, CompanyMetric.quote_synced_at,
+                    ).where(CompanyMetric.cmp.isnot(None), CompanyMetric.quote_synced_at.isnot(None))
+                )
+            ).all()
+        if not rows:
+            _api_error(e, "quote", rid)
+        logger.warning(f"[FinEdge] bulk quote unavailable ({e}) — serving {len(rows)} snapshot quotes")
+        return {
+            sym: {
+                "current_price": _f(cmp),
+                "change": f"{_f(chg)}%",
+                "volume": _f(vol),
+                "market_cap": _f(mcap),
+                "high52": _f(hi),
+                "low52": _f(lo),
+                "stale": True,
+                "as_of": synced.isoformat(),
+            }
+            for sym, cmp, chg, vol, mcap, hi, lo, synced in rows
+        }
 
 
 @router.get("/market/sector-performance")

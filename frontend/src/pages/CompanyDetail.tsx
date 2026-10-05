@@ -4,7 +4,6 @@ import { Building2, Globe, Users, Calendar, Fingerprint, ShieldCheck, AlertTrian
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { companies } from '@/lib/data/companies'
 import { CompanyHeader } from '@/components/company/company-header'
 import { KeyMetricsGrid } from '@/components/company/KeyMetricsGrid'
 import { ExtraRatiosGrid } from '@/components/company/ExtraRatiosGrid'
@@ -187,8 +186,14 @@ export function CompanyDetail() {
     }
   }, [symbol, dispatch])
 
-  const localCompany = companies.find((c) => c.symbol === symbol?.toUpperCase())
-  const company = companyData || localCompany
+  // Real data only. This used to fall back to the hard-coded sample list in
+  // lib/data/companies whenever the profile failed, which presented invented
+  // numbers as this company's. The backend now serves its last synced
+  // snapshot instead (flagged via dataStatus) when live data is unavailable.
+  const company = companyData
+  const dataStatus = (companyData as any)?.dataStatus as
+    | { live: boolean; asOf: string | null; reason: 'auth' | 'unavailable' | null }
+    | undefined
 
   if (companyStatus === 'loading') {
     return (
@@ -245,9 +250,13 @@ export function CompanyDetail() {
             <AlertTriangle className="size-6" />
           </div>
           <div className="space-y-1">
-            <Heading level={2} variant="sectionTitle" className="text-textPrimary">Company Not Found</Heading>
+            <Heading level={2} variant="sectionTitle" className="text-textPrimary">
+              {companyStatus === 'error' ? 'Company Data Unavailable' : 'Company Not Found'}
+            </Heading>
             <Text variant="caption" className="text-textSecondary leading-relaxed text-xs">
-              We couldn&apos;t find any Indian equity mapped to the symbol <span className="font-mono font-medium text-textPrimary">`{symbol?.toUpperCase()}`</span>. Please verify the exchange ticker.
+              {companyStatus === 'error'
+                ? <>We couldn&apos;t load data for <span className="font-mono font-medium text-textPrimary">{symbol?.toUpperCase()}</span> right now. Please try again in a little while.</>
+                : <>We couldn&apos;t find any Indian equity mapped to the symbol <span className="font-mono font-medium text-textPrimary">`{symbol?.toUpperCase()}`</span>. Please verify the exchange ticker.</>}
             </Text>
           </div>
           <Button asChild className="bg-accent hover:bg-accent/90 text-white font-medium text-xs uppercase h-9 shadow-none w-full mt-2">
@@ -264,6 +273,14 @@ export function CompanyDetail() {
     <div className="flex flex-col min-h-screen bg-background font-sans">
       {/* 1. Header Section */}
       <CompanyHeader company={company} />
+
+      {dataStatus && !dataStatus.live && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 text-xs text-amber-700 dark:text-amber-400 font-medium select-none">
+          Live market data for {company.symbol} is temporarily unavailable — showing the last saved snapshot
+          {dataStatus.asOf ? ` from ${new Date(dataStatus.asOf).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.
+          Prices and ratios will update automatically as soon as live data is available again.
+        </div>
+      )}
 
       {!isAuthenticated && (
         <div className="bg-accentSoft/30 border-b border-accent/15 px-6 py-2.5 flex items-center justify-between text-xs text-textSecondary select-none">

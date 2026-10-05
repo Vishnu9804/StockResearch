@@ -37,11 +37,12 @@ export function CompanyHeader({ company }: { company: Company }) {
   useEffect(() => {
     import('@/services/finscreenApi').then(({ default: finscreenApi }) => {
       finscreenApi.fetchCompanyCreditRatings(company.symbol)
+        // Only a rating that actually came back is shown — no "AAA" default:
+        // a made-up rating on a real company is worse than no badge.
         .then((res: any) => {
-          const ratingStr = res?.rating || res?.[0]?.rating || res?.[0]?.credit_rating || company.creditRating || 'AAA'
-          setLiveRating(ratingStr)
+          setLiveRating(res?.rating || res?.[0]?.rating || res?.[0]?.credit_rating || null)
         })
-        .catch(() => setLiveRating(company.creditRating || 'AAA'))
+        .catch(() => setLiveRating(null))
     })
   }, [company.symbol])
 

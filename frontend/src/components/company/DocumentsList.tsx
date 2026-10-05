@@ -1,6 +1,8 @@
 
 import { useState, useMemo, useEffect } from 'react'
-import { useAppSelector } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { fetchCompanyDocumentsSuccess } from '@/store/slices/companySlice'
+import { finscreenApi } from '@/services/finscreenApi'
 import {
   Bookmark, Download, ExternalLink, FileText, RefreshCw, Search,
 } from 'lucide-react'
@@ -14,7 +16,7 @@ interface DocumentItem {
   id: string
   title: string
   date: string
-  category: 'announcement' | 'annual-report' | 'concall' | 'credit-rating' | 'presentation'
+  category: 'announcement' | 'annual-report' | 'concall' | 'concall-recording' | 'credit-rating' | 'presentation'
   size?: string
   fileUrl?: string
 }
@@ -26,24 +28,10 @@ const CATEGORY_ACTION_LABEL: Record<string, string> = {
   'announcement': 'View Link',
   'annual-report': 'Download Report',
   'concall': 'View Transcript',
+  'concall-recording': 'Open Recording Link',
   'credit-rating': 'View Rating',
   'presentation': 'View Presentation',
 }
-
-const DOCUMENTS: DocumentItem[] = [
-  { id: 'doc-001', title: 'Annual Report FY 2024-25', date: '2025-05-15', category: 'annual-report', size: '18.4 MB' },
-  { id: 'doc-002', title: 'Q4 FY25 Earnings Conference Call Transcript', date: '2025-04-23', category: 'concall' },
-  { id: 'doc-003', title: 'Credit Rating Upgrade Notice (ICRA AAA)', date: '2025-04-10', category: 'credit-rating', size: '1.2 MB' },
-  { id: 'doc-004', title: 'Intimation of Board Meeting for Dividend Consideration', date: '2025-04-28', category: 'announcement', size: '820 KB' },
-  { id: 'doc-005', title: 'Press Release - Q4 & FY25 Audited Financial Results', date: '2025-04-22', category: 'announcement', size: '4.5 MB' },
-  { id: 'doc-006', title: 'Outcome of Board Meeting - Dividends & Audited Financials', date: '2025-04-22', category: 'announcement', size: '2.1 MB' },
-  { id: 'doc-007', title: 'Annual Report FY 2023-24', date: '2024-05-18', category: 'annual-report', size: '17.1 MB' },
-  { id: 'doc-008', title: 'Q3 FY25 Earnings Call Recording', date: '2025-01-18', category: 'concall' },
-  { id: 'doc-009', title: 'Crisil AAA Credit Rating Report', date: '2025-01-05', category: 'credit-rating', size: '1.4 MB' },
-  { id: 'doc-010', title: 'Transcript of Q3 FY25 Earnings Conference Call', date: '2025-01-24', category: 'announcement', size: '750 KB' },
-  { id: 'doc-011', title: 'Q2 FY25 Earnings Call Recording', date: '2024-10-18', category: 'concall' },
-  { id: 'doc-012', title: 'Annual Report FY 2022-23', date: '2023-05-20', category: 'annual-report', size: '15.8 MB' },
-]
 
 const TABS = [
   { id: 'all', label: 'All' },
@@ -58,7 +46,8 @@ const TABS = [
 const CATEGORY_LABEL: Record<string, string> = {
   'announcement': 'NOTICE',
   'annual-report': 'REPORTS',
-  'concall': 'CONCALL',
+  'concall': 'TRANSCRIPT',
+  'concall-recording': 'RECORDING',
   'credit-rating': 'RATINGS',
   'presentation': 'DECK',
 }
@@ -67,13 +56,18 @@ const CATEGORY_STYLE: Record<string, string> = {
   'announcement': 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
   'annual-report': 'bg-positive-soft text-positive border-positive/20',
   'concall': 'bg-accentSoft text-accent border-accent/20',
+  'concall-recording': 'bg-accentSoft text-accent border-accent/20',
   'credit-rating': 'bg-warning-soft text-warning border-warning/20',
   'presentation': 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
 }
 
 export function DocumentsList() {
+  const dispatch = useAppDispatch()
+  const symbol = useAppSelector((state) => state.company?.currentSymbol)
   const storeDocuments = useAppSelector((state) => state.company?.documents)
-  const activeDocuments = storeDocuments?.documents || DOCUMENTS
+  const activeDocuments: DocumentItem[] = storeDocuments?.documents || []
+  const syncedAt: string | null = storeDocuments?.syncedAt || null
+  const [refreshing, setRefreshing] = useState(false)
 
   const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -90,13 +84,29 @@ export function DocumentsList() {
     setTimeout(() => setToastMsg(null), 3000)
   }
 
+  const handleRefresh = async () => {
+    if (!symbol || refreshing) return
+    setRefreshing(true)
+    try {
+      const fresh = await finscreenApi.fetchCompanyDocuments(symbol, true)
+      dispatch(fetchCompanyDocumentsSuccess(fresh))
+      showToast(fresh?.refreshFailed
+        ? 'Could not reach the filings source — showing the documents already saved'
+        : '✓ Checked for new filings')
+    } catch {
+      showToast('Could not refresh documents right now')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const filteredDocuments = useMemo(() => {
     return activeDocuments.filter((doc: any) => {
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'announcements' && doc.category === 'announcement') ||
         (activeTab === 'annual-reports' && doc.category === 'annual-report') ||
-        (activeTab === 'concalls' && doc.category === 'concall') ||
+        (activeTab === 'concalls' && (doc.category === 'concall' || doc.category === 'concall-recording')) ||
         (activeTab === 'credit-ratings' && doc.category === 'credit-rating') ||
         (activeTab === 'presentations' && doc.category === 'presentation')
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -121,16 +131,21 @@ export function DocumentsList() {
           <p className="text-xs text-textMuted mt-0.5">
             {isAiSummaryTab
               ? 'A plain-language AI summary of this quarter\'s filings, in simple terms.'
-              : <>Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.</>}
+              : <>
+                  Showing <strong className="text-textSecondary">{filteredDocuments.length}</strong> regulatory filings and corporate documents.
+                  {syncedAt && <> Last checked {new Date(syncedAt).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.</>}
+                </>}
           </p>
         </div>
         {!isAiSummaryTab && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => showToast('✓ Data refreshed')}
-              className="size-8 rounded-lg border border-border bg-surface text-textSecondary hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
+              onClick={handleRefresh}
+              disabled={refreshing || !symbol}
+              title="Check for new filings"
+              className="size-8 rounded-lg border border-border bg-surface text-textSecondary hover:border-accent hover:text-accent transition-colors flex items-center justify-center disabled:opacity-60"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
             </button>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-textMuted" />

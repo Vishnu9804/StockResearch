@@ -1,6 +1,6 @@
 """
 services/news_ingest.py
-Ingestion pipeline: marketaux -> normalise -> dedupe -> tag -> persist.
+Ingestion pipeline: Global Trade Alert -> normalise -> dedupe -> tag -> persist.
 
 Everything here is deterministic Python. No LLM is involved at ingestion time,
 on purpose: the expensive multi-agent analysis runs against a clean, deduped,
@@ -8,18 +8,17 @@ pre-scored queue, so tokens are never spent on a story we already have or on an
 item that was never market-relevant to begin with.
 
 Stages
-  1. collect    fan out marketaux's themed queries concurrently
+  1. collect    incremental GTA fetch, one item per state act (gta_client.py)
   2. normalise  clean HTML, clamp lengths, coerce timezone-aware timestamps
   3. dedupe     url_hash (hard) then title_hash (soft, cross-publisher)
   4. tag        match NSE symbols/company names via the company_metrics universe
   5. score      heuristic market_relevance gate for the analysis queue
   6. persist    ON CONFLICT DO NOTHING insert, so re-polling is free
 
-Note on symbol tagging (stage 4): marketaux already returns its own tagged
-entities per article (industry, exchange, a match/sentiment score), stored
-verbatim in NewsItem.mentioned_entities. mentioned_symbols is deliberately
-NOT derived from those — marketaux's entity symbols don't reliably match this
-app's NSE-symbol convention, and this column feeds user-visible RED alerts
+Note on symbol tagging (stage 4): the provider's own structured metadata
+(for GTA: intervention ids/types, evaluation, implementing ISO codes, dates)
+is stored verbatim in NewsItem.mentioned_entities. mentioned_symbols is
+deliberately NOT derived from it — this column feeds user-visible RED alerts
 directly, so it keeps using the alias index below, matched only against the
 company_metrics universe this app already trusts.
 """
@@ -28,6 +27,7 @@ import hashlib
 import html
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
@@ -37,16 +37,21 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from core.config import settings
 from core.database import async_session_maker
 from models.models import CompanyMetric, NewsItem, UserNewsAlert
-from services.news_sources import fetch_marketaux
+from services.news_sources import fetch_gta, lookback_floor
 
 logger = logging.getLogger("news.ingest")
 
 MAX_TITLE_LEN = 500
 MAX_SUMMARY_LEN = 2000
+# The Butterfly agents read at most 4,000 chars of body (agents/butterfly/
+# prompts.py:format_article); a little headroom keeps the RAG copy whole.
+MAX_BODY_LEN = 6000
 
-# Items older than this are dropped at ingestion — a butterfly alert on a
-# three-week-old story is noise, and GDELT backfills can reach far back.
-MAX_AGE_DAYS = 5
+# Items older than the provider's lookback floor (gta_client.lookback_floor,
+# i.e. core.config.GTA_LOOKBACK_DAYS by GTA publication date) are dropped at
+# ingestion — a butterfly alert on a stale story is noise. The floor is shared
+# with the fetch window so nothing fetched is then discarded as "too old", and
+# it always sits inside NEWS_RETENTION_DAYS (see lookback_days() for why).
 
 # Below this heuristic score an item is stored (it still belongs in the general
 # feed) but never enters the analysis queue. This is the first and cheapest of
@@ -93,6 +98,17 @@ def _clean_text(value: str | None, limit: int) -> str | None:
     if not text:
         return None
     return text[:limit]
+
+
+def _clean_body(value: str | None, limit: int) -> str | None:
+    """Like _clean_text, but keeps line breaks — a structured body (one fact
+    per line) reads far better to the agents and in the RAG index."""
+    if not value:
+        return None
+    text = html.unescape(_TAG_RE.sub(" ", value))
+    lines = (_WS_RE.sub(" ", line).strip() for line in text.splitlines())
+    text = "\n".join(line for line in lines if line)
+    return text[:limit] or None
 
 
 def _sha(value: str) -> str:
@@ -154,21 +170,26 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any] | None:
         "title_hash": _title_hash(title),
         "title": title,
         "summary": _clean_text(raw.get("summary"), MAX_SUMMARY_LEN),
+        "body": _clean_body(raw.get("body"), MAX_BODY_LEN),
         "image_url": raw.get("image_url"),
         "language": detected_language,
         "source_name": raw.get("source_name") or "Unknown",
         "source_slug": raw.get("source_slug") or "unknown",
-        "source_type": raw.get("source_type") or "MARKETAUX",
+        "source_type": raw.get("source_type") or "GTA",
         "source_tier": int(raw.get("source_tier") or 3),
         "author": raw.get("author"),
         "published_at": published,
         "category": raw.get("category"),
         "regions": raw.get("regions") or [],
-        # marketaux's own tagged entities (symbol/industry/sentiment/match
-        # score), passed straight through — see the module docstring for why
-        # this is kept separate from mentioned_symbols.
+        # The provider's own structured metadata, passed straight through —
+        # see the module docstring for why this is kept separate from
+        # mentioned_symbols.
         "mentioned_entities": raw.get("entities") or [],
-        "_butterfly_weight": float(raw.get("butterfly_weight") or 0.5),
+        # `is None`, not `or`: 0.0 is a real weight (e.g. a small foreign
+        # grant to one firm) and must not be promoted to the 0.5 default.
+        "_butterfly_weight": float(0.5 if raw.get("butterfly_weight") is None else raw["butterfly_weight"]),
+        # Set by curated policy databases (GTA) — see _score_relevance.
+        "_curated": bool(raw.get("curated")),
     }
 
 
@@ -185,6 +206,12 @@ _SUFFIX_RE = re.compile(
     r"industries|enterprises|holdings|india)\b",
     re.IGNORECASE,
 )
+# Legal-form suffixes only — the fallback when stripping _SUFFIX_RE would leave
+# a single generic word (see _name_alias).
+_LEGAL_SUFFIX_RE = re.compile(
+    r"\b(limited|ltd|private|pvt|corporation|corp|company|co|inc|plc)\b",
+    re.IGNORECASE,
+)
 
 # Names that are ordinary English words or too generic to match safely.
 _ALIAS_STOPLIST = {
@@ -195,36 +222,111 @@ _ALIAS_STOPLIST = {
 }
 
 
-async def _build_alias_index() -> dict[str, str]:
-    """alias (lowercased) -> symbol.
+def _normalise_alias(value: str) -> str:
+    return _WS_RE.sub(" ", _PUNCT_RE.sub(" ", value)).strip()
 
-    Two aliases per company: the ticker itself, and the trading name with
-    corporate suffixes stripped. Anything shorter than four characters or on the
-    stoplist is skipped — 'SUN' or 'BANK' appearing in a headline says nothing
-    about Sun Pharma, and a false symbol tag propagates all the way to a
-    user-visible red alert.
+
+# Institutions whose names contain a listed company's alias but are not that
+# company ("Reserve Bank of India" contains "bank of india"). Indexed with an
+# empty symbol so the longest-match rule in _tag_symbols lets them swallow the
+# shorter alias without tagging anything themselves.
+_NON_COMPANY_PHRASES = ("reserve bank of india",)
+
+# A name that strips down to one of these at either end ("Bank of India" ->
+# "bank of") has lost the word that made it specific.
+_DANGLING_WORDS = {"of", "and", "the", "for", "in"}
+
+
+def _name_tokens(name: str) -> list[str]:
+    return _normalise_alias(_SUFFIX_RE.sub(" ", name)).lower().split()
+
+
+def _name_alias(name: str, token_companies: dict[str, set[str]]) -> str | None:
+    """Lowercased trading-name alias, or None when no safe one exists.
+
+    Stripping every suffix can leave one ordinary word — "Solar Industries
+    India Ltd" -> "solar", "India Pesticides Ltd" -> "pesticides" — which then
+    tags that company on any story about solar panels or pesticides (verified
+    live: a Pakistani solar-inverter customs ruling was tagged SOLARINDS, an
+    explosives maker). Likewise "Bank of India Ltd" -> "bank of" matched "Bank
+    of Japan". So a one-word or dangling result falls back to the name with
+    only its legal form stripped ("solar industries", "bank of india"), and a
+    name that is genuinely one word ("Infosys") is kept only when no other
+    company in the universe shares that word.
     """
-    index: dict[str, str] = {}
+    words = _name_tokens(name)
+    if len(words) < 2 or words[0] in _DANGLING_WORDS or words[-1] in _DANGLING_WORDS:
+        legal = _normalise_alias(_LEGAL_SUFFIX_RE.sub(" ", name)).lower().split()
+        if len(legal) > 2 and legal[-1] == "india" and legal[-2] not in _DANGLING_WORDS:
+            legal = legal[:-1]
+        if len(legal) > 1:
+            words = legal
+        elif len(words) == 1 and len(token_companies.get(words[0], ())) > 1:
+            return None
+    base = " ".join(words)
+    if len(base) < 4 or base in _ALIAS_STOPLIST:
+        return None
+    return base
 
+
+async def _build_alias_index() -> dict[str, str]:
+    """alias -> symbol.
+
+    Two aliases per company: the ticker itself, stored UPPERCASE, and the
+    trading name (see _name_alias), stored lowercase — _tag_symbols matches
+    the first case-sensitively and the second case-insensitively. Anything
+    shorter than four characters or on the stoplist is skipped — 'SUN' or
+    'BANK' appearing in a headline says nothing about Sun Pharma, and a false
+    symbol tag propagates all the way to a user-visible red alert.
+    """
     async with async_session_maker() as session:
         rows = (await session.execute(select(CompanyMetric.symbol, CompanyMetric.name))).all()
+
+    index = alias_index_from_rows(rows)
+    logger.info("[news.ingest] alias index built — %d aliases over %d companies",
+                len(index), len(rows))
+    return index
+
+
+def alias_index_from_rows(rows: Iterable[tuple[str | None, str | None]]) -> dict[str, str]:
+    """The pure part of _build_alias_index, over (symbol, name) pairs."""
+    rows = list(rows)
+    index: dict[str, str] = {}
+
+    # Which companies use each name word — a word shared by several ("tech",
+    # "solar", "hdfc") can't identify any one of them on its own.
+    token_companies: dict[str, set[str]] = defaultdict(set)
+    for symbol, name in rows:
+        if symbol and name:
+            for token in _name_tokens(name):
+                token_companies[token].add(symbol.strip().upper())
 
     for symbol, name in rows:
         if not symbol:
             continue
         sym = symbol.strip().upper()
 
-        if len(sym) >= 4 and sym.lower() not in _ALIAS_STOPLIST:
-            index[sym.lower()] = sym
+        # Tickers match case-sensitively: "CLEAN" the ticker, never "Clean
+        # Energy" in a title. Skipped when the ticker is also a word in another
+        # company's name ("HDFC" inside "HDFC Bank"), and when purely numeric —
+        # a 6-digit number in a trade notice is far more often an amount or HS
+        # code than a BSE code.
+        ticker = _normalise_alias(sym)
+        if (
+            len(ticker) >= 4
+            and not ticker.replace(" ", "").isdigit()
+            and ticker.lower() not in _ALIAS_STOPLIST
+            and not (token_companies.get(ticker.lower(), set()) - {sym})
+        ):
+            index[ticker] = sym
 
         if name:
-            base = _SUFFIX_RE.sub(" ", name)
-            base = _WS_RE.sub(" ", _PUNCT_RE.sub(" ", base)).strip().lower()
-            if len(base) >= 4 and base not in _ALIAS_STOPLIST:
-                index.setdefault(base, sym)
+            alias = _name_alias(name, token_companies)
+            if alias:
+                index.setdefault(alias, sym)
 
-    logger.info("[news.ingest] alias index built — %d aliases over %d companies",
-                len(index), len(rows))
+    for phrase in _NON_COMPANY_PHRASES:
+        index[phrase] = ""
     return index
 
 
@@ -244,13 +346,29 @@ async def _get_alias_index() -> dict[str, str]:
 def _tag_symbols(text: str, aliases: dict[str, str]) -> list[str]:
     """Word-boundary alias match. Substring matching is not an option here:
     'ITC' inside 'switch' or 'TATA' inside a URL slug would both produce
-    confident nonsense."""
-    haystack = _WS_RE.sub(" ", _PUNCT_RE.sub(" ", text.lower()))
-    padded = f" {haystack} "
-    found: set[str] = set()
+    confident nonsense. Uppercase aliases (tickers) are matched against the
+    original casing, lowercase ones (names) against the lowercased text.
+
+    Longest match wins: an alias found only inside a longer matched alias is
+    dropped, so "State Bank of India" tags SBIN alone, not also BANKINDIA via
+    the "bank of india" inside it."""
+    spaced = _WS_RE.sub(" ", _PUNCT_RE.sub(" ", text))
+    padded_cased = f" {spaced} "
+    padded_lower = padded_cased.lower()
+    spans: list[tuple[int, int, str]] = []
     for alias, symbol in aliases.items():
-        if f" {alias} " in padded:
-            found.add(symbol)
+        haystack = padded_lower if alias.islower() else padded_cased
+        needle = f" {alias} "
+        pos = haystack.find(needle)
+        while pos != -1:
+            spans.append((pos, pos + len(needle), symbol))
+            pos = haystack.find(needle, pos + 1)
+    found: set[str] = {
+        symbol for start, end, symbol in spans
+        if symbol and not any(
+            s <= start and end <= e and (e - s) > (end - start) for s, e, _ in spans
+        )
+    }
     return sorted(found)
 
 
@@ -283,7 +401,10 @@ def _score_relevance(item: dict[str, Any], symbols: list[str]) -> float:
     """
     text = f"{item['title']} {item.get('summary') or ''}".lower()
 
-    if any(term in text for term in _NOISE_TERMS):
+    # The noise terms target general news (celebrity, sport, film). A curated
+    # policy source has none of that, and substring matching would otherwise
+    # zero real measures ("trailer" inside "van-type trailers" anti-dumping).
+    if not item.get("_curated") and any(term in text for term in _NOISE_TERMS):
         return 0.0
 
     score = 0.15
@@ -373,14 +494,14 @@ async def ingest_news() -> dict[str, Any]:
     started = datetime.now(timezone.utc)
 
     try:
-        raw = await fetch_marketaux()
+        raw = await fetch_gta()
     except Exception as exc:
-        # fetch_marketaux already isolates failures per query; this guards
-        # only against something unexpected breaking the whole batch.
-        logger.warning("[news.ingest] marketaux fetch failed — %s", exc)
+        # fetch_gta already isolates failures per query; this guards only
+        # against something unexpected breaking the whole batch.
+        logger.warning("[news.ingest] GTA fetch failed — %s", exc)
         raw = []
 
-    cutoff = started - timedelta(days=MAX_AGE_DAYS)
+    cutoff = lookback_floor(started)
     normalised = []
     for entry in raw:
         item = _normalise(entry)

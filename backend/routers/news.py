@@ -219,8 +219,8 @@ async def latest_news(limit: int = Query(12, ge=1, le=50)):
 async def news_health():
     """Ingestion observability: row counts, freshness, and per-query state.
 
-    A marketaux query can start failing silently (a bad param, a lapsed key,
-    the plan's quota running out) — ``queries`` is what turns that into
+    A GTA query can start failing silently (a bad param, a lapsed key, the
+    key's 1,000-entries/24h quota running out) — ``queries`` is what turns that into
     something you can see instead of a feed that quietly goes stale.
     """
     async with async_session_maker() as session:
@@ -252,7 +252,7 @@ async def news_health():
         "newest_published_at": newest.isoformat() if newest else None,
         "analysis_status": {status: count for status, count in by_status},
         "categories": {(cat or "UNCLASSIFIED"): count for cat, count in by_category},
-        "provider": "marketaux",
+        "provider": "global_trade_alert",
         "registered_queries": len(QUERIES),
         "queries_reporting": len(queries),
         "queries_failing": [q["slug"] for q in queries if not q["ok"]],

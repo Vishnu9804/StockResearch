@@ -178,7 +178,9 @@ export function Home() {
     : '—'
   const watchlistChangePositive = watchlistAvgChange >= 0
 
-  // Compute live Top Gainers & Losers from batch quotes
+  // Compute Top Gainers & Losers from batch quotes. When FinEdge's live
+  // bulk quote is unavailable the backend serves its last synced snapshot,
+  // each quote flagged `stale` with an `as_of` time — labelled below.
   const quoteList = Object.entries(quotes).map(([symbol, q]: [string, any]) => {
     const changePct = typeof q.pct_change === 'number' ? q.pct_change
       : typeof q.change === 'number' ? q.change
@@ -188,35 +190,28 @@ export function Home() {
       price: q.current_price || q.close_price || 0,
       changePct,
       volume: q.volume || 0,
+      marketCap: q.market_cap || 0,
     }
   })
+  const quotesAsOf: string | null = (Object.values(quotes).find((q: any) => q?.stale) as any)?.as_of ?? null
 
-  const liveTopGainers = [...quoteList]
-    .filter((q) => q.changePct > 0 && q.price >= 10 && q.volume >= 5000)
+  // NSE-listed (BSE-only stocks come keyed by a numeric code), liquid, and at
+  // least ₹5,000 Cr market cap (FinEdge reports market_cap in crores) — so the
+  // list shows market-moving names, not illiquid micro-caps on a circuit or a
+  // split/bonus showing up as a fake -80% day.
+  const isMoverCandidate = (q: { symbol: string; price: number; volume: number; marketCap: number }) =>
+    !/^\d+$/.test(q.symbol) && q.price >= 10 && q.volume >= 5000 && q.marketCap >= 5000
+
+  // No invented fallback rows: an empty list renders an honest empty state.
+  const displayGainers = [...quoteList]
+    .filter((q) => q.changePct > 0 && isMoverCandidate(q))
     .sort((a, b) => b.changePct - a.changePct)
     .slice(0, 4)
 
-  const liveTopLosers = [...quoteList]
-    .filter((q) => q.changePct < 0 && q.price >= 10 && q.volume >= 5000)
+  const displayLosers = [...quoteList]
+    .filter((q) => q.changePct < 0 && isMoverCandidate(q))
     .sort((a, b) => a.changePct - b.changePct)
     .slice(0, 4)
-
-  const fallbackGainers = [
-    { symbol: "RELIANCE", price: 1296.4, changePct: 2.64 },
-    { symbol: "BAJFINANCE", price: 920.0, changePct: 5.68 },
-    { symbol: "LT", price: 4050.0, changePct: 4.87 },
-    { symbol: "TITAN", price: 4179.0, changePct: 3.82 },
-  ]
-
-  const fallbackLosers = [
-    { symbol: "NESTLEIND", price: 1376.5, changePct: -3.23 },
-    { symbol: "WIPRO", price: 180.23, changePct: -1.61 },
-    { symbol: "INFY", price: 1118.5, changePct: -0.35 },
-    { symbol: "TCS", price: 2161.1, changePct: -0.21 },
-  ]
-
-  const displayGainers = liveTopGainers.length > 0 ? liveTopGainers : fallbackGainers
-  const displayLosers = liveTopLosers.length > 0 ? liveTopLosers : fallbackLosers
 
   // Dynamically calculate advances and declines for sentiment bar
   let advances = 0
@@ -231,14 +226,14 @@ export function Home() {
     }
   })
 
-  if (advances === 0 && declines === 0) {
-    advances = 14
-    declines = 5
-  }
-
   const totalBreadth = advances + declines
-  const bullishPct = totalBreadth > 0 ? Math.round((advances / totalBreadth) * 100) : 70
-  const bearishPct = totalBreadth > 0 ? 100 - bullishPct : 30
+  const hasBreadth = totalBreadth > 0
+  const bullishPct = hasBreadth ? Math.round((advances / totalBreadth) * 100) : 50
+  const bearishPct = hasBreadth ? 100 - bullishPct : 50
+  const sentimentLabel = !hasBreadth ? 'No data' : bullishPct >= 60 ? 'Bullish' : bullishPct <= 40 ? 'Bearish' : 'Neutral'
+  const snapshotLabel = quotesAsOf
+    ? `Snapshot · ${new Date(quotesAsOf).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : null
 
   // Group results calendar by day for the next 5 days
   const upcomingResultsList = useMemo(() => {
@@ -420,7 +415,10 @@ export function Home() {
               <TrendingUp className="size-4 text-[var(--fs-info)]" />
               TOP MOVERS
             </div>
-            <span className="text-textSecondary text-sm font-normal">NSE daily overview</span>
+            <span className={cn("text-sm font-normal", snapshotLabel ? "text-amber-600 dark:text-amber-400" : "text-textSecondary")}
+                  title={snapshotLabel ? "Live prices are temporarily unavailable — showing the last saved trading-day snapshot" : undefined}>
+              {snapshotLabel ?? 'NSE daily overview'}
+            </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-lg)' }} className="w-full">
@@ -432,6 +430,9 @@ export function Home() {
                 TOP GAINERS
               </div>
               <div className="flex flex-col w-full">
+                {displayGainers.length === 0 && (
+                  <div className="py-3 text-xs text-textMuted">{loading ? 'Loading…' : 'Market data unavailable right now.'}</div>
+                )}
                 {displayGainers.map((g, idx, arr) => (
                   <div
                     key={g.symbol}
@@ -465,6 +466,9 @@ export function Home() {
                 TOP LOSERS
               </div>
               <div className="flex flex-col w-full">
+                {displayLosers.length === 0 && (
+                  <div className="py-3 text-xs text-textMuted">{loading ? 'Loading…' : 'Market data unavailable right now.'}</div>
+                )}
                 {displayLosers.map((l, idx, arr) => (
                   <div
                     key={l.symbol}
@@ -769,7 +773,9 @@ export function Home() {
               <Activity className="size-4 text-[var(--fs-info)]" />
               MARKET SENTIMENT
             </div>
-            <span className="text-textSecondary text-sm font-normal">NSE breadth</span>
+            <span className={cn("text-sm font-normal", snapshotLabel ? "text-amber-600 dark:text-amber-400" : "text-textSecondary")}>
+              {snapshotLabel ?? 'NSE breadth'}
+            </span>
           </div>
 
           <div className="w-full">
@@ -787,21 +793,29 @@ export function Home() {
           </div>
 
           <div style={{ display: 'block', textAlign: 'center', margin: '6px 0' }} className="w-full">
-            <span style={{ color: '#27500A', padding: '4px 18px', borderRadius: 'var(--fs-radius-xl)', display: 'inline-block' }} className="bg-positive-soft text-body font-medium">
-              Bullish
+            <span
+              style={{ padding: '4px 18px', borderRadius: 'var(--fs-radius-xl)', display: 'inline-block' }}
+              className={cn(
+                "text-body font-medium",
+                sentimentLabel === 'Bullish' ? 'bg-positive-soft text-positive'
+                  : sentimentLabel === 'Bearish' ? 'bg-negative-soft text-negative'
+                    : 'bg-surfaceMuted text-textSecondary'
+              )}
+            >
+              {sentimentLabel}
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fs-space-sm)' }} className="w-full mt-1">
             <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md)', textAlign: 'center' }} className="flex flex-col items-center">
               <span className="text-2xl font-semibold color-positive font-mono tabular-nums leading-none mb-1">
-                {loading ? "-" : advances}
+                {loading || !hasBreadth ? "-" : advances}
               </span>
               <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">ADVANCING</span>
             </div>
             <div style={{ background: 'var(--fs-surface-muted)', borderRadius: 'var(--fs-radius-sm)', padding: 'var(--fs-space-md)', textAlign: 'center' }} className="flex flex-col items-center">
               <span className="text-2xl font-semibold color-negative font-mono tabular-nums leading-none mb-1">
-                {loading ? "-" : declines}
+                {loading || !hasBreadth ? "-" : declines}
               </span>
               <span className="text-xs text-textSecondary font-medium uppercase tracking-wider">DECLINING</span>
             </div>
